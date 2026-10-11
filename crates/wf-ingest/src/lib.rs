@@ -1,10 +1,11 @@
-//! Where Windfenster's data comes from: Open-Meteo for the forecast series, OurAirports and the
-//! DWD for the station lists, Open-Meteo's geocoder for the search, and the scheduler that
-//! keeps it all current.
+//! Where Windfenster's data comes from: Open-Meteo for the forecast series, OurAirports,
+//! aviationweather.gov and the DWD for the station lists, the measurements (METAR, TAF, DWD,
+//! PEGELONLINE), Open-Meteo's geocoder for the search, and the scheduler that keeps it all
+//! current.
 
 pub mod forecasts;
 pub mod geocode;
-pub mod observations;
+pub mod measurements;
 pub mod openmeteo;
 pub mod scheduler;
 pub mod stations;

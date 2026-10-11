@@ -11,7 +11,7 @@ use wf_core::db::{self, Db};
 use wf_core::geo::GridPoint;
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
-use wf_ingest::observations::{Measurements, Urls};
+use wf_ingest::measurements::{Measurements, Urls};
 use wf_ingest::openmeteo::{self, OpenMeteo};
 use wf_ingest::scheduler::Scheduler;
 use wf_ingest::stations::{self, Sources};
@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
         Command::ImportStations(data) => {
             let db = open(&data).await?;
             let http = wf_ingest::http_client()?;
-            stations::import_all(&db, &http, &Sources::default()).await
+            Ok(stations::import_all(&db, &http, &Sources::default()).await?)
         }
         Command::Probe(args) => probe(args).await,
         Command::Serve(args) => serve(args).await,

@@ -26,7 +26,7 @@ use wf_core::geo::GridPoint;
 use wf_core::model::Model;
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
-use wf_ingest::observations::Measurements;
+use wf_ingest::measurements::Measurements;
 
 pub use error::{ApiError, ErrorCode};
 

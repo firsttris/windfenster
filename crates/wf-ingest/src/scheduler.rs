@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 use wf_core::{station, verification};
 
 use crate::forecasts::{Forecasts, HOT_FOR_S};
-use crate::observations::Measurements;
+use crate::measurements::Measurements;
 use crate::stations::{self, Sources};
 
 /// Measurements and TAFs are kept for 13 months: a full season to compare against.

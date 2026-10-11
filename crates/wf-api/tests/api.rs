@@ -17,7 +17,7 @@ use wf_api::{AppState, router};
 use wf_core::station::{NewStation, Station, StationSource};
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
-use wf_ingest::observations::{Measurements, Urls};
+use wf_ingest::measurements::{Measurements, Urls};
 use wf_ingest::openmeteo::{Config, OpenMeteo};
 
 #[derive(Default)]
