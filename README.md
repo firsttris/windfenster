@@ -79,8 +79,8 @@ Environment=WF_BASEMAP_WORLD_ZOOM=8
 Environment=WF_BASEMAP_ZOOM=12
 # Full detail (zoom 14) kept for up to 500 spots where people look (2 to 17 MB each)
 Environment=WF_BASEMAP_SPOTS=500
-# Relief, the whole world, to zoom 8 (estimated 4 GB; each level is about four times the one
-# before, so 10 would be some 60 GB and hours to fetch)
+# Relief, the whole world, to zoom 8 (estimated 3 to 4 GB; zoom 7 is 948 MB and each level
+# about three to four times the one before, so 10 would be some 50 GB and hours to fetch)
 Environment=WF_TERRAIN_ZOOM=8
 # Stations kept current and verified even when nobody opens them: add your own spots' stations
 Environment=WF_TRACKED_STATIONS=edsb,lgrp
@@ -127,7 +127,7 @@ What follows:
 - **Disk:** with the settings above roughly 15 GB at most: the basemap (7 GB and the world),
   relief (about 4 GB), spots (a few GB once many are used), the map's runs (two per model, about
   230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
-  about 2 GB.
+  about 3 GB (basemap 323 MB, relief 948 MB, runs about 900 MB, spots up to 600 MB).
 - **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
   container; the database migrates itself on start. With Compose:
   `docker compose pull && docker compose up -d`.
@@ -158,7 +158,7 @@ What follows:
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
 | `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
 | `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
-| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes, the whole world (1 to 12): 6 is 278 MB, 7 about 1 GB, every level roughly four times more; `0` turns it off |
+| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes, the whole world (1 to 12): 6 is 278 MB, 7 is 948 MB, every level roughly three to four times more; `0` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -307,7 +307,7 @@ spare, set `WF_BASEMAP_WORLD_ZOOM` and `WF_BASEMAP_ZOOM` higher (the region with
 
 Relief comes from [Mapterhorn](https://mapterhorn.com/) (elevation from national surveys and
 other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the whole world
-to zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (zoom 6 was 278 MB, so about 1 GB; renewed
+to zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (948 MB, 13,522 tiles, about 7 minutes on 11 October; renewed
 yearly, served at `/api/map/terrain.pmtiles`), and the map draws it as hillshade over the colour
 field and under water, roads and labels, softer from town zoom on.
 

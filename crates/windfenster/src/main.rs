@@ -150,8 +150,8 @@ struct ServeArgs {
     /// Spots with detail to zoom 14 kept at most, about 10 MB each; 0 makes none.
     #[arg(long, env = "WF_BASEMAP_SPOTS", default_value_t = 60)]
     basemap_spots: usize,
-    /// How deep the relief goes: 7 is about 90 MB, every level about four times more, 12 at
-    /// most; 0 turns it off.
+    /// How deep the relief goes, the whole world: 7 is 948 MB, every level about three to four
+    /// times more, 12 at most; 0 turns it off.
     #[arg(long, env = "WF_TERRAIN_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(0..=12))]
     terrain_zoom: u8,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
