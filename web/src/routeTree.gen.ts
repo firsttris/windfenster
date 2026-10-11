@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PointRouteImport } from './routes/point'
+import { Route as StationSlugRouteImport } from './routes/station.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PointRoute = PointRouteImport.update({
+  id: '/point',
+  path: '/point',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StationSlugRoute = StationSlugRouteImport.update({
+  id: '/station/$slug',
+  path: '/station/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/point': typeof PointRoute
+  '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/point': typeof PointRoute
+  '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/point': typeof PointRoute
+  '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/point' | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/point' | '/station/$slug'
+  id: '__root__' | '/' | '/point' | '/station/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PointRoute: typeof PointRoute
+  StationSlugRoute: typeof StationSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/point': {
+      id: '/point'
+      path: '/point'
+      fullPath: '/point'
+      preLoaderRoute: typeof PointRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/station/$slug': {
+      id: '/station/$slug'
+      path: '/station/$slug'
+      fullPath: '/station/$slug'
+      preLoaderRoute: typeof StationSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PointRoute: PointRoute,
+  StationSlugRoute: StationSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

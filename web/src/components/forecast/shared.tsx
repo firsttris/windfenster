@@ -1,0 +1,80 @@
+/** Pieces the desktop table and the phone list share. */
+import type { Forecast } from '@/bindings/Forecast';
+import type { WindUnit } from '@/bindings/WindUnit';
+import { type Day, type Stage, weatherOf } from '@/lib/forecast';
+import { formatWind, UNIT_LABEL } from '@/lib/units';
+import { cn } from '@/lib/utils';
+import { m } from '@/paraglide/messages';
+import { WeatherIcon } from '@/ui/weather-icon';
+import { WIND_SCALE } from '@/ui/wind-scale';
+
+export function modelName(fc: Forecast, id: string): string {
+  return fc.models.find((x) => x.id === id)?.name ?? id;
+}
+
+/** Colour of a model's dot and line: its place in the list. */
+export function modelColor(fc: Forecast, id: string): string {
+  const i = Math.max(
+    0,
+    fc.models.findIndex((x) => x.id === id),
+  );
+  return `var(--chart-${(i % 5) + 1})`;
+}
+
+export function stageLabel(fc: Forecast, day: Day): string {
+  const cls = fc.models.find((x) => x.id === day.source)?.class;
+  const stages: Record<Stage, () => string> = {
+    hourly: () => m.stage_hourly({ label: cls === 'super' ? m.class_super() : m.class_global() }),
+    threeHourly: m.stage_threeHourly,
+    trend: m.stage_trend,
+  };
+  return stages[day.stage]();
+}
+
+export function StageChip({ fc, day }: { fc: Forecast; day: Day }) {
+  return (
+    <span
+      className={cn(
+        'whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-[11px]',
+        day.stage === 'hourly' && 'bg-primary text-primary-foreground',
+        day.stage === 'threeHourly' && 'border border-border-strong text-subtle',
+        day.stage === 'trend' && 'border border-border-strong border-dashed text-muted-foreground',
+      )}
+    >
+      {stageLabel(fc, day)}
+    </span>
+  );
+}
+
+const WEATHER_LABEL = {
+  sun: m.weather_sun,
+  partly: m.weather_partly,
+  cloud: m.weather_cloud,
+  rain: m.weather_rain,
+} as const;
+
+export function Weather({ cloud, rain }: { cloud: number | null; rain: number | null }) {
+  const w = weatherOf(cloud, rain);
+  return w ? <WeatherIcon weather={w} label={WEATHER_LABEL[w]()} /> : <span className="text-dim">–</span>;
+}
+
+/** The colour scale with its edges in the chosen unit. */
+export function ScaleLegend({ unit }: { unit: WindUnit }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="text-muted-foreground text-xs">{m.scale_windIn({ unit: UNIT_LABEL[unit] })}</span>
+      <div className="flex overflow-hidden rounded-[7px]">
+        {WIND_SCALE.map((b, i) => (
+          <span
+            key={b.from}
+            className="px-1.5 py-1 font-mono font-semibold text-[11px] sm:px-2"
+            style={{ background: b.bg, color: b.fg }}
+          >
+            {formatWind(b.from, unit)}
+            {i === WIND_SCALE.length - 1 ? '+' : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

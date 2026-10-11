@@ -3,6 +3,9 @@ import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Health } from '@/bindings/Health';
 import type { Model } from '@/bindings/Model';
+import type { PointForecast } from '@/bindings/PointForecast';
+import type { SearchResults } from '@/bindings/SearchResults';
+import type { StationForecast } from '@/bindings/StationForecast';
 
 /** A failed API request: the HTTP status and the server's code (`null` when the answer came
  * from somewhere else, e.g. a proxy). Thrown, because TanStack Query expects rejections. */
@@ -46,3 +49,27 @@ export const modelsQuery = queryOptions({
   queryFn: () => api<Model[]>('/models'),
   staleTime: Infinity,
 });
+
+export const searchQuery = (q: string, lang: string) =>
+  queryOptions({
+    queryKey: ['search', q, lang],
+    queryFn: ({ signal }) =>
+      api<SearchResults>(`/stations?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`, { signal }),
+    enabled: q.trim().length >= 2,
+    staleTime: 5 * 60_000,
+  });
+
+export const stationQuery = (slug: string) =>
+  queryOptions({
+    queryKey: ['station', slug],
+    queryFn: () => api<StationForecast>(`/stations/${encodeURIComponent(slug)}`),
+    // A notice means the source failed: try again soon.
+    refetchInterval: (q) => (q.state.data?.forecast.notice ? 60_000 : 10 * 60_000),
+  });
+
+export const pointQuery = (lat: number, lon: number) =>
+  queryOptions({
+    queryKey: ['point', lat.toFixed(2), lon.toFixed(2)],
+    queryFn: () => api<PointForecast>(`/point?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
+    refetchInterval: (q) => (q.state.data?.forecast.notice ? 60_000 : 10 * 60_000),
+  });

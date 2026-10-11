@@ -1,15 +1,63 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
- * Design tokens from the mockup (Zinc, dark first). shadcn/ui components use the semantic
- * names; the extra tokens below cover what the mockup needs beyond them. The wind colour
- * scale lives in src/ui/wind-scale.ts, because the table, the map and the alarms all
- * compute with it.
+ * Design tokens, light and dark. Dark is the mockup (Zinc); light is its counterpart. The
+ * theme follows the system until the viewer picks one (index.html sets the class before the
+ * first paint). shadcn/ui components use the semantic names; the extra tokens cover what the
+ * mockup needs beyond them. The wind colour scale lives in src/ui/wind-scale.ts: its cells
+ * carry their own colours and look the same in both themes.
  */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --radius: 0.75rem;
+
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #71717a;
+
+  --line: #ececee;
+  --border-strong: #d4d4d8;
+  --subtle: #3f3f46;
+  --dim: #71717a;
+  --success: #16a34a;
+  --success-ring: #dcfce7;
+  --success-surface: #f0fdf4;
+  --success-border: #bbf7d0;
+  --success-foreground: #166534;
+  --warning-surface: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-foreground: #92400e;
+  --water: #0284c7;
+  --sun: #d97706;
+  --measured: #65a30d;
+
+  --chart-1: #0284c7;
+  --chart-2: #18181b;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #71717a;
+}
+
+.dark {
+  color-scheme: dark;
 
   --background: #09090b; /* zinc-950 */
   --foreground: #fafafa; /* zinc-50 */
@@ -30,7 +78,6 @@
   --input: #27272a;
   --ring: #d4d4d8;
 
-  /* beyond shadcn */
   --line: #1f1f23; /* soft dividers: header, table rows */
   --border-strong: #3f3f46; /* zinc-700 */
   --subtle: #d4d4d8; /* zinc-300: secondary text */
@@ -40,6 +87,9 @@
   --success-surface: #0b1a12;
   --success-border: #1d3b28;
   --success-foreground: #bbf7d0;
+  --warning-surface: #1f1606;
+  --warning-border: #4a3410;
+  --warning-foreground: #fcd34d;
   --water: #7dd3fc;
   --sun: #fcd34d;
   --measured: #8bd450; /* measured values (METAR, DWD) next to forecasts */
@@ -89,6 +139,9 @@
   --color-success-surface: var(--success-surface);
   --color-success-border: var(--success-border);
   --color-success-foreground: var(--success-foreground);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-border: var(--warning-border);
+  --color-warning-foreground: var(--warning-foreground);
   --color-water: var(--water);
   --color-sun: var(--sun);
   --color-measured: var(--measured);

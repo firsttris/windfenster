@@ -64,6 +64,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # The router plugin writes the route tree during the build; the committed one must match.
+      - name: Route tree is up to date
+        run: git diff --exit-code -- web/src/routeTree.gen.ts
 
   docker:
     # Build check only; release.yml publishes the images
