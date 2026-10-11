@@ -188,6 +188,7 @@ mod tests {
             lat: 48.7794,
             lon: 8.0805,
             elevation_m: Some(124.4),
+            has_taf: true,
         }
     }
 

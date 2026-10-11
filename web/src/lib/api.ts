@@ -6,6 +6,7 @@ import type { Model } from '@/bindings/Model';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { SearchResults } from '@/bindings/SearchResults';
 import type { StationForecast } from '@/bindings/StationForecast';
+import type { StationLive } from '@/bindings/StationLive';
 
 /** A failed API request: the HTTP status and the server's code (`null` when the answer came
  * from somewhere else, e.g. a proxy). Thrown, because TanStack Query expects rejections. */
@@ -72,4 +73,12 @@ export const pointQuery = (lat: number, lon: number) =>
     queryKey: ['point', lat.toFixed(2), lon.toFixed(2)],
     queryFn: () => api<PointForecast>(`/point?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
     refetchInterval: (q) => (q.state.data?.forecast.notice ? 60_000 : 10 * 60_000),
+  });
+
+export const liveQuery = (slug: string) =>
+  queryOptions({
+    queryKey: ['live', slug],
+    queryFn: () => api<StationLive>(`/stations/${encodeURIComponent(slug)}/live`),
+    // METARs come every 30 min, DWD values about every 30 min.
+    refetchInterval: 2 * 60_000,
   });

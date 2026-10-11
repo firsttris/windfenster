@@ -21,6 +21,7 @@ clap = { version = "4", features = ["derive", "env"] }
 csv = "1"
 governor = "0.10"
 dotenvy = "0.15"
+flate2 = "1"
 hex = "0.4"
 mime_guess = "2"
 moka = { version = "0.12", features = ["future"] }
@@ -36,6 +37,7 @@ tower-http = { version = "0.6", features = ["compression-br", "compression-gzip"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ts-rs = "12"
+zip = { version = "9", default-features = false, features = ["deflate"] }
 unicode-normalization = "0.1"
 tempfile = "3"
 

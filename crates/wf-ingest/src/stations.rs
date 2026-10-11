@@ -1,6 +1,8 @@
-//! Station lists: airports with a weather report (OurAirports) and the DWD's wind stations.
+//! Station lists: airports with a weather report (OurAirports for names and places,
+//! aviationweather.gov for which ones send METARs and TAFs) and the DWD's wind stations.
 
 use std::collections::HashMap;
+use std::io::Read;
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -11,6 +13,9 @@ use wf_core::station::{self, NewStation, Station, StationSource};
 pub const OURAIRPORTS_BASE: &str =
     "https://raw.githubusercontent.com/davidmegginson/ourairports-data/main";
 
+/// Every station aviationweather.gov knows, with the reports it sends.
+pub const AWC_STATIONS_URL: &str = "https://aviationweather.gov/data/cache/stations.cache.json.gz";
+
 /// DWD stations with 10-minute wind values (current year).
 pub const DWD_STATIONS_URL: &str = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/wind/now/zehn_now_ff_Beschreibung_Stationen.txt";
 
@@ -20,6 +25,7 @@ pub const IMPORT_EVERY_S: i64 = 7 * 86_400;
 #[derive(Debug, Clone)]
 pub struct Sources {
     pub ourairports_base: String,
+    pub awc_stations_url: String,
     pub dwd_url: String,
 }
 
@@ -27,28 +33,39 @@ impl Default for Sources {
     fn default() -> Self {
         Self {
             ourairports_base: OURAIRPORTS_BASE.into(),
+            awc_stations_url: AWC_STATIONS_URL.into(),
             dwd_url: DWD_STATIONS_URL.into(),
         }
     }
 }
 
-/// Imports both lists; each one failing on its own is logged, not fatal.
+/// A list shorter than this is taken as a broken download and does not remove stations.
+const PLAUSIBLE: [(StationSource, usize); 2] =
+    [(StationSource::Metar, 300), (StationSource::Dwd, 100)];
+
+/// Imports both lists; each one failing on its own is logged, not fatal. Stations a complete
+/// list no longer has are removed with their measurements.
 pub async fn import_all(db: &SqlitePool, http: &reqwest::Client, sources: &Sources) -> Result<()> {
     let now = wf_core::time::now();
     let mut errors = Vec::new();
-    match fetch_airports(http, &sources.ourairports_base).await {
-        Ok(list) => {
-            let n = station::upsert(db, &list, now).await?;
-            tracing::info!("imported {n} airport stations (OurAirports)");
+    let (airports, dwd) = tokio::join!(
+        fetch_airports(http, &sources.ourairports_base, &sources.awc_stations_url),
+        fetch_dwd(http, &sources.dwd_url, now),
+    );
+    for (source, list) in [(StationSource::Metar, airports), (StationSource::Dwd, dwd)] {
+        match list {
+            Ok(list) => {
+                let n = station::upsert(db, &list, now).await?;
+                tracing::info!("imported {n} {source:?} stations");
+                if PLAUSIBLE.iter().any(|(s, min)| *s == source && n >= *min) {
+                    let gone = station::remove_unseen(db, source, now).await?;
+                    if gone > 0 {
+                        tracing::info!("removed {gone} {source:?} stations no longer listed");
+                    }
+                }
+            }
+            Err(e) => errors.push(format!("{source:?}: {e:#}")),
         }
-        Err(e) => errors.push(format!("OurAirports: {e:#}")),
-    }
-    match fetch_dwd(http, &sources.dwd_url, now).await {
-        Ok(list) => {
-            let n = station::upsert(db, &list, now).await?;
-            tracing::info!("imported {n} DWD wind stations");
-        }
-        Err(e) => errors.push(format!("DWD: {e:#}")),
     }
     if errors.is_empty() {
         Ok(())
@@ -82,15 +99,51 @@ fn decode(bytes: &[u8]) -> String {
 
 // ---- OurAirports ----------------------------------------------------------------------
 
-pub async fn fetch_airports(http: &reqwest::Client, base: &str) -> Result<Vec<NewStation>> {
+pub async fn fetch_airports(
+    http: &reqwest::Client,
+    base: &str,
+    awc_stations_url: &str,
+) -> Result<Vec<NewStation>> {
     let base = base.trim_end_matches('/');
+    let gz = http
+        .get(awc_stations_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await
+        .context("stations.cache.json.gz")?;
+    let mut json = String::new();
+    flate2::read::GzDecoder::new(&gz[..])
+        .read_to_string(&mut json)
+        .context("unpacking stations.cache.json.gz")?;
+    let reporting = parse_awc_stations(&json)?;
     let airports = get_text(http, &format!("{base}/airports.csv"))
         .await
         .context("airports.csv")?;
     let regions = get_text(http, &format!("{base}/regions.csv"))
         .await
         .context("regions.csv")?;
-    parse_airports(&airports, &regions)
+    parse_airports(&airports, &regions, &reporting)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AwcStation {
+    icao_id: Option<String>,
+    #[serde(default)]
+    site_type: Vec<String>,
+}
+
+/// ICAO codes of stations that send METARs, each with whether it also sends TAFs.
+pub fn parse_awc_stations(json: &str) -> Result<HashMap<String, bool>> {
+    let list: Vec<AwcStation> = serde_json::from_str(json).context("stations.cache.json")?;
+    let has = |s: &AwcStation, t: &str| s.site_type.iter().any(|x| x == t);
+    Ok(list
+        .iter()
+        .filter(|s| has(s, "METAR"))
+        .filter_map(|s| Some((s.icao_id.clone()?, has(s, "TAF"))))
+        .collect())
 }
 
 #[derive(Deserialize)]
@@ -133,8 +186,12 @@ fn icao(code: &str) -> Option<&str> {
     (code.len() == 4 && code.bytes().all(|b| b.is_ascii_uppercase())).then_some(code)
 }
 
-/// Large and medium airports with an ICAO code in coverage: the ones with a weather report.
-pub fn parse_airports(airports_csv: &str, regions_csv: &str) -> Result<Vec<NewStation>> {
+/// Airfields in coverage that send METARs (`reporting`: ICAO code → sends TAFs too).
+pub fn parse_airports(
+    airports_csv: &str,
+    regions_csv: &str,
+    reporting: &HashMap<String, bool>,
+) -> Result<Vec<NewStation>> {
     let regions: HashMap<String, String> = csv::Reader::from_reader(regions_csv.as_bytes())
         .deserialize::<RegionRow>()
         .filter_map(Result::ok)
@@ -143,17 +200,21 @@ pub fn parse_airports(airports_csv: &str, regions_csv: &str) -> Result<Vec<NewSt
     let mut out = Vec::new();
     for row in csv::Reader::from_reader(airports_csv.as_bytes()).deserialize::<AirportRow>() {
         let Ok(a) = row else { continue };
-        if !matches!(a.kind.as_str(), "large_airport" | "medium_airport")
-            || !in_coverage(
-                &a.continent,
-                &a.iso_country,
-                a.latitude_deg,
-                a.longitude_deg,
-            )
-        {
+        if !matches!(
+            a.kind.as_str(),
+            "large_airport" | "medium_airport" | "small_airport"
+        ) || !in_coverage(
+            &a.continent,
+            &a.iso_country,
+            a.latitude_deg,
+            a.longitude_deg,
+        ) {
             continue;
         }
         let Some(code) = icao(&a.icao_code).or_else(|| icao(&a.gps_code)) else {
+            continue;
+        };
+        let Some(&has_taf) = reporting.get(code) else {
             continue;
         };
         let non_empty = |s: String| (!s.trim().is_empty()).then_some(s);
@@ -172,6 +233,7 @@ pub fn parse_airports(airports_csv: &str, regions_csv: &str) -> Result<Vec<NewSt
                 lat: a.latitude_deg,
                 lon: a.longitude_deg,
                 elevation_m: a.elevation_ft.map(|ft| (ft * 0.3048 * 10.0).round() / 10.0),
+                has_taf,
             },
             keywords: non_empty(a.keywords),
         });
@@ -253,6 +315,7 @@ pub fn parse_dwd(text: &str, active_since: u32) -> Vec<NewStation> {
                 lat,
                 lon,
                 elevation_m: Some(height),
+                has_taf: false,
             },
             keywords: None,
         });
@@ -271,14 +334,28 @@ mod tests {
 2270,"EDSB","large_airport","Karlsruhe Baden-Baden Airport",48.7794,8.0805,408,"EU","DE","DE-BW","Rheinmünster","yes","EDSB","FKB","EDSB","","","","Baden Airpark"
 4279,"LGRP","large_airport","Rhodes International Airport ""Diagoras""",36.405399,28.086201,17,"AS","GR","GR-L","Rhodes","yes","LGRP","RHO","LGRP","","","",""
 1,"EDXX","small_airport","Small Field",48.0,8.0,500,"EU","DE","DE-BW","","no","EDXX","","EDXX","","","",""
+5,"EDFE","small_airport","Frankfurt-Egelsbach Airport",49.9608,8.6436,384,"EU","DE","DE-HE","Egelsbach","no","EDFE","","EDFE","","","",""
+6,"EDNY","medium_airport","Friedrichshafen Airport",47.671299,9.51149,1367,"EU","DE","DE-BW","Friedrichshafen","yes","EDNY","FDH","EDNY","","","",""
 2,"KJFK","large_airport","John F Kennedy International Airport",40.639447,-73.779317,13,"NA","US","US-NY","New York","yes","KJFK","JFK","KJFK","","","",""
 3,"OIII","large_airport","Tehran Imam Khomeini",35.4,51.15,3305,"AS","IR","IR-07","Tehran","yes","OIIE","IKA","OIIE","","","",""
 4,"XX01","medium_airport","No Code",48.0,9.0,,"EU","DE","DE-BW","","no","","","","","","",""
 "#;
         let regions = "\"id\",\"code\",\"local_code\",\"name\",\"continent\",\"iso_country\",\"wikipedia_link\",\"keywords\"\n1,\"DE-BW\",\"BW\",\"Baden-Württemberg\",\"EU\",\"DE\",\"\",\"\"\n2,\"GR-L\",\"L\",\"South Aegean\",\"EU\",\"GR\",\"\",\"\"\n";
-        let list = parse_airports(airports, regions).unwrap();
+        // EDNY sends no METAR in this made-up list, the small field EDXX neither.
+        let reporting: HashMap<String, bool> = [
+            ("EDSB", true),
+            ("LGRP", true),
+            ("EDFE", false),
+            ("KJFK", true),
+            ("OIIE", true),
+        ]
+        .into_iter()
+        .map(|(c, t)| (c.to_owned(), t))
+        .collect();
+        let list = parse_airports(airports, regions, &reporting).unwrap();
         let codes: Vec<&str> = list.iter().map(|s| s.station.code.as_str()).collect();
-        assert_eq!(codes, ["EDSB", "LGRP"]);
+        assert_eq!(codes, ["EDSB", "LGRP", "EDFE"]);
+        assert!(list[0].station.has_taf && !list[2].station.has_taf);
         let edsb = &list[0];
         assert_eq!(edsb.station.slug, "edsb");
         assert_eq!(edsb.station.region.as_deref(), Some("Baden-Württemberg"));
@@ -289,7 +366,19 @@ mod tests {
             list[1].station.name,
             "Rhodes International Airport \"Diagoras\""
         );
-        assert!(parse_airports("\"id\",\"ident\"\n", regions).is_err());
+        assert!(parse_airports("\"id\",\"ident\"\n", regions, &reporting).is_err());
+    }
+
+    #[test]
+    fn awc_stations() {
+        // Entries as in the real stations.cache.json (2026-10-11).
+        let json = r#"[{"id":"32012","icaoId":null,"iataId":null,"faaId":null,"wmoId":null,"site":"Woods Hole Stratus Wave Station","lat":19.691,"lon":-85.567,"elev":0,"state":"","country":null,"priority":4,"siteType":[]},
+            {"id":"EDAC","icaoId":"EDAC","iataId":"AOC","faaId":null,"wmoId":null,"site":"Altenburg Arpt","lat":50.982,"lon":12.506,"elev":193,"state":"ID","country":"DE","priority":5,"siteType":["METAR","TAF"]},
+            {"id":"EDFE","icaoId":"EDFE","iataId":null,"faaId":null,"wmoId":null,"site":"Egelsbach","lat":49.96,"lon":8.644,"elev":118,"state":"HE","country":"DE","priority":6,"siteType":["METAR"]},
+            {"id":"XTAF","icaoId":"XTAF","iataId":null,"faaId":null,"wmoId":null,"site":"Only TAF","lat":1,"lon":1,"elev":1,"state":"","country":null,"priority":9,"siteType":["TAF"]}]"#;
+        let r = parse_awc_stations(json).unwrap();
+        assert_eq!(r.len(), 2);
+        assert_eq!((r["EDAC"], r["EDFE"]), (true, false));
     }
 
     #[test]

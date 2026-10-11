@@ -13,4 +13,8 @@ code: string, name: string,
 /**
  * ISO 3166-1 alpha-2
  */
-country: string | null, region: string | null, municipality: string | null, lat: number, lon: number, elevationM: number | null, };
+country: string | null, region: string | null, municipality: string | null, lat: number, lon: number, elevationM: number | null, 
+/**
+ * Publishes a TAF (airport forecast).
+ */
+hasTaf: boolean, };

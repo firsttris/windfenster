@@ -4,6 +4,7 @@
 
 pub mod forecasts;
 pub mod geocode;
+pub mod observations;
 pub mod openmeteo;
 pub mod scheduler;
 pub mod stations;

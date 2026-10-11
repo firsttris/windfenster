@@ -155,6 +155,8 @@ pub async fn touch_place(
     Ok(())
 }
 
+/// Records what Open-Meteo says about a place. A place fetched without a request (a tracked
+/// station) is created pinned and never requested.
 pub async fn set_place_info(
     db: &SqlitePool,
     p: GridPoint,
@@ -162,22 +164,31 @@ pub async fn set_place_info(
     elevation_m: Option<f64>,
 ) -> sqlx::Result<()> {
     sqlx::query(
-        "UPDATE place SET timezone = COALESCE(?, timezone), elevation_m = COALESCE(?, elevation_m) \
-         WHERE lat_e2 = ? AND lon_e2 = ?",
+        "INSERT INTO place (lat_e2, lon_e2, timezone, elevation_m, requested_at, pinned) \
+         VALUES (?, ?, ?, ?, 0, 1) ON CONFLICT (lat_e2, lon_e2) DO UPDATE SET \
+         timezone = COALESCE(excluded.timezone, timezone), \
+         elevation_m = COALESCE(excluded.elevation_m, elevation_m)",
     )
-    .bind(timezone)
-    .bind(elevation_m)
     .bind(p.lat_e2)
     .bind(p.lon_e2)
+    .bind(timezone)
+    .bind(elevation_m)
     .execute(db)
     .await?;
     Ok(())
 }
 
-/// Places requested since `since`, most recently requested first.
+/// Places to keep current: the grid points of tracked stations, then the places requested
+/// since `since`, most recently requested first.
 pub async fn hot_places(db: &SqlitePool, since: i64) -> sqlx::Result<Vec<GridPoint>> {
     let rows: Vec<(i32, i32)> = sqlx::query_as(
-        "SELECT lat_e2, lon_e2 FROM place WHERE requested_at >= ? ORDER BY requested_at DESC",
+        "SELECT lat_e2, lon_e2 FROM ( \
+           SELECT CAST(round(lat * 100) AS INTEGER) AS lat_e2, \
+                  CAST(round(lon * 100) AS INTEGER) AS lon_e2, 1 AS tracked, 0 AS at \
+           FROM station WHERE tracked \
+           UNION ALL \
+           SELECT lat_e2, lon_e2, 0, requested_at FROM place WHERE requested_at >= ? \
+         ) GROUP BY lat_e2, lon_e2 ORDER BY MAX(tracked) DESC, MAX(at) DESC",
     )
     .bind(since)
     .fetch_all(db)

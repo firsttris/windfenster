@@ -37,6 +37,14 @@ function RootLayout() {
               ,{' '}
               <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
                 DWD
+              </a>{' '}
+              · {m.footer_measurements()}{' '}
+              <a href="https://aviationweather.gov/" className="text-subtle hover:text-foreground">
+                aviationweather.gov
+              </a>
+              ,{' '}
+              <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
+                DWD
               </a>
             </span>
             <span className="flex flex-wrap items-center gap-3">

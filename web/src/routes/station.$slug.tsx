@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { ForecastView } from '@/components/forecast/forecast-view';
+import { LiveTile } from '@/components/live-tile';
 import { Failed, Loading, Page } from '@/components/page';
-import { stationQuery } from '@/lib/api';
+import { liveQuery, stationQuery } from '@/lib/api';
 import { coordinates, countryName, formatNumber } from '@/lib/format';
 import { useTitle } from '@/lib/use-title';
 import { m } from '@/paraglide/messages';
@@ -11,6 +12,7 @@ import { Badge } from '@/ui/badge';
 export const Route = createFileRoute('/station/$slug')({
   loader: ({ context, params }) => {
     void context.queryClient.prefetchQuery(stationQuery(params.slug));
+    void context.queryClient.prefetchQuery(liveQuery(params.slug));
   },
   component: StationPage,
 });
@@ -20,6 +22,7 @@ const SOURCE = { metar: m.source_metar, dwd: m.source_dwd, owm: m.source_owm } a
 function StationPage() {
   const { slug } = Route.useParams();
   const q = useQuery(stationQuery(slug));
+  const live = useQuery(liveQuery(slug));
   useTitle(q.data ? m.title_station({ name: q.data.station.name, code: q.data.station.code }) : null);
   if (q.isPending) return <Loading />;
   if (q.isError) return <Failed error={q.error} />;
@@ -49,7 +52,16 @@ function StationPage() {
           {st.municipality && ` · ${st.municipality}`}
         </p>
       </section>
-      <ForecastView fc={forecast} />
+      <ForecastView
+        fc={forecast}
+        tiles={<LiveTile station={st} timeZone={forecast.timezone ?? 'UTC'} />}
+        measured={
+          live.data && {
+            source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}`,
+            observations: live.data.observations,
+          }
+        }
+      />
     </Page>
   );
 }

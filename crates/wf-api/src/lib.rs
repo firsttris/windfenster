@@ -3,6 +3,7 @@
 
 mod error;
 pub mod forecast;
+pub mod live;
 mod meta;
 pub mod search;
 mod spa;
@@ -23,6 +24,7 @@ use wf_core::geo::GridPoint;
 use wf_core::model::Model;
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
+use wf_ingest::observations::Measurements;
 
 pub use error::{ApiError, ErrorCode};
 
@@ -35,6 +37,8 @@ pub struct AppState {
     pub forecasts: Arc<Forecasts>,
     /// Place search; without it the search finds stations only.
     pub geocoder: Option<Arc<Geocoder>>,
+    /// Fetches a station's measurements on request; without it only stored ones are served.
+    pub measurements: Option<Arc<Measurements>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
@@ -43,6 +47,8 @@ pub struct AppState {
     places: search::PlaceCache,
     /// Places whose request time was written within the last hour.
     touched: moka::future::Cache<GridPoint, ()>,
+    /// Stations (row ids) whose measurements were fetched on request within ten minutes.
+    fetched: moka::future::Cache<i64, ()>,
 }
 
 impl AppState {
@@ -50,6 +56,7 @@ impl AppState {
         db: SqlitePool,
         forecasts: Arc<Forecasts>,
         geocoder: Option<Arc<Geocoder>>,
+        measurements: Option<Arc<Measurements>>,
         public_url: Option<String>,
         dev_ui: Option<String>,
     ) -> Self {
@@ -59,6 +66,7 @@ impl AppState {
             db,
             forecasts,
             geocoder,
+            measurements,
             public_url,
             dev_ui,
             cache,
@@ -66,6 +74,10 @@ impl AppState {
             touched: moka::future::Cache::builder()
                 .max_capacity(50_000)
                 .time_to_live(Duration::from_secs(3_600))
+                .build(),
+            fetched: moka::future::Cache::builder()
+                .max_capacity(10_000)
+                .time_to_live(Duration::from_secs(600))
                 .build(),
         }
     }
@@ -89,6 +101,7 @@ pub fn router(state: AppState) -> Router {
         .route("/models", get(models))
         .route("/stations", get(search::search))
         .route("/stations/{slug}", get(forecast::station))
+        .route("/stations/{slug}/live", get(live::live))
         .route("/point", get(forecast::point))
         .fallback(|| async { ApiError::NotFound });
     Router::new()

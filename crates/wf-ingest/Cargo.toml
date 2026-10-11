@@ -12,6 +12,7 @@ publish.workspace = true
 wf-core.workspace = true
 anyhow.workspace = true
 csv.workspace = true
+flate2.workspace = true
 governor.workspace = true
 reqwest.workspace = true
 serde.workspace = true
@@ -20,6 +21,7 @@ sqlx.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

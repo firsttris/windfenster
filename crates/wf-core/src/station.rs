@@ -36,6 +36,8 @@ pub struct Station {
     pub lat: f64,
     pub lon: f64,
     pub elevation_m: Option<f64>,
+    /// Publishes a TAF (airport forecast).
+    pub has_taf: bool,
 }
 
 /// A station as an import delivers it.
@@ -47,7 +49,7 @@ pub struct NewStation {
 }
 
 const COLUMNS: &str =
-    "slug, source, code, name, country, region, municipality, lat, lon, elevation_m";
+    "slug, source, code, name, country, region, municipality, lat, lon, elevation_m, has_taf";
 
 /// Inserts or updates stations by (source, code); returns how many were written.
 pub async fn upsert(db: &SqlitePool, stations: &[NewStation], seen_at: i64) -> sqlx::Result<usize> {
@@ -69,11 +71,12 @@ pub async fn upsert(db: &SqlitePool, stations: &[NewStation], seen_at: i64) -> s
         );
         sqlx::query(
             "INSERT INTO station (slug, source, code, name, country, region, municipality, lat, lon, \
-             elevation_m, search, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+             elevation_m, has_taf, search, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
              ON CONFLICT (source, code) DO UPDATE SET slug = excluded.slug, name = excluded.name, \
              country = excluded.country, region = excluded.region, \
              municipality = excluded.municipality, lat = excluded.lat, lon = excluded.lon, \
-             elevation_m = excluded.elevation_m, search = excluded.search, seen_at = excluded.seen_at",
+             elevation_m = excluded.elevation_m, has_taf = excluded.has_taf, \
+             search = excluded.search, seen_at = excluded.seen_at",
         )
         .bind(&st.slug)
         .bind(st.source)
@@ -85,6 +88,7 @@ pub async fn upsert(db: &SqlitePool, stations: &[NewStation], seen_at: i64) -> s
         .bind(st.lat)
         .bind(st.lon)
         .bind(st.elevation_m)
+        .bind(st.has_taf)
         .bind(&search)
         .bind(seen_at)
         .execute(&mut *tx)
@@ -92,6 +96,77 @@ pub async fn upsert(db: &SqlitePool, stations: &[NewStation], seen_at: i64) -> s
     }
     tx.commit().await?;
     Ok(stations.len())
+}
+
+/// Drops stations of a source that the import at `seen_at` no longer listed.
+pub async fn remove_unseen(
+    db: &SqlitePool,
+    source: StationSource,
+    seen_at: i64,
+) -> sqlx::Result<u64> {
+    Ok(
+        sqlx::query("DELETE FROM station WHERE source = ? AND seen_at < ?")
+            .bind(source)
+            .bind(seen_at)
+            .execute(db)
+            .await?
+            .rows_affected(),
+    )
+}
+
+/// Marks exactly these stations (by slug) as tracked; returns the slugs that do not exist.
+pub async fn set_tracked(db: &SqlitePool, slugs: &[String]) -> sqlx::Result<Vec<String>> {
+    let mut tx = db.begin().await?;
+    sqlx::query("UPDATE station SET tracked = 0")
+        .execute(&mut *tx)
+        .await?;
+    let mut unknown = Vec::new();
+    for slug in slugs {
+        let n = sqlx::query("UPDATE station SET tracked = 1 WHERE slug = ?")
+            .bind(slug)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+        if n == 0 {
+            unknown.push(slug.clone());
+        }
+    }
+    tx.commit().await?;
+    Ok(unknown)
+}
+
+/// Stations of a source to keep current: tracked ones and those opened since `since`, with
+/// their row ids.
+pub async fn watched(
+    db: &SqlitePool,
+    source: StationSource,
+    since: i64,
+) -> sqlx::Result<Vec<(i64, Station)>> {
+    #[derive(sqlx::FromRow)]
+    struct Watched {
+        id: i64,
+        #[sqlx(flatten)]
+        station: Station,
+    }
+    let rows: Vec<Watched> = sqlx::query_as(&format!(
+        "SELECT id, {COLUMNS} FROM station s WHERE source = ? AND (tracked OR EXISTS ( \
+           SELECT 1 FROM place p WHERE p.requested_at >= ? \
+           AND p.lat_e2 = CAST(round(s.lat * 100) AS INTEGER) \
+           AND p.lon_e2 = CAST(round(s.lon * 100) AS INTEGER)))"
+    ))
+    .bind(source)
+    .bind(since)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(|w| (w.id, w.station)).collect())
+}
+
+/// The station's row id, for joins (measurements, verification).
+pub async fn id_of(db: &SqlitePool, slug: &str) -> sqlx::Result<Option<i64>> {
+    sqlx::query_scalar("SELECT id FROM station WHERE slug = ?")
+        .bind(slug)
+        .fetch_optional(db)
+        .await
 }
 
 pub async fn by_slug(db: &SqlitePool, slug: &str) -> sqlx::Result<Option<Station>> {
@@ -207,6 +282,7 @@ mod tests {
                 lat,
                 lon,
                 elevation_m: None,
+                has_taf: false,
             },
             keywords: None,
         }

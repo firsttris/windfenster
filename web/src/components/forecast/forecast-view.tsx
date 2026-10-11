@@ -1,9 +1,10 @@
 import { TriangleAlert } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
 import { buildDays, defaultModel, type Mode, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
+import type { Measured } from '@/lib/observations';
 import { useUnit } from '@/lib/prefs';
 import { UNIT_LABEL, WIND_UNITS } from '@/lib/units';
 import { useMedia } from '@/lib/use-media';
@@ -15,8 +16,16 @@ import { ForecastTable } from './forecast-table';
 import { ModelChips } from './model-chips';
 import { ScaleLegend } from './shared';
 
-/** Everything below a place's title: mode and unit, the models, the ten days. */
-export function ForecastView({ fc }: { fc: Forecast }) {
+interface Props {
+  fc: Forecast;
+  /** Cards between the models and the table, e.g. the live measurement. */
+  tiles?: ReactNode;
+  /** Measured values for the row under the forecast (desktop). */
+  measured?: Measured;
+}
+
+/** Everything below a place's title: mode and unit, the models, tiles, the ten days. */
+export function ForecastView({ fc, tiles, measured }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
   const superModel = defaultModel(fc, 'super');
@@ -69,6 +78,8 @@ export function ForecastView({ fc }: { fc: Forecast }) {
         </p>
       )}
 
+      {tiles && <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{tiles}</div>}
+
       {days.length > 0 ? (
         <section aria-labelledby="fc-title" className="overflow-hidden sm:rounded-xl sm:border sm:bg-card">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-3 sm:border-b sm:px-5 sm:py-4">
@@ -82,7 +93,7 @@ export function ForecastView({ fc }: { fc: Forecast }) {
           </div>
           <div className={desktop ? 'pb-3' : ''}>
             {desktop ? (
-              <ForecastTable fc={fc} days={days} unit={unit} />
+              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} />
             ) : (
               <ForecastList fc={fc} days={days} unit={unit} />
             )}

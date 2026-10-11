@@ -21,6 +21,23 @@ export function dayMonth(date: string): string {
 
 export const hour = (h: number) => pad(h);
 
+/** Day and month of a Unix time in a time zone, e.g. "11. Okt." / "11 Oct". */
+export function dayMonthOf(unix: number, timeZone: string): string {
+  return new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'short', timeZone }).format(
+    new Date(unix * 1000),
+  );
+}
+
+/** Hours and minutes of a Unix time in a time zone, e.g. "14:50". */
+export function clock(unix: number, timeZone: string): string {
+  return new Intl.DateTimeFormat(intlLocale(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(new Date(unix * 1000));
+}
+
 export function formatNumber(n: number, digits = 0): string {
   return new Intl.NumberFormat(intlLocale(), {
     minimumFractionDigits: digits,

@@ -1,4 +1,5 @@
-//! The API against a stand-in for Open-Meteo (forecast and geocoding) that answers in its format.
+//! The API against stand-ins for Open-Meteo (forecast and geocoding) and aviationweather.gov
+//! that answer in their formats.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,13 +17,20 @@ use wf_api::{AppState, router};
 use wf_core::station::{NewStation, Station, StationSource};
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
+use wf_ingest::observations::{Measurements, Urls};
 use wf_ingest::openmeteo::{Config, OpenMeteo};
 
+#[derive(Default)]
+struct Calls {
+    forecast: AtomicUsize,
+    metar: AtomicUsize,
+}
+
 async fn fake_forecast(
-    State(calls): State<Arc<AtomicUsize>>,
+    State(calls): State<Arc<Calls>>,
     Query(q): Query<HashMap<String, String>>,
 ) -> String {
-    calls.fetch_add(1, Ordering::SeqCst);
+    calls.forecast.fetch_add(1, Ordering::SeqCst);
     let models: Vec<&str> = q["models"].split(',').collect();
     let mut hourly = serde_json::Map::new();
     hourly.insert("time".into(), json!([1791626400, 1791630000, 1791633600]));
@@ -49,11 +57,30 @@ async fn fake_geocode(Query(q): Query<HashMap<String, String>>) -> String {
     }
 }
 
-async fn app() -> Result<(tempfile::TempDir, Router, Arc<AtomicUsize>)> {
-    let calls = Arc::new(AtomicUsize::new(0));
+/// The METAR API with two reports of the last hour, in its JSON shape.
+async fn fake_metar(
+    State(calls): State<Arc<Calls>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> String {
+    calls.metar.fetch_add(1, Ordering::SeqCst);
+    assert_eq!((q["ids"].as_str(), q["hours"].as_str()), ("EDSB", "24"));
+    let now = wf_core::time::now();
+    let half_hour = now - now % 1_800;
+    json!([
+        {"icaoId": "EDSB", "obsTime": half_hour, "temp": 13, "wdir": 210, "wspd": 9,
+         "rawOb": "METAR EDSB 110850Z AUTO 21009KT CAVOK 13/10 Q1015"},
+        {"icaoId": "EDSB", "obsTime": half_hour - 1_800, "temp": 12, "wdir": "VRB", "wspd": 3,
+         "wgst": null, "rawOb": "METAR EDSB 110820Z AUTO VRB03KT CAVOK 12/10 Q1015"}
+    ])
+    .to_string()
+}
+
+async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
+    let calls = Arc::new(Calls::default());
     let fake = Router::new()
         .route("/v1/forecast", get(fake_forecast))
         .route("/v1/search", get(fake_geocode))
+        .route("/api/data/metar", get(fake_metar))
         .with_state(calls.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
@@ -76,6 +103,7 @@ async fn app() -> Result<(tempfile::TempDir, Router, Arc<AtomicUsize>)> {
                 lat: 48.7794,
                 lon: 8.0805,
                 elevation_m: Some(124.4),
+                has_taf: true,
             },
             keywords: Some("Baden Airpark".into()),
         }],
@@ -92,8 +120,23 @@ async fn app() -> Result<(tempfile::TempDir, Router, Arc<AtomicUsize>)> {
         },
     );
     let forecasts = Arc::new(Forecasts::new(db.clone(), om, models));
-    let geocoder = Arc::new(Geocoder::new(http, Some(base), None));
-    let state = AppState::new(db, forecasts, Some(geocoder), None, None);
+    let geocoder = Arc::new(Geocoder::new(http.clone(), Some(base.clone()), None));
+    let measurements = Arc::new(Measurements::new(
+        db.clone(),
+        http,
+        Urls {
+            awc_base: base.clone(),
+            dwd_base: base,
+        },
+    ));
+    let state = AppState::new(
+        db,
+        forecasts,
+        Some(geocoder),
+        Some(measurements),
+        None,
+        None,
+    );
     Ok((dir, router(state), calls))
 }
 
@@ -162,10 +205,10 @@ async fn station_forecast_is_fetched_once_then_cached() -> Result<()> {
     assert_eq!(fc["series"].as_array().unwrap().len(), 5);
     assert_eq!(fc["series"][0]["model"], "icon_d2");
     assert_eq!(fc["series"][0]["wind"], json!([10.0, 12.5, 15.0]));
-    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(calls.forecast.load(Ordering::SeqCst), 1);
 
     get_json(&app, "/api/stations/edsb").await?;
-    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(calls.forecast.load(Ordering::SeqCst), 1);
 
     let (status, body) = get_json(&app, "/api/stations/xxxx").await?;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -200,6 +243,35 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
         assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
         assert_eq!(body, json!({"code": "invalid_coordinates"}));
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn live_fetches_a_new_station_once() -> Result<()> {
+    let (_dir, app, calls) = app().await?;
+    let (status, body) = get_json(&app, "/api/stations/edsb/live").await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let obs = body["observations"].as_array().unwrap();
+    assert_eq!(obs.len(), 2);
+    // Oldest first; variable wind has no direction.
+    assert_eq!(
+        (obs[0]["wind"].as_f64(), &obs[0]["dir"]),
+        (Some(3.0), &Value::Null)
+    );
+    assert_eq!(obs[1]["wind"].as_f64(), Some(9.0));
+    assert_eq!(obs[1]["dir"].as_f64(), Some(210.0));
+    assert_eq!(obs[1]["temp"].as_f64(), Some(13.0));
+    assert_eq!(
+        obs[1]["raw"],
+        "METAR EDSB 110850Z AUTO 21009KT CAVOK 13/10 Q1015"
+    );
+    assert_eq!(calls.metar.load(Ordering::SeqCst), 1);
+    // The history still starts late, but the station was asked a moment ago.
+    get_json(&app, "/api/stations/edsb/live").await?;
+    assert_eq!(calls.metar.load(Ordering::SeqCst), 1);
+
+    let (status, _) = get_json(&app, "/api/stations/xxxx/live").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
     Ok(())
 }
 

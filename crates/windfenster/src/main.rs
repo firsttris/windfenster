@@ -11,6 +11,7 @@ use wf_core::db::{self, Db};
 use wf_core::geo::GridPoint;
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
+use wf_ingest::observations::{Measurements, Urls};
 use wf_ingest::openmeteo::{self, OpenMeteo};
 use wf_ingest::scheduler::Scheduler;
 use wf_ingest::stations::{self, Sources};
@@ -85,7 +86,16 @@ struct ServeArgs {
     /// Open-Meteo geocoding instance for the place search.
     #[arg(long, env = "OPEN_METEO_GEOCODING_URL")]
     geocoding_url: Option<String>,
-    /// Background jobs (station lists, model runs); `false` serves only what is requested.
+    /// Stations (slugs) kept current and verified even when nobody opens them.
+    #[arg(
+        long,
+        env = "WF_TRACKED_STATIONS",
+        value_delimiter = ',',
+        default_value = "edsb,lgrp"
+    )]
+    tracked_stations: Vec<String>,
+    /// Background jobs (station lists, model runs, measurements); `false` serves only what is
+    /// requested.
     #[arg(long, env = "WF_SCHEDULER", default_value_t = true, action = clap::ArgAction::Set)]
     scheduler: bool,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
@@ -176,13 +186,21 @@ async fn serve(args: ServeArgs) -> Result<()> {
         non_empty(&args.geocoding_url),
         api_key,
     ));
+    let measurements = Arc::new(Measurements::new(db.clone(), http.clone(), Urls::default()));
     if args.scheduler {
         tokio::spawn(
             Scheduler {
                 db: db.clone(),
                 http,
                 forecasts: forecasts.clone(),
+                measurements: measurements.clone(),
                 sources: Sources::default(),
+                tracked: args
+                    .tracked_stations
+                    .iter()
+                    .map(|s| s.trim().to_ascii_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
             }
             .run(),
         );
@@ -191,6 +209,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         db,
         forecasts,
         Some(geocoder),
+        Some(measurements),
         non_empty(&args.public_url),
         non_empty(&args.dev_ui),
     );
