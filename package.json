@@ -1,6 +1,7 @@
 {
   "name": "windfenster",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12"
@@ -11,11 +12,11 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "bindings": "cargo test --workspace export_bindings",
-    "lint": "prettier --check .",
-    "format": "prettier --write ."
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "devDependencies": {
-    "concurrently": "^10.0.6",
-    "prettier": "^3.9.10"
+    "@biomejs/biome": "^2.5.15",
+    "concurrently": "^10.0.6"
   }
 }

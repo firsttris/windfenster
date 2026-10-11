@@ -1,12 +1,12 @@
-import { LOCALE_NAMES, getLocale, locales, setLocale } from '@/lib/i18n';
-import { m } from '@/paraglide/messages';
+import { getLocale, LOCALE_NAMES, locales, setLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { m } from '@/paraglide/messages';
 
 /** The language links in the footer; a change reloads the page in that language. */
 export function LanguageSwitch() {
   const current = getLocale();
   return (
-    <div role="group" aria-label={m.footer_language()} className="flex gap-1">
+    <fieldset aria-label={m.footer_language()} className="m-0 flex min-w-0 gap-1 border-0 p-0">
       {locales.map((l) => (
         <button
           key={l}
@@ -22,6 +22,6 @@ export function LanguageSwitch() {
           {LOCALE_NAMES[l]}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }

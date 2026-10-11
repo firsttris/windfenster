@@ -1,0 +1,29 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (or the "Bump version" button) publishes that version: the CI first, then
+# the shared Docker release from firsttris/workflows. It checks the tag against the version in
+# Cargo.toml, builds amd64 and arm64 each on its own native runner, pushes :x.y.z, :x.y and
+# :latest to Docker Hub and ghcr.io, updates the Docker Hub description and creates the GitHub
+# release. Run by hand on main: the same checks, then the image as :edge, nothing is released.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  docker:
+    needs: checks
+    uses: firsttris/workflows/.github/workflows/docker-release.yml@v1
+    with:
+      image: tristanteu/windfenster
+      description: Open-source wind forecast for water sports with stations, model ranking and alarms
+      dockerfile: Dockerfile
+      version-file: Cargo.toml
+      ghcr: true
+    secrets: inherit
+    permissions:
+      contents: write
+      packages: write

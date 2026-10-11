@@ -1,18 +1,31 @@
 name: CI
 
+# Header as in firsttris/workflows (README, "CI in every project").
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
+  # release.yml runs the same checks before it publishes anything
+  workflow_call:
+  workflow_dispatch:
 
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its outdated run; runs on main and tags finish
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
+    # Draft pull requests do not build; "Ready for review" starts the run
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -52,36 +65,18 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-  image:
+  docker:
+    # Build check only; release.yml publishes the images
+    if: ${{ !github.event.pull_request.draft }}
     needs: check
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          # main → :edge and :sha-…; tag v1.2.3 → :1.2.3, :1.2 and :latest
-          tags: |
-            type=edge,branch=main
-            type=sha,enable=${{ github.ref == 'refs/heads/main' }}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          file: Dockerfile
+          push: false
+          cache-from: type=gha,scope=linux-amd64

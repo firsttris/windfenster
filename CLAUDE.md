@@ -62,6 +62,7 @@ CI runs on the newest stable Rust, which can bring new clippy lints: run clippy 
 
 ## Working rules
 
+- Ask before changing anything the tech stack decides (libraries, tooling, delivery).
 - Commands as root (`sudo`, `pkexec`) are run by the user; don't work around that.
 - The user's running processes are not stopped; use other ports for tests.
 - Language: code, comments, README, commits in English; the plan in German; the interface in
@@ -72,10 +73,15 @@ CI runs on the newest stable Rust, which can bring new clippy lints: run clippy 
 
 ## Code style
 
-Technology choices follow `tech-stack.md` in firsttris/workflows. Deviations of this project:
-Rust for the backend (performance, GRIB decoding, one binary, as in haul), so types cross to the
-SPA through ts-rs instead of Zod schemas. Open questions with the user: Prettier vs. Biome,
-Recharts vs. Chart.js, registry and release workflow.
+Technology choices follow `tech-stack.md` in firsttris/workflows. Deviations of this project and
+why:
+
+- Backend in Rust (performance, GRIB decoding, one binary, as in haul), so no TanStack Start;
+  API types cross to the SPA through ts-rs instead of Zod schemas.
+- Passkeys (Phase 4): webauthn-rs on the server, `@simplewebauthn/browser` in the SPA, own
+  sessions instead of Better Auth (a TypeScript server library).
+- Error types: the library crates still return `anyhow` in places; move them to `thiserror`
+  when touching them (`anyhow` stays in the binary).
 
 Functional, not object-oriented: pure functions that take data and return data, side effects at
 the edges; function components and hooks, no classes; errors as values. A file does one thing:

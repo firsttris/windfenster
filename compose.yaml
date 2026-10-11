@@ -1,8 +1,8 @@
 services:
   windfenster:
-    # Builds of main are published as :edge, releases as :latest and :x.y.z.
+    # Releases are :latest and :x.y.z (also on ghcr.io/firsttris/windfenster); :edge is main.
     # To build from source instead: docker compose up --build
-    image: ghcr.io/firsttris/windfenster:edge
+    image: tristanteu/windfenster:latest
     build: .
     container_name: windfenster
     restart: unless-stopped

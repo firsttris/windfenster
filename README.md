@@ -9,6 +9,7 @@ Every station shows what it measures right now, what the models predict, and whi
 was closest to the measurements there recently.
 
 [![CI](https://github.com/firsttris/windfenster/actions/workflows/ci.yml/badge.svg)](https://github.com/firsttris/windfenster/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 </div>
 
@@ -35,7 +36,8 @@ curl -O https://raw.githubusercontent.com/firsttris/windfenster/main/compose.yam
 docker compose up -d
 ```
 
-Open http://localhost:8080. The database lives in `./data`.
+Open http://localhost:8080. The database lives in `./data`. Until the first release is out,
+build the image yourself: `docker compose up --build` in a checkout.
 
 | Variable | Default | |
 |---|---|---|
@@ -86,7 +88,7 @@ Checks, as CI runs them:
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace     # also writes the TypeScript bindings
-pnpm lint                  # Prettier
+pnpm lint                  # Biome
 pnpm typecheck
 pnpm test
 pnpm build
@@ -108,6 +110,14 @@ web/
 Dockerfile       web app → binary → slim runtime image
 ```
 
+### Releases
+
+The version lives in `Cargo.toml`. **Actions → Bump version** (or a pushed tag `vX.Y.Z`) runs
+the CI, then the shared Docker release from
+[firsttris/workflows](https://github.com/firsttris/workflows): amd64 and arm64 to Docker Hub
+(`tristanteu/windfenster`) and ghcr.io, and the GitHub release. It needs the `DOCKER_PAT`
+secret. Run by hand on main, it publishes `:edge`.
+
 ### Shared types
 
 API types are Rust structs deriving `ts_rs::TS`. `cargo test` writes them to
@@ -124,6 +134,15 @@ instance. Airport stations come from [OurAirports](https://ourairports.com/data/
 stations from [DWD Open Data](https://opendata.dwd.de/). Further sources (aviationweather.gov,
 PEGELONLINE, ECMWF) come with the phases that use them and are listed on an attribution page.
 
-## License
+---
 
-Not decided yet (AGPL-3.0 or MIT).
+<div align="center">
+
+⭐ Like Windfenster? A [star on GitHub](https://github.com/firsttris/windfenster) helps others find it.<br>
+🐛 [Report a bug](https://github.com/firsttris/windfenster/issues/new) · 💡 [Request a feature](https://github.com/firsttris/windfenster/issues/new)
+
+<sub>License: <a href="LICENSE">AGPL-3.0</a> · © Tristan Teufel and contributors<br>
+Changed versions you pass on or run for others must offer their source code under the AGPL; a commercial license without these obligations is available via <a href="https://teufel-it.de">teufel-it.de</a>.<br>
+Windfenster is not affiliated with Windfinder, Windy, Open-Meteo, the Deutscher Wetterdienst or any other weather service.</sub>
+
+</div>

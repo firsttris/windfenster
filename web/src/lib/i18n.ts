@@ -9,10 +9,10 @@
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Notice } from '@/bindings/Notice';
 import { m } from '@/paraglide/messages';
-import { getLocale, locales, setLocale, type Locale } from '@/paraglide/runtime';
+import { getLocale, type Locale, locales, setLocale } from '@/paraglide/runtime';
 import { isApiError } from './api';
 
-export { getLocale, locales, setLocale, type Locale };
+export { getLocale, type Locale, locales, setLocale };
 
 /** Each language in its own name, for the switcher. */
 export const LOCALE_NAMES: Record<Locale, string> = { de: 'Deutsch', en: 'English' };

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router';
+import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
 import { m } from '@/paraglide/messages';
 import { LanguageSwitch } from '@/ui/language-switch';
 import { Logo } from '@/ui/logo';

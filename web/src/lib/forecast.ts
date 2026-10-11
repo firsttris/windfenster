@@ -130,11 +130,12 @@ export function buildDays(fc: Forecast, selected: string, now: number): Day[] {
   return dates.slice(0, DAYS).map((date, d) => {
     const stage = stageOf(d);
     const hours = STAGE_HOURS[stage];
-    const covers = (s: Indexed | undefined) =>
+    const covers = (s: Indexed | undefined): s is Indexed =>
       !!s && hours.every((h) => value(s.series.wind, s.at.get(`${date}|${h}`)) !== null);
     const first = chosen ? indexed.get(chosen.model) : undefined;
     const second = fallback ? indexed.get(fallback.model) : undefined;
-    const src = covers(first) ? first! : covers(second) ? second! : (first ?? second!);
+    // base exists, so at least one of them does
+    const src = [first, second].find(covers) ?? first ?? (second as Indexed);
     const cells = hours.map((hour): Cell => {
       const i = src.at.get(`${date}|${hour}`);
       const s = src.series;

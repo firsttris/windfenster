@@ -1,10 +1,10 @@
 /// <reference types="vitest/config" />
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
-import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 // In dev the Rust server runs on :8080 and Vite proxies the API to it (`pnpm dev`).
 export default defineConfig({

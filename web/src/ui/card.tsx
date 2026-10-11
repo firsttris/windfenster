@@ -32,4 +32,4 @@ function CardMeta({ className, ...props }: ComponentProps<'span'>) {
   return <span data-slot="card-meta" className={cn('font-mono text-xs text-muted-foreground', className)} {...props} />;
 }
 
-export { Card, CardHeader, CardTitle, CardMeta };
+export { Card, CardHeader, CardMeta, CardTitle };

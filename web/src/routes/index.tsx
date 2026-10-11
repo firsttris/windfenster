@@ -1,17 +1,17 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
 import type { WindUnit } from '@/bindings/WindUnit';
 import { healthQuery, modelsQuery } from '@/lib/api';
-import { UNIT_LABEL, WIND_UNITS, formatWind } from '@/lib/units';
+import { describeError, intlLocale } from '@/lib/i18n';
+import { formatWind, UNIT_LABEL, WIND_UNITS } from '@/lib/units';
 import { cn } from '@/lib/utils';
+import { m } from '@/paraglide/messages';
 import { Badge } from '@/ui/badge';
 import { Card, CardHeader, CardMeta, CardTitle } from '@/ui/card';
 import { Segmented } from '@/ui/segmented';
 import { WindCell } from '@/ui/wind-cell';
 import { WIND_SCALE } from '@/ui/wind-scale';
-import { describeError, intlLocale } from '@/lib/i18n';
-import { m } from '@/paraglide/messages';
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => {

@@ -11,7 +11,10 @@ interface SegmentedProps<T extends string> {
 /** Toggle between a few options, like Superforecast / Forecast or the wind unit. */
 export function Segmented<T extends string>({ label, value, options, onChange, className }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={label} className={cn('inline-flex gap-1 rounded-lg border bg-card p-1', className)}>
+    <fieldset
+      aria-label={label}
+      className={cn('m-0 inline-flex min-w-0 gap-1 rounded-lg border bg-card p-1', className)}
+    >
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -29,6 +32,6 @@ export function Segmented<T extends string>({ label, value, options, onChange, c
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

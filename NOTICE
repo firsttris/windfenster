@@ -1,0 +1,24 @@
+Windfenster
+Copyright (C) 2026 Tristan Teufel and contributors
+
+Windfenster is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License, version 3, as published by the Free Software
+Foundation (see LICENSE). It comes without any warranty.
+
+Additional terms under section 7(b) of the license
+--------------------------------------------------
+
+Modified versions of Windfenster, and works based on it, must preserve the author
+attribution "Windfenster by Tristan Teufel" together with a link to
+https://github.com/firsttris/windfenster in the Appropriate Legal Notices they
+display, at least wherever the original shows its author and source code link.
+
+Commercial license
+------------------
+
+To use Windfenster without the obligations of the AGPL, for example in a
+closed-source product or service, ask for a commercial license:
+https://teufel-it.de
+
+Weather and station data come from third parties under their own terms
+(Open-Meteo: CC BY 4.0; OurAirports: public domain; DWD Open Data); see the README.
