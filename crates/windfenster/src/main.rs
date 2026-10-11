@@ -103,6 +103,11 @@ struct ServeArgs {
     /// keep two runs as textures in `{data_dir}/map`; `false` turns the map off.
     #[arg(long, env = "WF_MAP", default_value_t = true, action = clap::ArgAction::Set)]
     map: bool,
+    /// The map's detailed basemap: `auto` cuts one from Protomaps' daily build (the map's region
+    /// to zoom 8, 20 km around each tracked station to zoom 14) unless the operator put one in
+    /// place; `off` leaves it to the operator.
+    #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
+    basemap: String,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     #[arg(long, env = "WF_DEV_UI")]
     dev_ui: Option<String>,
@@ -199,8 +204,17 @@ async fn serve(args: ServeArgs) -> Result<()> {
             wf_map::Urls::default(),
         ))
     });
+    let tracked: Vec<String> = args
+        .tracked_stations
+        .iter()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
     if let (true, Some(map)) = (args.scheduler, &map) {
         tokio::spawn(map.clone().keep_current());
+        if args.basemap == "auto" {
+            tokio::spawn(map.clone().keep_basemap(db.clone(), tracked.clone()));
+        }
     }
     if args.scheduler {
         tokio::spawn(
@@ -210,12 +224,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 forecasts: forecasts.clone(),
                 measurements: measurements.clone(),
                 sources: Sources::default(),
-                tracked: args
-                    .tracked_stations
-                    .iter()
-                    .map(|s| s.trim().to_ascii_lowercase())
-                    .filter(|s| !s.is_empty())
-                    .collect(),
+                tracked,
             }
             .run(),
         );

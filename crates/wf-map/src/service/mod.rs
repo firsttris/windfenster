@@ -41,6 +41,8 @@ pub enum Error {
 pub struct Urls {
     pub icon_d2: String,
     pub ecmwf: String,
+    /// Protomaps' daily builds, for the basemap
+    pub protomaps: String,
 }
 
 impl Default for Urls {
@@ -48,6 +50,7 @@ impl Default for Urls {
         Self {
             icon_d2: icon_d2_files::BASE.into(),
             ecmwf: ecmwf_files::BASE.into(),
+            protomaps: crate::basemap::fetch::BUILDS.into(),
         }
     }
 }
@@ -110,6 +113,37 @@ impl MapData {
                     Ok(n) => tracing::info!("map: {n} new {model} hours"),
                     Err(e) => tracing::warn!("map {model}: {e}"),
                 }
+            }
+        }
+    }
+
+    /// The background loop for the basemap: a minute after the start (the station lists first),
+    /// then daily, makes it for the tracked stations if it is due.
+    pub async fn keep_basemap(self: Arc<Self>, db: wf_core::db::Db, tracked: Vec<String>) {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        let mut tick = tokio::time::interval(Duration::from_secs(86_400));
+        loop {
+            tick.tick().await;
+            let mut spots = Vec::new();
+            for slug in &tracked {
+                match wf_core::station::by_slug(&db, slug).await {
+                    Ok(Some(s)) => spots.push((s.lat, s.lon)),
+                    Ok(None) => {}
+                    Err(e) => tracing::warn!("basemap spots: {e}"),
+                }
+            }
+            let now = wf_core::time::now();
+            match crate::basemap::fetch::keep_current(
+                &self.root,
+                &self.http,
+                &self.urls.protomaps,
+                &spots,
+                now,
+            )
+            .await
+            {
+                Ok(_) => {}
+                Err(e) => tracing::warn!("basemap: {e}"),
             }
         }
     }

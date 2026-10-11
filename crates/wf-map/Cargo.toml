@@ -13,6 +13,7 @@ wf-core.workspace = true
 bzip2.workspace = true
 grib.workspace = true
 png.workspace = true
+pmtiles.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -55,6 +55,7 @@ build the image yourself: `docker compose up --build` in a checkout.
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
+| `WF_BASEMAP` | `auto` | The map's detailed basemap: `auto` makes it from Protomaps' daily build for the region and the tracked stations, unless you put one in place; `off` leaves it to you |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -150,20 +151,30 @@ the detailed basemap if one is installed, else from
 
 ### The detailed basemap
 
-For towns, roads and lakes from close up, put a [Protomaps](https://protomaps.com/) extract of
-OpenStreetMap at `{WF_DATA_DIR}/map/basemap.pmtiles`; the map uses it from the next page load,
-in its own style, light and dark, with names in the viewer's language. Cut one from a daily
-build with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image
-`protomaps/go-pmtiles`), choosing the area and how close it goes:
+Towns, roads and lakes from close up come from [Protomaps](https://protomaps.com/), vector
+tiles of OpenStreetMap in one file, `{WF_DATA_DIR}/map/basemap.pmtiles`, drawn in Windfenster's
+own style, light and dark, with names in the viewer's language. Without it the map shows
+Natural Earth.
+
+By default (`WF_BASEMAP=auto`) the server makes the file itself, a minute after the start and
+then checked daily: from Protomaps' newest daily build it takes the map's region up to zoom 8
+(coasts, towns, main roads; about 190 MB) and 20 km around each tracked station
+(`WF_TRACKED_STATIONS`) up to zoom 14 (streets, lakes, beaches), by byte range, into one file. A
+note next to it (`basemap.json`) says what it was made from; it is made again when the tracked
+stations change or after 120 days.
+
+A file you put there yourself (no note next to it) is never replaced. To cover more, cut one
+with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image
+`protomaps/go-pmtiles`):
 
 ```bash
 pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pmtiles \
   --bbox=-25,27,45,72 --maxzoom=12
 ```
 
-Europe to zoom 12 (towns and main roads) is about 7 GB, to zoom 8 about 190 MB; a smaller area
-can go all the way to zoom 15 (the Upper Rhine is about 210 MB). The server sends the file in
-byte ranges (`/api/map/basemap.pmtiles`); OpenStreetMap is credited on the map.
+Europe to zoom 12 is about 7 GB; the Upper Rhine to zoom 15 about 210 MB. `WF_BASEMAP=off`
+leaves the file to you. The server sends it in byte ranges (`/api/map/basemap.pmtiles`);
+OpenStreetMap is credited on the map.
 
 ## Development
 

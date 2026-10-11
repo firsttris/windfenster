@@ -1,6 +1,9 @@
-//! The detailed basemap: a Protomaps PMTiles file (vector tiles from OpenStreetMap) the operator
-//! puts at `{root}/basemap.pmtiles`. The app reads its zoom range and bounds from the header and
+//! The detailed basemap: a Protomaps PMTiles file (vector tiles from OpenStreetMap) at
+//! `{root}/basemap.pmtiles`, put there by the operator or made by `fetch`. The app reads its zoom range and bounds from the header and
 //! fetches tiles from it by byte range.
+
+pub mod fetch;
+pub mod tiles;
 
 use std::path::{Path, PathBuf};
 

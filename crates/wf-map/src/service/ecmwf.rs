@@ -5,6 +5,9 @@ use reqwest::StatusCode;
 use reqwest::header::RANGE;
 
 use super::{Error, MapData, REGION};
+
+/// Between two steps, so as not to run into ECMWF's request limit
+const PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
 use crate::ecmwf;
 use crate::grid::{self, LatLonGrid};
 
@@ -31,10 +34,23 @@ impl MapData {
                 };
                 // Steps come out in order: the first one missing ends this round.
                 let Some(index) = index else { break };
-                let u = self.fetch_ecmwf(run_at, step, &index, ecmwf::U).await?;
-                let v = self.fetch_ecmwf(run_at, step, &index, ecmwf::V).await?;
+                let fields = async {
+                    let u = self.fetch_ecmwf(run_at, step, &index, ecmwf::U).await?;
+                    let v = self.fetch_ecmwf(run_at, step, &index, ecmwf::V).await?;
+                    Ok::<_, Error>((u, v))
+                };
+                let (u, v) = match fields.await {
+                    Ok(f) => f,
+                    // ECMWF limits how fast one may ask: the rest comes next round.
+                    Err(Error::Http(e)) if e.status() == Some(StatusCode::TOO_MANY_REQUESTS) => {
+                        tracing::debug!("map {model}: rate limited after {written} hours");
+                        break;
+                    }
+                    Err(e) => return Err(e),
+                };
                 self.write_hour(model, run_at, step, u, v).await?;
                 written += 1;
+                tokio::time::sleep(PAUSE).await;
             }
             break;
         }
