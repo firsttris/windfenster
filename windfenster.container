@@ -1,0 +1,40 @@
+# Podman Quadlet unit for Windfenster (after firsttris/haul's docker/haul.container).
+# Copy it to ~/.config/containers/systemd/ (or /etc/containers/systemd/), create the data
+# folder, then: systemctl --user daemon-reload && systemctl --user start windfenster
+
+[Unit]
+Description=Windfenster wind forecast
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/tristanteu/windfenster:latest
+ContainerName=windfenster
+AutoUpdate=registry
+
+# Another service on 8080 (haul, say)? Change the left side, e.g. 8081:8080. Behind a reverse
+# proxy on the same host, publish on the loopback only: 127.0.0.1:8080:8080
+PublishPort=8080:8080
+
+# Database (windfenster.db), map textures, basemap and relief
+Volume=%h/windfenster/data:/data:Z
+# On an existing data disk, leave out :Z (it relabels every file) and turn labels off instead:
+# Volume=/mnt/ssd/windfenster:/data
+# SecurityLabelDisable=true
+
+# Public address, for canonical links of station pages
+# Environment=WF_PUBLIC_URL=https://windfenster.example
+# Optional: Open-Meteo key for the customer API (commercial use)
+# Environment=OPEN_METEO_API_KEY=
+# With room to spare: the basemap everywhere to zoom 12 (about 7 GB), finer relief
+# Environment=WF_BASEMAP_ZOOM=12
+# Environment=WF_TERRAIN_ZOOM=9
+Environment=RUST_LOG=info
+
+[Service]
+Restart=always
+# The first start pulls the image
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
