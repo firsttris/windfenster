@@ -309,6 +309,8 @@
   "map_spot": "This place",
   "map_spotHours": "The coming hours at this place",
   "map_close": "Close",
+  "map_sheetMore": "Show more",
+  "map_sheetLess": "Show less",
   "map_outside": "outside the model's domain",
   "map_measured": "Measured {ago}",
   "map_noMeasurement": "No measurement in the last 2 hours",

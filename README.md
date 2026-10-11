@@ -168,7 +168,8 @@ mouse the wind and gusts under the pointer show without a click. The timeline ju
 Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. A
 search result stays on the map: it flies there and opens the spot. From town zoom on stations
 carry their name; a tapped station shows its last six hours measured as a small curve. While an
-hour's texture is on its way the timeline says so. With
+hour's texture is on its way the timeline says so. On phones the spot is a sheet: folded it shows the coming hours, pulled up
+the measurement and the link too; swiping down folds and then closes it. With
 "reduce motion" set in the system, arrows that stand still take the particles' place. The land, water, borders and places under it come from
 the detailed basemap if one is installed, else from
 [Natural Earth](https://www.naturalearthdata.com/) (`web/scripts/natural-earth.mjs` builds that).

@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, X } from 'lucide-react';
+import { useState } from 'react';
 import type { StationWind } from '@/bindings/StationWind';
 import type { WindUnit } from '@/bindings/WindUnit';
 import { ago, compass, coordinates } from '@/lib/format';
@@ -14,6 +15,7 @@ import { windBand } from '@/ui/wind-scale';
 import type { Pick } from './map-canvas';
 import { MeasuredSpark } from './measured-spark';
 import { SpotStrip } from './spot-strip';
+import { useSheetDrag } from './use-sheet-drag';
 import { windAt } from './wind-at';
 import type { WindLayers } from './wind-gl';
 
@@ -50,6 +52,10 @@ export function SpotCard({
   compact = false,
   className,
 }: Props) {
+  // On phones a sheet: folded it shows the hours, pulled up everything (use-sheet-drag.ts)
+  const [expanded, setExpanded] = useState(false);
+  const sheet = useSheetDrag(expanded, setExpanded, onClose);
+  const full = !compact || expanded;
   const at = windAt(layers, pick.lon, pick.lat);
   const wind = at && speedAndDirection(at.wind);
   // The model's gust, when its hour has one
@@ -59,17 +65,35 @@ export function SpotCard({
       aria-label={station?.name ?? m.map_spot()}
       className={cn(
         'flex flex-col rounded-xl border bg-card/95 backdrop-blur',
-        compact ? 'gap-2 p-3' : 'gap-3 p-4',
+        compact ? 'gap-2 p-3 pt-1' : 'gap-3 p-4',
+        sheet.dy === 0 && 'transition-transform duration-200',
         className,
       )}
+      style={compact && sheet.dy !== 0 ? { transform: `translateY(${sheet.dy}px)` } : undefined}
     >
-      <div className="flex items-start justify-between gap-3">
+      {compact && (
+        <button
+          type="button"
+          aria-label={expanded ? m.map_sheetLess() : m.map_sheetMore()}
+          aria-expanded={expanded}
+          onClick={() => !sheet.dragged() && setExpanded(!expanded)}
+          data-grip="true"
+          {...sheet.handlers}
+          className="-mx-3 flex h-5 cursor-grab touch-none items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <span className="h-1 w-10 rounded-full bg-border-strong" />
+        </button>
+      )}
+      <div
+        className={cn('flex items-start justify-between gap-3', compact && 'touch-none')}
+        {...(compact ? sheet.handlers : {})}
+      >
         <div className="min-w-0">
           <h2 className="m-0 truncate font-semibold text-base tracking-[-0.01em]">
             {station ? station.name : m.map_spot()}{' '}
             {station && <span className="font-mono font-normal text-muted-foreground text-sm">{station.code}</span>}
           </h2>
-          <p className="m-0 font-mono text-muted-foreground text-xs">{coordinates(pick.lat, pick.lon)}</p>
+          {full && <p className="m-0 font-mono text-muted-foreground text-xs">{coordinates(pick.lat, pick.lon)}</p>}
         </div>
         <Button variant="ghost" size="icon" className="-mt-2 -mr-2 size-8" aria-label={m.map_close()} onClick={onClose}>
           <X aria-hidden="true" />
@@ -104,7 +128,7 @@ export function SpotCard({
         ) : (
           hours.length > 0 && <SpotStrip hours={hours} time={time} unit={unit} onTime={onTime} />
         )}
-        {station && (
+        {full && station && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">
               {station.at !== null ? m.map_measured({ ago: ago(station.at) }) : m.map_noMeasurement()}
@@ -127,20 +151,22 @@ export function SpotCard({
             )}
           </div>
         )}
-        {station && station.at !== null && <MeasuredSpark slug={station.slug} unit={unit} />}
+        {full && station && station.at !== null && <MeasuredSpark slug={station.slug} unit={unit} />}
       </div>
 
-      <Button asChild size={compact ? 'sm' : 'default'} className="w-full">
-        {station ? (
-          <Link to="/station/$slug" params={{ slug: station.slug }}>
-            {m.map_openStation()} <ArrowRight aria-hidden="true" />
-          </Link>
-        ) : (
-          <Link to="/point" search={{ lat: Number(pick.lat.toFixed(4)), lon: Number(pick.lon.toFixed(4)) }}>
-            {m.map_forecastHere()} <ArrowRight aria-hidden="true" />
-          </Link>
-        )}
-      </Button>
+      {full && (
+        <Button asChild size={compact ? 'sm' : 'default'} className="w-full">
+          {station ? (
+            <Link to="/station/$slug" params={{ slug: station.slug }}>
+              {m.map_openStation()} <ArrowRight aria-hidden="true" />
+            </Link>
+          ) : (
+            <Link to="/point" search={{ lat: Number(pick.lat.toFixed(4)), lon: Number(pick.lon.toFixed(4)) }}>
+              {m.map_forecastHere()} <ArrowRight aria-hidden="true" />
+            </Link>
+          )}
+        </Button>
+      )}
     </section>
   );
 }

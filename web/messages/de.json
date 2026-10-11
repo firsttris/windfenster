@@ -309,6 +309,8 @@
   "map_spot": "Dieser Ort",
   "map_spotHours": "Die nächsten Stunden an diesem Ort",
   "map_close": "Schließen",
+  "map_sheetMore": "Mehr zeigen",
+  "map_sheetLess": "Weniger zeigen",
   "map_outside": "außerhalb des Rechengebiets",
   "map_measured": "Gemessen {ago}",
   "map_noMeasurement": "Keine Messung in den letzten 2 Stunden",
