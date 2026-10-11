@@ -39,8 +39,10 @@ curl -O https://raw.githubusercontent.com/firsttris/windfenster/main/compose.yam
 docker compose up -d
 ```
 
-Open http://localhost:8080. The database lives in `./data`. Until the first release is out,
-build the image yourself: `docker compose up --build` in a checkout.
+Open http://localhost:8080. The database lives in `./data`. The image is
+[`tristanteu/windfenster`](https://hub.docker.com/r/tristanteu/windfenster) (also
+`ghcr.io/firsttris/windfenster`), for amd64 and arm64; to build it yourself instead, run
+`docker compose up --build` in a checkout.
 
 ### On a server with Podman
 
