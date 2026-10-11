@@ -13,13 +13,14 @@ const TICKS: Record<WindUnit, number[]> = {
 
 const TO_KN: Record<WindUnit, number> = { kn: 1, ms: 1 / MS_PER_KN, kmh: 1 / KMH_PER_KN };
 
-/** The colour field's scale in the chosen unit. */
-export function Legend({ unit, className }: { unit: WindUnit; className?: string }) {
+/** The colour field's scale in the chosen unit; wind and gusts share it. */
+export function Legend({ unit, gusts, className }: { unit: WindUnit; gusts: boolean; className?: string }) {
+  const label = gusts ? m.map_legendGusts : m.map_legend;
   return (
     <figure className={cn('m-0 flex flex-col gap-1.5', className)}>
       <div
         role="img"
-        aria-label={m.map_legend({ unit: UNIT_LABEL[unit] })}
+        aria-label={label({ unit: UNIT_LABEL[unit] })}
         className="h-2 rounded-full"
         style={{ background: rampGradient() }}
       />

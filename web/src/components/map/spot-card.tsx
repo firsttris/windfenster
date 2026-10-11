@@ -5,7 +5,7 @@ import type { WindUnit } from '@/bindings/WindUnit';
 import { ago, compass, coordinates } from '@/lib/format';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
-import { speedAndDirection } from '@/lib/wind-map';
+import { gustOf, speedAndDirection } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { WindArrow } from '@/ui/wind-arrow';
@@ -30,6 +30,8 @@ interface Props {
 export function SpotCard({ pick, station, layers, modelName, unit, onClose, className }: Props) {
   const at = windAt(layers, pick.lon, pick.lat);
   const wind = at && speedAndDirection(at.wind);
+  // The model's gust, when its hour has one
+  const gust = at && at.wind.gust !== null ? gustOf(at.wind) : null;
   return (
     <section
       aria-label={station?.name ?? m.map_spot()}
@@ -61,7 +63,10 @@ export function SpotCard({ pick, station, layers, modelName, unit, onClose, clas
                 {formatWind(wind.kn, unit)}
               </span>
               <span className="font-normal text-muted-foreground text-xs">
-                {UNIT_LABEL[unit]} · {compass(wind.from)}
+                {gust !== null
+                  ? m.map_gust({ gust: formatWind(gust, unit), unit: UNIT_LABEL[unit] })
+                  : UNIT_LABEL[unit]}{' '}
+                · {compass(wind.from)}
               </span>
             </span>
           ) : (

@@ -29,11 +29,15 @@ export interface Pick {
 interface Props {
   basemap: Basemap;
   layers: WindLayers;
+  /** Colour by the gusts instead of the wind */
+  gusts: boolean;
   domain: [number, number][] | null;
   pins: readonly StationWind[] | undefined;
   unit: WindUnit;
   picked: Pick | null;
   onPick: (p: Pick) => void;
+  /** The middle of the view, after every move */
+  onCenter: (lon: number, lat: number) => void;
 }
 
 // MapLibre looks for its worker next to its own module, which the bundle no longer has.
@@ -49,18 +53,20 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick }: Props) {
+export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, onPick, onCenter }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
   const parts = useRef<Particles | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
+  const center = useRef(onCenter);
+  center.current = onCenter;
   const [ready, setReady] = useState(false);
   const [theme] = useTheme();
   const reduced = useMedia('(prefers-reduced-motion: reduce)', false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the map is made once; theme and motion follow below
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the map is made once; theme and layer follow below
   useEffect(() => {
     if (!container.current) return;
     const mp = new MapLibreMap({
@@ -86,15 +92,22 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
     mp.keyboard.disableRotation();
     map.current = mp;
 
-    const f = windField('wind-field', FIELD_OPACITY[theme]);
+    const f = windField('wind-field', FIELD_OPACITY[theme], gusts);
     field.current = f;
 
-    // The particles get a canvas of their own over the map, under its controls.
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
-    mp.getContainer().insertBefore(canvas, mp.getContainer().querySelector('.maplibregl-control-container'));
+    // Particles and arrows get canvases of their own over the map, under its controls.
+    const overlays: HTMLCanvasElement[] = [];
+    const overlay = () => {
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+      mp.getContainer().insertBefore(canvas, mp.getContainer().querySelector('.maplibregl-control-container'));
+      overlays.push(canvas);
+      return canvas;
+    };
     // Less motion asked for: arrows that stand still instead of particles
-    parts.current = reduced ? arrowField(canvas) : particles(canvas);
+    parts.current = reduced ? arrowField(overlay()) : particles(overlay());
+    parts.current?.setTheme(theme);
+    parts.current?.setGusts(gusts);
 
     let zoom = mp.getZoom();
     const sync = () => {
@@ -112,6 +125,11 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
     };
     mp.on('move', sync);
     mp.on('resize', sync);
+    const middle = () => {
+      const c = mp.getCenter();
+      center.current(c.lng, c.lat);
+    };
+    mp.on('moveend', middle);
     mp.on('load', () => {
       mp.addLayer(f.layer, basemap.aboveField);
       mp.addSource('picked', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -127,6 +145,7 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
         },
       });
       sync();
+      middle();
       setReady(true);
     });
     mp.on('click', (e) => {
@@ -157,6 +176,7 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
     return () => {
       parts.current?.destroy();
       parts.current = null;
+      for (const c of overlays) c.remove();
       field.current = null;
       mp.remove();
       map.current = null;
@@ -170,6 +190,11 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
   }, [layers]);
 
   useEffect(() => {
+    field.current?.setGusts(gusts);
+    parts.current?.setGusts(gusts);
+  }, [gusts]);
+
+  useEffect(() => {
     if (ready && map.current) setDomain(map.current, domain);
   }, [ready, domain]);
 
@@ -179,6 +204,7 @@ export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick 
     applyTheme(mp, basemap, theme);
     pinTheme(mp, theme);
     field.current?.setOpacity(FIELD_OPACITY[theme]);
+    parts.current?.setTheme(theme);
     mp.setPaintProperty('picked', 'circle-stroke-color', theme === 'dark' ? '#fafafa' : '#09090b');
   }, [ready, theme, basemap]);
 

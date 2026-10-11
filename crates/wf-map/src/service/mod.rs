@@ -148,7 +148,7 @@ impl MapData {
         }
     }
 
-    /// Encodes U and V of an hour and writes the texture.
+    /// Encodes U, V and the gust of an hour and writes the texture.
     async fn write_hour(
         &self,
         model: &'static str,
@@ -156,10 +156,12 @@ impl MapData {
         step: u32,
         u: LatLonGrid,
         v: LatLonGrid,
+        gust: Option<LatLonGrid>,
     ) -> Result<(), Error> {
-        let (png, meta) =
-            tokio::task::spawn_blocking(move || texture::encode(&u, &v, model, run_at, step))
-                .await??;
+        let (png, meta) = tokio::task::spawn_blocking(move || {
+            texture::encode(&u, &v, gust.as_ref(), model, run_at, step)
+        })
+        .await??;
         Ok(store::write_step(&self.root, model, &png, &meta).await?)
     }
 

@@ -14,6 +14,8 @@ pub const EVERY_S: i64 = 6 * 3_600;
 
 pub const U: &str = "10u";
 pub const V: &str = "10v";
+/// The strongest gust since the step before, m/s
+pub const GUST: &str = "10fg";
 
 /// The run as its file names give it: YYYYMMDDHH0000
 fn stamp(run_at: i64) -> String {

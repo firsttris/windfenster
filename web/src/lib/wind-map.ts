@@ -98,6 +98,8 @@ export interface Wind {
   /** Towards the east and the north, kn */
   u: number;
   v: number;
+  /** The strongest gust around the hour, kn; null when the model hour has none */
+  gust: number | null;
 }
 
 /** The wind of a texture at a place, interpolated between the four texels around it like the
@@ -114,6 +116,7 @@ export function sampleWind(meta: TextureMeta, pixels: ArrayLike<number>, lon: nu
   const ay = Math.min(1, Math.max(0, fy - y0));
   let r = 0;
   let g = 0;
+  let b = 0;
   let a = 0;
   for (const [x, y, w] of [
     [x0, y0, (1 - ax) * (1 - ay)],
@@ -125,6 +128,7 @@ export function sampleWind(meta: TextureMeta, pixels: ArrayLike<number>, lon: nu
     if (pixels[o + 3] === 0) continue;
     r += pixels[o] * w;
     g += pixels[o + 1] * w;
+    b += pixels[o + 2] * w;
     a += w;
   }
   // Less than half of the surrounding texels in the domain counts as outside, as on the GPU.
@@ -132,19 +136,44 @@ export function sampleWind(meta: TextureMeta, pixels: ArrayLike<number>, lon: nu
   return {
     u: meta.uMin + (meta.uMax - meta.uMin) * (r / a / 255),
     v: meta.vMin + (meta.vMax - meta.vMin) * (g / a / 255),
+    gust: meta.gustMax === null ? null : (meta.gustMax * b) / a / 255,
   };
 }
 
 /** Speed in kn and where the wind comes from, degrees (0 = north). */
-export function speedAndDirection({ u, v }: Wind): { kn: number; from: number } {
+export function speedAndDirection({ u, v }: Pick<Wind, 'u' | 'v'>): { kn: number; from: number } {
   const from = ((Math.atan2(-u, -v) * 180) / Math.PI + 360) % 360;
   return { kn: Math.hypot(u, v), from };
 }
 
-/** Wind of two frames blended: `t` of the way from `a` to `b`. */
+/** Wind of two frames blended: `t` of the way from `a` to `b`. A gust missing in one hour is
+ * taken from the other. */
 export function blend(a: Wind | null, b: Wind | null, t: number): Wind | null {
   if (!a || !b) return a ?? b;
-  return { u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t };
+  const ga = a.gust ?? b.gust;
+  const gb = b.gust ?? a.gust;
+  return {
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+    gust: ga === null || gb === null ? null : ga + (gb - ga) * t,
+  };
+}
+
+/** The gust to show: the model's, never below the wind itself (both are interpolated apart),
+ * or the wind where the model has no gusts. */
+export function gustOf(w: Wind): number {
+  return Math.max(w.gust ?? 0, Math.hypot(w.u, w.v));
+}
+
+/** Whether a place lies within a ring of (lon, lat) points, such as a model's domain. */
+export function insideRing(ring: readonly (readonly [number, number])[], lon: number, lat: number): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
 }
 
 /** Models that cover the whole map region: the base under a finer model */

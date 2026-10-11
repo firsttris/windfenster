@@ -94,6 +94,7 @@ export function bindWind(
         f?.meta.vMax ?? 0,
       );
     }
+    gl.uniform2f(p.u[`u_${name}_gust`], pair?.a.meta.gustMax ?? -1, pair?.b.meta.gustMax ?? -1);
   });
   gl.uniform2f(p.u.u_mix, layers.base?.t ?? 0, layers.detail?.t ?? 0);
   gl.uniform2f(p.u.u_has, layers.base ? 1 : 0, layers.detail ? 1 : 0);

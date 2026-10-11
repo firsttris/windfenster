@@ -19,4 +19,8 @@ domain: Array<[number, number]>,
 /**
  * kn
  */
-uMin: number, uMax: number, vMin: number, vMax: number, };
+uMin: number, uMax: number, vMin: number, vMax: number, 
+/**
+ * kn at blue 255; null when the hour has no gusts (blue is 0 then)
+ */
+gustMax: number | null, };

@@ -4,7 +4,9 @@ import type { TextureMeta } from '@/bindings/TextureMeta';
 import {
   blend,
   chooseLayers,
+  gustOf,
   hoursAt,
+  insideRing,
   latOf,
   mercatorX,
   mercatorY,
@@ -64,8 +66,8 @@ describe('colour ramp', () => {
 });
 
 describe('sampling a texture', () => {
-  // 2 × 2 texels, north row first; U from -10 to 10 kn, V from 0 to 20 kn; the north-east
-  // texel lies outside the domain.
+  // 2 × 2 texels, north row first; U from -10 to 10 kn, V from 0 to 20 kn, gusts up to 30 kn;
+  // the north-east texel lies outside the domain.
   const meta: TextureMeta = {
     model: 'icon_d2',
     runAt: 0,
@@ -82,18 +84,23 @@ describe('sampling a texture', () => {
     uMax: 10,
     vMin: 0,
     vMax: 20,
+    gustMax: 30,
   };
-  const px = [0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 0, 255, 255, 0, 0, 255];
+  const px = [0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 255, 255, 255, 0, 102, 255];
 
   it('reads texel centres and blends between them', () => {
     // Centre of the north-west texel: U -10, V 0
-    expect(sampleWind(meta, px, 0.5, 51.5)).toEqual({ u: -10, v: 0 });
+    expect(sampleWind(meta, px, 0.5, 51.5)).toEqual({ u: -10, v: 0, gust: 0 });
     // Centre of the south-west texel
-    expect(sampleWind(meta, px, 0.5, 50.5)).toEqual({ u: 10, v: 20 });
+    expect(sampleWind(meta, px, 0.5, 50.5)).toEqual({ u: 10, v: 20, gust: 30 });
     // Half way between the two western texels
-    expect(sampleWind(meta, px, 0.5, 51)).toEqual({ u: 0, v: 10 });
+    expect(sampleWind(meta, px, 0.5, 51)).toEqual({ u: 0, v: 10, gust: 15 });
     // Next to the missing texel only the valid ones count.
-    expect(sampleWind(meta, px, 1.5, 51)).toEqual({ u: 10, v: 0 });
+    expect(sampleWind(meta, px, 1.5, 51)).toEqual({ u: 10, v: 0, gust: 12 });
+  });
+
+  it('has no gusts where the model hour has none', () => {
+    expect(sampleWind({ ...meta, gustMax: null }, px, 0.5, 50.5)?.gust).toBeNull();
   });
 
   it('knows its domain', () => {
@@ -113,8 +120,35 @@ describe('wind', () => {
   });
 
   it('blends two hours', () => {
-    expect(blend({ u: 0, v: 10 }, { u: 10, v: 0 }, 0.25)).toEqual({ u: 2.5, v: 7.5 });
-    expect(blend(null, { u: 1, v: 1 }, 0.5)).toEqual({ u: 1, v: 1 });
+    expect(blend({ u: 0, v: 10, gust: 20 }, { u: 10, v: 0, gust: 40 }, 0.25)).toEqual({ u: 2.5, v: 7.5, gust: 25 });
+    expect(blend(null, { u: 1, v: 1, gust: null }, 0.5)).toEqual({ u: 1, v: 1, gust: null });
+    // The first hour of a run has no gusts: the next hour's stand in.
+    expect(blend({ u: 0, v: 0, gust: null }, { u: 0, v: 0, gust: 18 }, 0.5)?.gust).toBe(18);
+  });
+
+  it('never shows gusts below the wind', () => {
+    expect(gustOf({ u: 6, v: 8, gust: 14 })).toBe(14);
+    expect(gustOf({ u: 6, v: 8, gust: 9 })).toBe(10);
+    expect(gustOf({ u: 6, v: 8, gust: null })).toBe(10);
+  });
+});
+
+describe('domains', () => {
+  it('knows what lies within a ring', () => {
+    // ICON-D2's domain, roughly, and a notch cut out in the south-east
+    const ring: [number, number][] = [
+      [-4, 44],
+      [10, 44],
+      [10, 50],
+      [20, 50],
+      [20, 59],
+      [-4, 59],
+    ];
+    expect(insideRing(ring, 8.08, 48.78)).toBe(true);
+    expect(insideRing(ring, 28.09, 36.41)).toBe(false);
+    expect(insideRing(ring, 15, 47)).toBe(false);
+    expect(insideRing(ring, 15, 52)).toBe(true);
+    expect(insideRing([], 0, 0)).toBe(false);
   });
 });
 

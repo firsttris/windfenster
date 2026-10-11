@@ -124,6 +124,7 @@ mod tests {
             u_max: 0.0,
             v_min: 0.0,
             v_max: 0.0,
+            gust_max: None,
         }
     }
 

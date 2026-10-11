@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { basemapFor } from '@/components/map/basemap';
+import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
 import { SpotCard } from '@/components/map/spot-card';
@@ -14,7 +15,7 @@ import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { useTitle } from '@/lib/use-title';
 import { cn } from '@/lib/utils';
-import { chooseLayers, hoursAt, positionAt, startTime } from '@/lib/wind-map';
+import { chooseLayers, hoursAt, insideRing, positionAt, startTime } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 
 export const Route = createFileRoute('/map')({
@@ -48,12 +49,23 @@ function MapPage() {
   const detail = useWindPair(hoursAt(choice.detail?.frames ?? [], time), time, playing);
   const layers = useMemo(() => ({ base, detail }), [base, detail]);
   const [pick, setPick] = useState<Pick | null>(null);
+  const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
+  const [field, setField] = useState<FieldLayer>('wind');
+  const gusts = field === 'gusts';
+  // A model hour without gusts (ECMWF's first, some late ones) shows the wind instead.
+  const gustless = gusts
+    ? [detail, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
+    : null;
 
   const modelOf = (id: string | undefined) => models.data?.find((x) => x.id === id);
   const nameOf = (id: string) => modelOf(id)?.name ?? id;
   const ready = index.data?.layers.filter((l) => l.frames.length > 0) ?? [];
-  // The model that draws the hour shown where it is finest, for its run
-  const drawing = detail ? choice.detail : choice.base;
+  // The model that draws the hour shown at the spot picked or else in the middle of the view,
+  // for its run: the detail inside its domain, the base around it.
+  const where = pick ?? center;
+  const inDetail =
+    detail !== null && (where === null || insideRing(detail.a.meta.domain as [number, number][], where.lon, where.lat));
+  const drawing = inDetail || !choice.base ? choice.detail : choice.base;
   const drawingFrames = drawing?.frames ?? [];
   const frame = time !== null && drawingFrames.length ? drawingFrames[positionAt(drawingFrames, time).i] : null;
   const station = pick?.slug ? (pins.data?.find((p) => p.slug === pick.slug) ?? null) : null;
@@ -132,8 +144,14 @@ function MapPage() {
           </div>
           {modelInfo}
           <div className="flex flex-col gap-2">
-            <h2 className="m-0 font-semibold text-sm">{m.map_speed()}</h2>
-            <Legend unit={unit} />
+            <h2 className="m-0 font-semibold text-sm">{gusts ? m.map_gustSpeed() : m.map_speed()}</h2>
+            <LayerSwitch value={field} onChange={setField} />
+            <Legend unit={unit} gusts={gusts} />
+            {gustless && (
+              <p className="m-0 text-muted-foreground text-xs">
+                {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
+              </p>
+            )}
           </div>
           {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
           <Attribution osm={!!index.data?.basemap} className="mt-auto" />
@@ -146,11 +164,13 @@ function MapPage() {
           <MapCanvas
             basemap={basemap}
             layers={layers}
+            gusts={gusts}
             domain={detail ? (detail.a.meta.domain as [number, number][]) : null}
             pins={pins.data}
             unit={unit}
             picked={pick}
             onPick={setPick}
+            onCenter={(lon, lat) => setCenter({ lon, lat })}
           />
         )}
         {!desktop && (
@@ -160,7 +180,13 @@ function MapPage() {
               {runLine && <p className="m-0 truncate font-mono text-muted-foreground text-xs">{runLine}</p>}
             </div>
             {ready.length > 1 && chips}
-            <Legend unit={unit} />
+            <LayerSwitch value={field} onChange={setField} compact />
+            <Legend unit={unit} gusts={gusts} />
+            {gustless && (
+              <p className="m-0 text-muted-foreground text-xs">
+                {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
+              </p>
+            )}
           </div>
         )}
         {empty && (

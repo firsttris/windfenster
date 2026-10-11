@@ -11,6 +11,8 @@ pub const EVERY_S: i64 = 3 * 3_600;
 
 pub const U: &str = "u_10m";
 pub const V: &str = "v_10m";
+/// The strongest gust of the hour before, m/s
+pub const GUST: &str = "vmax_10m";
 
 pub fn file_name(run_at: i64, step: u32, var: &str) -> String {
     format!(

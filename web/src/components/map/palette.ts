@@ -1,6 +1,7 @@
 /** The basemap's colours, light and dark: calm, so the wind field leads; lines and labels drawn
- * over the field are translucent so they read on any wind colour. */
-import type { Map as MapLibreMap } from 'maplibre-gl';
+ * over the field are translucent so they read on any wind colour. From town zoom on, where the
+ * field gives way, the map takes the colours of a map (`near`). */
+import type { ExpressionSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import type { Theme } from '@/lib/prefs';
 
 export interface Palette {
@@ -18,6 +19,21 @@ export interface Palette {
   text: string;
   halo: string;
   water: string;
+  near: NearPalette;
+}
+
+/** Colours from town zoom on */
+export interface NearPalette {
+  land: string;
+  sea: string;
+  river: string;
+  forest: string;
+  meadow: string;
+  farmland: string;
+  industrial: string;
+  aerodrome: string;
+  sand: string;
+  buildings: string;
 }
 
 export const PALETTES: Record<Theme, Palette> = {
@@ -36,6 +52,18 @@ export const PALETTES: Record<Theme, Palette> = {
     text: '#f4f4f5',
     halo: 'rgba(9,9,11,0.78)',
     water: '#9db7d8',
+    near: {
+      land: '#1c1e1d',
+      sea: '#14263a',
+      river: '#2c4d70',
+      forest: '#1a2a1f',
+      meadow: '#1e2820',
+      farmland: '#1f221d',
+      industrial: '#232229',
+      aerodrome: '#26262c',
+      sand: '#2b2820',
+      buildings: '#2b2c30',
+    },
   },
   light: {
     sea: '#d7e0ea',
@@ -52,10 +80,22 @@ export const PALETTES: Record<Theme, Palette> = {
     text: '#18181b',
     halo: 'rgba(255,255,255,0.85)',
     water: '#3f6a9a',
+    near: {
+      land: '#f1eee6',
+      sea: '#a9cff0',
+      river: '#8cc0ea',
+      forest: '#cde2c1',
+      meadow: '#dfebd2',
+      farmland: '#eef0df',
+      industrial: '#e4e0e8',
+      aerodrome: '#e2e2e7',
+      sand: '#f1e8c9',
+      buildings: '#ddd6ca',
+    },
   },
 };
 
 export type PaintProperty = Parameters<MapLibreMap['setPaintProperty']>[1];
 
 /** Paint properties that change with the theme, per layer id */
-export type ThemePaint = Record<string, Record<string, string>>;
+export type ThemePaint = Record<string, Record<string, string | ExpressionSpecification>>;

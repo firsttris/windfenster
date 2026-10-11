@@ -100,9 +100,9 @@ async fn fetches_new_hours_and_fills_in_from_the_run_before() {
         },
     );
 
-    // 08 UTC: the 06 UTC run has two hours out, U and V each.
+    // 08 UTC: the 06 UTC run has two hours out, U, V and gusts each.
     assert_eq!(map.update_icon_d2(R06 + 2 * 3_600).await.unwrap(), 2);
-    assert_eq!(fake.files.load(Ordering::SeqCst), 4);
+    assert_eq!(fake.files.load(Ordering::SeqCst), 6);
     let meta: wf_map::texture::TextureMeta = serde_json::from_slice(
         &std::fs::read(dir.path().join("icon_d2/2026101106/001.json")).unwrap(),
     )
@@ -112,11 +112,13 @@ async fn fetches_new_hours_and_fills_in_from_the_run_before() {
         (3, 2, R06 + 3_600)
     );
     assert_eq!((meta.west, meta.north), (9.75, 50.75));
+    // The gust file holds what V does here: 6 m/s at most
+    assert!((meta.gust_max.unwrap() - 6.0 / 0.514_444).abs() < 0.01);
     assert!(dir.path().join("icon_d2/2026101106/001.png").exists());
 
     // Nothing new: nothing fetched.
     assert_eq!(map.update_icon_d2(R06 + 2 * 3_600).await.unwrap(), 0);
-    assert_eq!(fake.files.load(Ordering::SeqCst), 4);
+    assert_eq!(fake.files.load(Ordering::SeqCst), 6);
 
     // 09 UTC is out: its hours come first, 06 UTC fills in the hours before.
     fake.newest.store(R09, Ordering::SeqCst);

@@ -2,9 +2,12 @@
  * The detailed basemap: OpenStreetMap vector tiles in the Protomaps basemap schema (v4), from
  * the operator's PMTiles file. Our own calm style rather than Protomaps' themes: land and water
  * under the wind field; rivers, roads, borders and places over it, translucent, so they read
- * on any wind colour. Layer names and kinds follow protomaps/basemaps (styles/src/base_layers.ts).
+ * on any wind colour. From town zoom on, where the field fades out, it turns into a map: land
+ * use, clear water, buildings. Layer names and kinds follow protomaps/basemaps
+ * (styles/src/base_layers.ts, tiles/…/layers/Landuse.java).
  */
 import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl';
+import { TOWN_FROM, TOWN_TO } from '@/lib/town-zoom';
 import type { Palette, ThemePaint } from './palette';
 
 /** The colour field goes under this layer: rivers, roads, borders and places lie above. */
@@ -24,13 +27,70 @@ const width = (...stops: number[]): ExpressionSpecification => [
   ...stops,
 ];
 
+/** `far` under the wind field, `near` from town zoom on */
+const near = (far: string, close: string): ExpressionSpecification => [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  TOWN_FROM,
+  far,
+  TOWN_TO,
+  close,
+];
+
+/** Land use kinds by the colour they get */
+const LANDUSE = {
+  forest: ['forest', 'wood'],
+  meadow: [
+    'park',
+    'national_park',
+    'nature_reserve',
+    'protected_area',
+    'grassland',
+    'grass',
+    'scrub',
+    'golf_course',
+    'cemetery',
+    'allotments',
+    'village_green',
+    'playground',
+  ],
+  farmland: ['farmland'],
+  industrial: ['industrial'],
+  aerodrome: ['aerodrome', 'airfield', 'military', 'naval_base', 'runway', 'taxiway'],
+  sand: ['sand', 'beach'],
+} as const;
+
+function landuseColor(p: Palette): ExpressionSpecification {
+  const kinds = Object.keys(LANDUSE) as (keyof typeof LANDUSE)[];
+  const match = (colour: (k: keyof typeof LANDUSE) => string) =>
+    [
+      'match',
+      ['get', 'kind'],
+      ...kinds.flatMap((k) => [[...LANDUSE[k]], colour(k)]),
+      p.land,
+    ] as unknown as ExpressionSpecification;
+  // Far out only the green of forests and parks shows, faintly, as before. MapLibre allows the
+  // zoom only at the top of an expression: one match per end.
+  return [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    TOWN_FROM,
+    match((k) => (k === 'forest' || k === 'meadow' ? p.green : p.land)),
+    TOWN_TO,
+    match((k) => p.near[k]),
+  ];
+}
+
 export function protomapsPaint(p: Palette): ThemePaint {
   return {
-    sea: { 'background-color': p.sea },
-    earth: { 'fill-color': p.land },
-    green: { 'fill-color': p.green },
-    water: { 'fill-color': p.sea },
-    'water-lines': { 'line-color': p.river },
+    sea: { 'background-color': near(p.sea, p.near.sea) },
+    earth: { 'fill-color': near(p.land, p.near.land) },
+    landuse: { 'fill-color': landuseColor(p) },
+    water: { 'fill-color': near(p.sea, p.near.sea) },
+    buildings: { 'fill-color': p.near.buildings },
+    'water-lines': { 'line-color': near(p.river, p.near.river) },
     coast: { 'line-color': p.coast },
     'roads-minor': { 'line-color': p.minor },
     'roads-major': { 'line-color': p.major },
@@ -64,12 +124,12 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
       filter: ['==', ['geometry-type'], 'Polygon'],
     },
     {
-      id: 'green',
+      id: 'landuse',
       type: 'fill',
       source: SOURCE,
       'source-layer': 'landuse',
       minzoom: 8,
-      filter: ['in', ['get', 'kind'], ['literal', ['park', 'forest', 'wood', 'nature_reserve', 'national_park']]],
+      filter: ['in', ['get', 'kind'], ['literal', Object.values(LANDUSE).flat()]],
       paint: { 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 10, 1] },
     },
     {
@@ -78,6 +138,14 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
       source: SOURCE,
       'source-layer': 'water',
       filter: ['==', ['geometry-type'], 'Polygon'],
+    },
+    {
+      id: 'buildings',
+      type: 'fill',
+      source: SOURCE,
+      'source-layer': 'buildings',
+      minzoom: 13,
+      paint: { 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14.5, 1] },
     },
     // — the wind field —
     {
@@ -91,7 +159,7 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
         ['==', ['geometry-type'], 'LineString'],
         ['in', ['get', 'kind'], ['literal', ['river', 'canal']]],
       ],
-      paint: { 'line-width': width(8, 0.6, 14, 2.5) },
+      paint: { 'line-width': width(8, 0.6, 14, 3) },
     },
     {
       id: 'coast',

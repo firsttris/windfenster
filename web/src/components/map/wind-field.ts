@@ -1,6 +1,7 @@
 /** The colour field: a MapLibre custom layer that paints the model's wind speed under the
  * coastlines and labels. It draws only when the map or the hour changes. */
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
+import { townness } from '@/lib/town-zoom';
 import { mercatorX, mercatorY, RAMP_MAX_KN, rampPixels } from '@/lib/wind-map';
 import { activate, bindAttribute, bindTexture, createBuffer, createProgram, createTexture, type Program } from './gl';
 import { FIELD_FRAG, FIELD_VERT } from './shaders';
@@ -11,9 +12,11 @@ export interface WindField {
   /** Shows the layers' hours blended, or nothing. */
   show(layers: WindLayers): void;
   setOpacity(opacity: number): void;
+  /** Colours by the gusts instead of the wind. */
+  setGusts(gusts: boolean): void;
 }
 
-export function windField(id: string, opacity: number): WindField {
+export function windField(id: string, opacity: number, gusts: boolean): WindField {
   let map: MapLibreMap | null = null;
   let gl: WebGL2RenderingContext | null = null;
   let program: Program | null = null;
@@ -25,6 +28,7 @@ export function windField(id: string, opacity: number): WindField {
   let textures: WindTextures | null = null;
   let shown: WindLayers = NO_WIND;
   let alpha = opacity;
+  let byGust = gusts;
 
   const layer: CustomLayerInterface = {
     id,
@@ -50,7 +54,9 @@ export function windField(id: string, opacity: number): WindField {
       quadFor = '';
     },
     render(context, options) {
-      if (!hasWind(shown) || !program || !ramp || !textures) return;
+      // From town zoom on the map takes over: the field fades out.
+      const town = townness(map?.getZoom() ?? 0);
+      if (!hasWind(shown) || !program || !ramp || !textures || town >= 1) return;
       const g = context;
       // Two triangles over all the textures' extent, in Mercator
       const metas = framesOf(shown).map((f) => f.meta);
@@ -75,10 +81,8 @@ export function windField(id: string, opacity: number): WindField {
       bindTexture(g, ramp, 4);
       g.uniform1i(program.u.u_ramp, 4);
       g.uniform1f(program.u.u_ramp_max, RAMP_MAX_KN);
-      // From town zoom on the map's own detail matters more: the field pales.
-      const z = map?.getZoom() ?? 0;
-      const pale = Math.min(1, Math.max(0, (z - 9) / 3.5));
-      g.uniform1f(program.u.u_opacity, alpha * (1 - 0.45 * pale * pale * (3 - 2 * pale)));
+      g.uniform1f(program.u.u_gusts, byGust ? 1 : 0);
+      g.uniform1f(program.u.u_opacity, alpha * (1 - town));
       g.enable(g.BLEND);
       g.blendFunc(g.ONE, g.ONE_MINUS_SRC_ALPHA);
       g.drawArrays(g.TRIANGLES, 0, 6);
@@ -94,6 +98,10 @@ export function windField(id: string, opacity: number): WindField {
     },
     setOpacity(o) {
       alpha = o;
+      map?.triggerRepaint();
+    },
+    setGusts(g) {
+      byGust = g;
       map?.triggerRepaint();
     },
   };

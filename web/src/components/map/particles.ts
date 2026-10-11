@@ -6,7 +6,10 @@
  * Drawn on a canvas of their own over the map, so the map itself does not redraw 60 times a
  * second.
  */
-import type { MercatorView } from '@/lib/wind-map';
+import { countsAsFrame, nextBudget, particleCount, SAMPLE_FRAMES } from '@/lib/particle-budget';
+import type { Theme } from '@/lib/prefs';
+import { townness, zoomOf } from '@/lib/town-zoom';
+import { type MercatorView, RAMP_MAX_KN, rampPixels } from '@/lib/wind-map';
 import {
   activate,
   bindAttribute,
@@ -24,7 +27,10 @@ export interface Particles {
   show(layers: WindLayers): void;
   /** The visible map changed; `zoomed` starts the particles afresh. */
   setView(view: MercatorView, cssWidth: number, cssHeight: number, pixelRatio: number, zoomed: boolean): void;
-  setColor(rgb: [number, number, number]): void;
+  /** Over the town map the particles lean towards the theme's ink, to stand out from it. */
+  setTheme(theme: Theme): void;
+  /** Colours by the gusts instead of the wind where the particles take the field's colours. */
+  setGusts(gusts: boolean): void;
   destroy(): void;
 }
 
@@ -32,10 +38,15 @@ export interface Particles {
 const PX_PER_KN = 0.08;
 /** How much of a trail is left after one frame */
 const FADE = 0.97;
+/** Over the field the particles are white; over the town map their colour leans this far
+ * towards the theme's ink: light lines on the dark map, dark ones on the light. */
+const INK: Record<Theme, [number, number, number, number]> = {
+  dark: [1, 1, 1, 0.45],
+  light: [0.04, 0.05, 0.07, 0.2],
+};
+
 /** Share of particles renewed per frame */
 const DROP = 0.004;
-/** One particle per this many square pixels of map, within limits */
-const AREA_PER_PARTICLE = 480;
 
 export function particles(canvas: HTMLCanvasElement): Particles | null {
   const context = canvas.getContext('webgl2', {
@@ -55,21 +66,26 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   const corners = createBuffer(gl, new Float32Array([0, -1, 1, -1, 0, 1, 0, 1, 1, -1, 1, 1]));
   const fb = gl.createFramebuffer();
   const textures = windTextures(gl);
+  const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
 
   let shown: WindLayers = NO_WIND;
   let view: MercatorView = { x: 0, y: 0, w: 1, h: 1 };
   let shift: [number, number, number, number] = [1, 1, 0, 0];
   let size = { w: 1, h: 1, ratio: 1 };
-  let color: [number, number, number] = [1, 1, 1];
+  let ink = INK.dark;
+  let byGust = false;
   let res = 0;
   let state: [WebGLTexture, WebGLTexture] | null = null;
   let trails: [WebGLTexture, WebGLTexture] | null = null;
   let frame = 0;
   let last = 0;
+  // Fewer particles when the device cannot keep up
+  let budget = 1;
+  let measured = { ms: 0, frames: 0 };
 
   /** New particles at random places, as many as the map's size asks for */
   function seed() {
-    const n = Math.min(16_000, Math.max(1_500, Math.round((size.w * size.h) / AREA_PER_PARTICLE)));
+    const n = particleCount(size.w, size.h, budget);
     res = Math.ceil(Math.sqrt(n));
     const bytes = new Uint8Array(res * res * 4);
     for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
@@ -100,6 +116,17 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     frame = requestAnimationFrame(step);
     if (!state || !trails) return;
     const dt = last ? Math.min(3, (now - last) / (1000 / 60)) : 1;
+    if (last && countsAsFrame(now - last) && hasWind(shown)) {
+      measured = { ms: measured.ms + now - last, frames: measured.frames + 1 };
+      if (measured.frames >= SAMPLE_FRAMES) {
+        const next = nextBudget(budget, measured.ms / measured.frames);
+        measured = { ms: 0, frames: 0 };
+        if (next !== budget) {
+          budget = next;
+          seed();
+        }
+      }
+    }
     last = now;
     const { width, height } = canvas;
     if (!hasWind(shown)) {
@@ -149,7 +176,12 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.uniform2f(draw.u.u_screen, width, height);
     gl.uniform1f(draw.u.u_res, res);
     gl.uniform1f(draw.u.u_width, size.ratio);
-    gl.uniform3f(draw.u.u_color, ...color);
+    gl.uniform4f(draw.u.u_ink, ...ink);
+    bindTexture(gl, ramp, 6);
+    gl.uniform1i(draw.u.u_ramp, 6);
+    gl.uniform1f(draw.u.u_ramp_max, RAMP_MAX_KN);
+    gl.uniform1f(draw.u.u_town, townness(zoomOf(view.w, size.w)));
+    gl.uniform1f(draw.u.u_gusts, byGust ? 1 : 0);
     bindAttribute(gl, corners, draw.a.a_corner, 2);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, res * res);
     gl.disable(gl.BLEND);
@@ -198,12 +230,16 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
       // Trails are drawn on the screen: after a move they would point the wrong way.
       clearTrails(resized);
     },
-    setColor(rgb) {
-      color = rgb;
+    setTheme(theme) {
+      ink = INK[theme];
+    },
+    setGusts(g) {
+      byGust = g;
     },
     destroy() {
       cancelAnimationFrame(frame);
       textures.clear();
+      gl.deleteTexture(ramp);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     },
   };

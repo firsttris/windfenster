@@ -79,7 +79,8 @@ export function arrowField(canvas: HTMLCanvasElement): Particles | null {
       size = { w: cssWidth, h: cssHeight, ratio: pixelRatio };
       later();
     },
-    setColor() {},
+    setTheme() {},
+    setGusts() {},
     destroy() {
       cancelAnimationFrame(frame);
     },

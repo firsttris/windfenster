@@ -80,6 +80,7 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
     let (png, meta) = wf_map::texture::encode(
         &grid(vec![5.0, -5.0]),
         &grid(vec![0.0, 2.0]),
+        None,
         "icon_d2",
         R06,
         3,

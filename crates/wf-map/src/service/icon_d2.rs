@@ -18,6 +18,8 @@ impl MapData {
                 self.listed_icon_d2(run_at, icon_d2::V).await?,
             );
             let ready: Vec<u32> = u.into_iter().filter(|s| v.contains(s)).collect();
+            // Gusts come with the wind; an hour without them is drawn all the same.
+            let gusts = self.listed_icon_d2(run_at, icon_d2::GUST).await?;
             if ready.is_empty() {
                 // Not out yet; try the run before.
                 continue;
@@ -26,7 +28,12 @@ impl MapData {
             for step in ready.into_iter().filter(|s| !have.contains(s)) {
                 let u = self.fetch_icon_d2(run_at, step, icon_d2::U).await?;
                 let v = self.fetch_icon_d2(run_at, step, icon_d2::V).await?;
-                self.write_hour(model, run_at, step, u, v).await?;
+                let gust = if gusts.contains(&step) {
+                    Some(self.fetch_icon_d2(run_at, step, icon_d2::GUST).await?)
+                } else {
+                    None
+                };
+                self.write_hour(model, run_at, step, u, v, gust).await?;
                 written += 1;
             }
             break;

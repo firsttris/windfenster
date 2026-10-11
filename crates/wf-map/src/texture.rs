@@ -1,6 +1,7 @@
 //! A wind field as a PNG texture: red is U (west→east), green is V (south→north), each scaled
-//! from its minimum to its maximum, in knots; alpha is 0 where the model has no value. Row 0 is
-//! the northern edge, as images go.
+//! from its minimum to its maximum, in knots; blue is the gust from 0 to its maximum where the
+//! model gives one; alpha is 0 where the model has no value. Row 0 is the northern edge, as
+//! images go.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -42,6 +43,9 @@ pub struct TextureMeta {
     pub u_max: f32,
     pub v_min: f32,
     pub v_max: f32,
+    /// kn at blue 255; null when the hour has no gusts (blue is 0 then)
+    #[serde(default)]
+    pub gust_max: Option<f32>,
 }
 
 fn range(values: &[f32]) -> (f32, f32) {
@@ -69,17 +73,20 @@ fn round3(x: f64) -> f64 {
 pub fn encode(
     u: &LatLonGrid,
     v: &LatLonGrid,
+    gust: Option<&LatLonGrid>,
     model: &str,
     run_at: i64,
     step: u32,
 ) -> Result<(Vec<u8>, TextureMeta), TextureError> {
-    if !u.same_points(v) {
+    if !u.same_points(v) || gust.is_some_and(|g| !u.same_points(g)) {
         return Err(TextureError::Grids);
     }
     let to_kn = |x: f32| x / MS_PER_KN as f32;
     let uk: Vec<f32> = u.values.iter().map(|x| to_kn(*x)).collect();
     let vk: Vec<f32> = v.values.iter().map(|x| to_kn(*x)).collect();
     let (ur, vr) = (range(&uk), range(&vk));
+    let gk: Option<Vec<f32>> = gust.map(|g| g.values.iter().map(|x| to_kn(*x)).collect());
+    let gmax = gk.as_deref().map(|g| range(g).1).filter(|m| *m > 0.0);
     let (w, h) = (u.nx, u.ny);
     let mut rgba = vec![0u8; w * h * 4];
     for row in 0..h {
@@ -90,6 +97,11 @@ pub fn encode(
                 let o = (row * w + ix) * 4;
                 rgba[o] = byte(uk[k], ur);
                 rgba[o + 1] = byte(vk[k], vr);
+                if let (Some(g), Some(max)) = (&gk, gmax)
+                    && g[k].is_finite()
+                {
+                    rgba[o + 2] = byte(g[k], (0.0, max));
+                }
                 rgba[o + 3] = 255;
             }
         }
@@ -124,6 +136,7 @@ pub fn encode(
         u_max: ur.1,
         v_min: vr.0,
         v_max: vr.1,
+        gust_max: gmax,
     };
     Ok((png_bytes, meta))
 }
@@ -149,7 +162,8 @@ mod tests {
         // Rows south to north: (10 m/s, 0) in the south-west, missing in the north-east
         let u = grid(vec![10.0, 0.0, -10.0, f32::NAN]);
         let v = grid(vec![0.0, 5.0, 5.0, 5.0]);
-        let (bytes, meta) = encode(&u, &v, "icon_d2", 1_791_698_400, 3).unwrap();
+        let g = grid(vec![20.0, 10.0, 0.0, f32::NAN]);
+        let (bytes, meta) = encode(&u, &v, Some(&g), "icon_d2", 1_791_698_400, 3).unwrap();
         assert_eq!(
             (meta.width, meta.height, meta.valid_at),
             (2, 2, 1_791_698_400 + 3 * 3_600)
@@ -166,7 +180,16 @@ mod tests {
         // Top row is the north: (−10 kn·…, 5) and the missing point
         assert_eq!(&buf[0..4], &[0, 255, 0, 255]);
         assert_eq!(buf[7], 0);
-        // Bottom-left: U at the maximum, V at the minimum
+        // Bottom-left: U at the maximum, V at the minimum, the strongest gust
+        assert_eq!(&buf[8..12], &[255, 0, 255, 255]);
+        assert!((meta.gust_max.unwrap() - 38.88).abs() < 0.01);
+        // No gusts: blue stays 0 and the description says so.
+        let (bytes, meta) = encode(&u, &v, None, "icon_d2", 1_791_698_400, 3).unwrap();
+        assert_eq!(meta.gust_max, None);
+        let mut reader = png::Decoder::new(std::io::Cursor::new(bytes))
+            .read_info()
+            .unwrap();
+        reader.next_frame(&mut buf).unwrap();
         assert_eq!(&buf[8..12], &[255, 0, 0, 255]);
     }
 }

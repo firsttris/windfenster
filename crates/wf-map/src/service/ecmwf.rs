@@ -1,5 +1,5 @@
-//! ECMWF: a step is out once its index is; U and V come by byte range from the step's file
-//! and are cut to the map's region.
+//! ECMWF: a step is out once its index is; U, V and the gusts come by byte range from the
+//! step's file and are cut to the map's region.
 
 use reqwest::StatusCode;
 use reqwest::header::RANGE;
@@ -8,8 +8,20 @@ use super::{Error, MapData, REGION};
 
 /// Between two steps, so as not to run into ECMWF's request limit
 const PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
+/// When the portal is busy (it allows 750 connections from everyone at once, and answers 429
+/// beyond), a round waits this long before asking again, a few times, then leaves the rest
+/// to the next round.
+const BUSY_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+const BUSY_TRIES: u32 = 3;
 use crate::ecmwf;
 use crate::grid::{self, LatLonGrid};
+
+/// U, V and the gusts if the step has them
+type Fields = (LatLonGrid, LatLonGrid, Option<LatLonGrid>);
+
+fn is_busy(e: &reqwest::Error) -> bool {
+    e.status() == Some(StatusCode::TOO_MANY_REQUESTS)
+}
 
 impl MapData {
     /// Fetches the steps of the newest ECMWF run that are out and not on disk yet; returns how
@@ -17,6 +29,7 @@ impl MapData {
     pub async fn update_ecmwf(&self, now: i64) -> Result<usize, Error> {
         let model = ecmwf::MODEL;
         let mut written = 0;
+        let mut busy = 0;
         for run_at in ecmwf::candidate_runs(now) {
             let have = self.steps_on_disk(model, run_at).await?;
             // A run is out once its first step is.
@@ -28,27 +41,27 @@ impl MapData {
                 }
             }
             for step in ecmwf::steps().filter(|s| !have.contains(s)) {
-                let index = match first.take() {
-                    Some(index) => Some(index),
-                    None => self.ecmwf_index(run_at, step).await?,
+                let fields = loop {
+                    match self.ecmwf_step(run_at, step, first.take()).await {
+                        Err(Error::Http(e)) if is_busy(&e) && busy < BUSY_TRIES => {
+                            busy += 1;
+                            tokio::time::sleep(BUSY_WAIT).await;
+                        }
+                        res => break res,
+                    }
                 };
-                // Steps come out in order: the first one missing ends this round.
-                let Some(index) = index else { break };
-                let fields = async {
-                    let u = self.fetch_ecmwf(run_at, step, &index, ecmwf::U).await?;
-                    let v = self.fetch_ecmwf(run_at, step, &index, ecmwf::V).await?;
-                    Ok::<_, Error>((u, v))
-                };
-                let (u, v) = match fields.await {
-                    Ok(f) => f,
-                    // ECMWF limits how fast one may ask: the rest comes next round.
-                    Err(Error::Http(e)) if e.status() == Some(StatusCode::TOO_MANY_REQUESTS) => {
-                        tracing::debug!("map {model}: rate limited after {written} hours");
+                let (u, v, gust) = match fields {
+                    Ok(Some(f)) => f,
+                    // Steps come out in order: the first one missing ends this round.
+                    Ok(None) => break,
+                    // Still busy: the rest comes next round.
+                    Err(Error::Http(e)) if is_busy(&e) => {
+                        tracing::debug!("map {model}: portal busy after {written} hours");
                         break;
                     }
                     Err(e) => return Err(e),
                 };
-                self.write_hour(model, run_at, step, u, v).await?;
+                self.write_hour(model, run_at, step, u, v, gust).await?;
                 written += 1;
                 tokio::time::sleep(PAUSE).await;
             }
@@ -56,6 +69,34 @@ impl MapData {
         }
         self.prune(model).await?;
         Ok(written)
+    }
+
+    /// A step's fields, or None while the step is not out; `index` when it was read already.
+    async fn ecmwf_step(
+        &self,
+        run_at: i64,
+        step: u32,
+        index: Option<String>,
+    ) -> Result<Option<Fields>, Error> {
+        let index = match index {
+            Some(i) => i,
+            None => match self.ecmwf_index(run_at, step).await? {
+                Some(i) => i,
+                None => return Ok(None),
+            },
+        };
+        self.ecmwf_fields(run_at, step, &index).await.map(Some)
+    }
+
+    /// U, V and, where the step has them, the gusts.
+    async fn ecmwf_fields(&self, run_at: i64, step: u32, index: &str) -> Result<Fields, Error> {
+        let u = self.fetch_ecmwf(run_at, step, index, ecmwf::U).await?;
+        let v = self.fetch_ecmwf(run_at, step, index, ecmwf::V).await?;
+        let gust = match ecmwf::field_range(index, ecmwf::GUST) {
+            Some(_) => Some(self.fetch_ecmwf(run_at, step, index, ecmwf::GUST).await?),
+            None => None,
+        };
+        Ok((u, v, gust))
     }
 
     /// A step's index, or None while the step is not out.

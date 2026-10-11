@@ -22,8 +22,8 @@ struct Fake {
 }
 
 /// U and V on a 1° grid from 30°W to 50°E and 75°N to 25°N, north row first as ECMWF sends it;
-/// U grows to the east, V is 4 everywhere.
-fn file() -> (Vec<u8>, String) {
+/// U grows to the east, V is 4 everywhere, gusts 9 everywhere but at step 0, which has none.
+fn file(step: u32) -> (Vec<u8>, String) {
     let (ni, nj) = (81, 51);
     let grid = |f: &dyn Fn(u32) -> u8| {
         testing::message(
@@ -36,19 +36,21 @@ fn file() -> (Vec<u8>, String) {
             &(0..ni * nj).map(|k| Some(f(k % ni))).collect::<Vec<_>>(),
         )
     };
-    let (u, v) = (grid(&|i| (i / 10) as u8), grid(&|_| 4));
+    let (u, v, gust) = (grid(&|i| (i / 10) as u8), grid(&|_| 4), grid(&|_| 9));
     let line = |param: &str, offset: usize, length: usize| {
         format!(
             r#"{{"domain": "g", "type": "fc", "stream": "oper", "levtype": "sfc", "param": "{param}", "_offset": {offset}, "_length": {length}}}"#
         )
     };
-    let index = [
+    let mut index = vec![
         line("tp", 0, 10),
         line("10u", 10, u.len()),
         line("10v", 10 + u.len(), v.len()),
-    ]
-    .join("\n");
-    ([vec![0; 10], u, v].concat(), index)
+    ];
+    if step > 0 {
+        index.push(line("10fg", 10 + u.len() + v.len(), gust.len()));
+    }
+    ([vec![0; 10], u, v, gust].concat(), index.join("\n"))
 }
 
 async fn serve(
@@ -64,10 +66,11 @@ async fn serve(
         return StatusCode::NOT_FOUND.into_response();
     };
     let (step, ext) = rest.split_once("h-oper-fc.").unwrap();
-    if step.parse::<u32>().unwrap() > fake.last.load(Ordering::SeqCst) {
+    let step = step.parse::<u32>().unwrap();
+    if step > fake.last.load(Ordering::SeqCst) {
         return StatusCode::NOT_FOUND.into_response();
     }
-    let (bytes, index) = file();
+    let (bytes, index) = file(step);
     match ext {
         "index" => index.into_response(),
         "grib2" => {
@@ -107,7 +110,8 @@ async fn fetches_the_wind_by_range_and_cuts_it_to_the_region() {
 
     // 08 UTC: the 06 UTC run is not out, the 00 UTC run has steps 0 to 6.
     assert_eq!(map.update_ecmwf(R00 + 8 * 3_600).await.unwrap(), 3);
-    assert_eq!(fake.ranges.load(Ordering::SeqCst), 6);
+    // U and V for each step, gusts for steps 3 and 6
+    assert_eq!(fake.ranges.load(Ordering::SeqCst), 8);
     let meta: wf_map::texture::TextureMeta = serde_json::from_slice(
         &std::fs::read(dir.path().join("ecmwf_ifs025/2026101100/003.json")).unwrap(),
     )
@@ -119,11 +123,17 @@ async fn fetches_the_wind_by_range_and_cuts_it_to_the_region() {
         (-25.5, 26.5, 45.5, 72.5)
     );
     assert!((meta.v_min - 4.0 / 0.514_444).abs() < 0.01);
+    assert!((meta.gust_max.unwrap() - 9.0 / 0.514_444).abs() < 0.01);
+    let first: wf_map::texture::TextureMeta = serde_json::from_slice(
+        &std::fs::read(dir.path().join("ecmwf_ifs025/2026101100/000.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(first.gust_max, None);
 
     // Two more steps out: only they are fetched.
     fake.last.store(12, Ordering::SeqCst);
     assert_eq!(map.update_ecmwf(R00 + 9 * 3_600).await.unwrap(), 2);
-    assert_eq!(fake.ranges.load(Ordering::SeqCst), 10);
+    assert_eq!(fake.ranges.load(Ordering::SeqCst), 14);
     let steps: Vec<u32> = map.runs(ecmwf::MODEL).await.unwrap()[0].steps.clone();
     assert_eq!(steps, [0, 3, 6, 9, 12]);
 }

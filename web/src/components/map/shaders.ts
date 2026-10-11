@@ -4,12 +4,13 @@
  * positions in two bytes per axis.
  */
 
-/** The wind at a Mercator position: (u, v) in kn and how much of the spot lies in a model's
- * domain. Two models, each two hours blended: the base (ECMWF, the whole region) and the detail
- * (ICON-D2, its domain), which wins inside its domain and fades into the base over the last
- * 30–60 km to its edge (the edge read from a coarse mip level). Textures hold texel edges in
- * `bounds` (west, south, east, north) and value ranges in `range` (uMin, uMax, vMin, vMax).
- * The colour field samples with mipmaps; the particles read the full texture (`SAMPLE`). */
+/** The wind at a Mercator position: (u, v) and the gust in kn, and how much of the spot lies in
+ * a model's domain. Two models, each two hours blended: the base (ECMWF, the whole region) and
+ * the detail (ICON-D2, its domain), which wins inside its domain and fades into the base over the
+ * last 30–60 km to its edge (the edge read from a coarse mip level). Textures hold texel edges in
+ * `bounds` (west, south, east, north), value ranges in `range` (uMin, uMax, vMin, vMax) and the
+ * gust at blue 255 in `gust` (negative when the hour has none). The colour field samples with
+ * mipmaps; the particles read the full texture (`SAMPLE`). */
 const WIND = `
 uniform sampler2D u_base0;
 uniform sampler2D u_base1;
@@ -23,6 +24,8 @@ uniform vec4 u_detail_bounds0;
 uniform vec4 u_detail_bounds1;
 uniform vec4 u_detail_range0;
 uniform vec4 u_detail_range1;
+uniform vec2 u_base_gust;    // kn at blue 255: hour 0, hour 1
+uniform vec2 u_detail_gust;
 uniform vec2 u_mix;   // how far between the two hours: base, detail
 uniform vec2 u_has;   // 1 where a model is shown: base, detail
 
@@ -41,27 +44,38 @@ float insideOf(vec2 uv) {
   return step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
 }
 
-vec3 windOf(sampler2D tex, vec4 b, vec4 r, vec2 ll) {
+vec4 windOf(sampler2D tex, vec4 b, vec4 r, float g, vec2 ll) {
   vec2 uv = uvOf(b, ll);
   // Sampled before any branch, so the field's mipmaps see smooth derivatives
   vec4 c = SAMPLE(tex, clamp(uv, 0.0, 1.0));
   // Texels outside the domain are (0, 0, 0, 0): dividing by alpha leaves the valid ones.
-  vec2 n = c.rg / max(c.a, 0.004);
-  return vec3(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), c.a * insideOf(uv));
+  vec3 n = c.rgb / max(c.a, 0.004);
+  return vec4(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), g < 0.0 ? -1.0 : n.z * g, c.a * insideOf(uv));
 }
 
-vec3 wind(vec2 merc) {
+/** a and b mixed; a gust missing on one side (negative) is taken from the other. */
+vec4 mixWind(vec4 a, vec4 b, float t) {
+  vec4 m = mix(a, b, t);
+  m.z = mix(a.z < 0.0 ? b.z : a.z, b.z < 0.0 ? a.z : b.z, t);
+  return m;
+}
+
+vec4 wind(vec2 merc) {
   vec2 ll = lonLat(merc);
-  vec3 base = u_has.x * mix(
-    windOf(u_base0, u_base_bounds0, u_base_range0, ll),
-    windOf(u_base1, u_base_bounds1, u_base_range1, ll), u_mix.x);
-  vec3 detail = u_has.y * mix(
-    windOf(u_detail0, u_detail_bounds0, u_detail_range0, ll),
-    windOf(u_detail1, u_detail_bounds1, u_detail_range1, ll), u_mix.y);
+  vec4 base = u_has.x * mixWind(
+    windOf(u_base0, u_base_bounds0, u_base_range0, u_base_gust.x, ll),
+    windOf(u_base1, u_base_bounds1, u_base_range1, u_base_gust.y, ll), u_mix.x);
+  vec4 detail = u_has.y * mixWind(
+    windOf(u_detail0, u_detail_bounds0, u_detail_range0, u_detail_gust.x, ll),
+    windOf(u_detail1, u_detail_bounds1, u_detail_range1, u_detail_gust.y, ll), u_mix.y);
   vec2 duv = uvOf(u_detail_bounds0, ll);
   float edge = textureLod(u_detail0, clamp(duv, 0.0, 1.0), EDGE_LOD).a * insideOf(duv);
-  float w = step(0.5, detail.z) * (base.z < 0.5 ? 1.0 : smoothstep(0.6, 0.98, edge));
-  return vec3(mix(base.xy, detail.xy, w), max(base.z, detail.z));
+  float w = step(0.5, detail.w) * (base.w < 0.5 ? 1.0 : smoothstep(0.6, 0.98, edge));
+  vec4 m = mixWind(base, detail, w);
+  // Never a gust below the wind: both are interpolated apart, and hours without gusts show wind.
+  m.z = max(m.z, length(m.xy));
+  m.w = max(base.w, detail.w);
+  return m;
 }
 `;
 
@@ -83,13 +97,15 @@ ${WIND}
 uniform sampler2D u_ramp;
 uniform float u_ramp_max;
 uniform float u_opacity;
+uniform float u_gusts;    // 1: colour by the gusts instead of the wind
 in vec2 v_merc;
 out vec4 color;
 void main() {
-  vec3 w = wind(v_merc);
-  float a = u_opacity * smoothstep(0.3, 0.7, w.z);
+  vec4 w = wind(v_merc);
+  float a = u_opacity * smoothstep(0.3, 0.7, w.w);
   if (a <= 0.0) discard;
-  vec3 c = texture(u_ramp, vec2(clamp(length(w.xy) / u_ramp_max, 0.0, 1.0), 0.5)).rgb;
+  float kn = mix(length(w.xy), w.z, u_gusts);
+  vec3 c = texture(u_ramp, vec2(clamp(kn / u_ramp_max, 0.0, 1.0), 0.5)).rgb;
   // MapLibre blends premultiplied colours.
   color = vec4(c * a, a);
 }`;
@@ -139,10 +155,10 @@ float rand(vec2 co) {
 void main() {
   vec2 p = decode(texelFetch(u_particles, ivec2(gl_FragCoord.xy), 0)) * u_shift.xy + u_shift.zw;
   vec2 seed = (p + v_pos) * u_seed;
-  vec3 w = wind(u_view.xy + p * u_view.zw);
+  vec4 w = wind(u_view.xy + p * u_view.zw);
   float speed = length(w.xy);
   vec2 next = p + vec2(w.x, -w.y) * u_px_per_kn / u_screen;
-  bool lost = w.z < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
+  bool lost = w.w < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
   // Calm particles would only pile up; strong ones are renewed a bit more often.
   float drop = u_drop + u_drop * 3.0 * smoothstep(0.0, 30.0, speed);
   if (lost || rand(seed) > 1.0 - drop) {
@@ -164,8 +180,10 @@ uniform vec4 u_view;
 uniform vec2 u_screen;
 uniform float u_res;
 uniform float u_width;
+uniform float u_gusts;    // 1: the colour follows the gusts
 in vec2 a_corner;         // x: 0 at the tail, 1 at the head; y: -1 or 1 across
 out float v_alpha;
+out float v_kn;
 
 void main() {
   int i = gl_InstanceID;
@@ -174,27 +192,37 @@ void main() {
   vec2 a = decode(texelFetch(u_before, at, 0)) * u_shift.xy + u_shift.zw;
   vec2 pb = b * u_screen;
   vec2 pa = a * u_screen;
-  vec3 w = wind(u_view.xy + b * u_view.zw);
+  vec4 w = wind(u_view.xy + b * u_view.zw);
   // A particle that started anew has no tail.
-  if (distance(pa, pb) > 40.0 || w.z < 0.5) pa = pb;
+  if (distance(pa, pb) > 40.0 || w.w < 0.5) pa = pb;
   vec2 d = pb - pa;
   float len = length(d);
   vec2 dir = len > 0.001 ? d / len : vec2(1.0, 0.0);
   vec2 across = vec2(-dir.y, dir.x);
   float half_w = u_width * 0.5;
   vec2 p = mix(pa - dir * half_w, pb + dir * half_w, a_corner.x) + across * half_w * a_corner.y;
-  v_alpha = w.z < 0.5 ? 0.0 : mix(0.3, 0.85, smoothstep(2.0, 25.0, length(w.xy)));
+  v_alpha = w.w < 0.5 ? 0.0 : mix(0.3, 0.85, smoothstep(2.0, 25.0, length(w.xy)));
+  v_kn = mix(length(w.xy), w.z, u_gusts);
   gl_Position = vec4(p / u_screen * 2.0 - 1.0, 0.0, 1.0);
   gl_Position.y = -gl_Position.y;
 }`;
 
+/** White over the colour field; from town zoom on, where the field gives way to the map, in
+ * the field's colours, a little stronger, so the wind's strength stays readable. */
 export const DRAW_FRAG = `#version 300 es
 precision mediump float;
-uniform vec3 u_color;
+uniform vec4 u_ink;       // the theme's ink and how far to lean towards it
+uniform sampler2D u_ramp;
+uniform float u_ramp_max;
+uniform float u_town;
 in float v_alpha;
+in float v_kn;
 out vec4 color;
 void main() {
-  color = vec4(u_color * v_alpha, v_alpha);
+  vec3 ramp = texture(u_ramp, vec2(clamp(v_kn / u_ramp_max, 0.0, 1.0), 0.5)).rgb;
+  vec3 c = mix(vec3(1.0), mix(ramp, u_ink.rgb, u_ink.a), u_town);
+  float a = min(1.0, v_alpha * (1.0 + 0.4 * u_town));
+  color = vec4(c * a, a);
 }`;
 
 /** The trails of the last frame, a little fainter: what is left fades out over time. */
