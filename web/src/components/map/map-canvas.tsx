@@ -39,6 +39,8 @@ interface Props {
   onPick: (p: Pick) => void;
   /** The middle of the view, after every move */
   onCenter: (lon: number, lat: number) => void;
+  /** A place to fly to (a new object flies again) */
+  focus: { lon: number; lat: number } | null;
 }
 
 // MapLibre looks for its worker next to its own module, which the bundle no longer has.
@@ -54,7 +56,7 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, onPick, onCenter }: Props) {
+export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, onPick, onCenter, focus }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -191,6 +193,12 @@ export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, 
     field.current?.show(layers);
     parts.current?.show(layers);
   }, [layers]);
+
+  useEffect(() => {
+    const mp = map.current;
+    if (!ready || !mp || !focus) return;
+    mp.flyTo({ center: [focus.lon, focus.lat], zoom: Math.max(mp.getZoom(), 9.5), essential: false });
+  }, [ready, focus]);
 
   useEffect(() => {
     field.current?.setGusts(gusts);

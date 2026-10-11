@@ -312,6 +312,8 @@
   "map_outside": "outside the model's domain",
   "map_measured": "Measured {ago}",
   "map_noMeasurement": "No measurement in the last 2 hours",
+  "map_measuredCurve": "Measured over the last {hours} hours: {min} to {max} {unit}",
+  "map_loading": "Loading the hour",
   "map_gust": "gusts {gust} {unit}",
   "map_openStation": "Open station",
   "map_forecastHere": "Forecast for this place",

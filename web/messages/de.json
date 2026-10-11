@@ -312,6 +312,8 @@
   "map_outside": "außerhalb des Rechengebiets",
   "map_measured": "Gemessen {ago}",
   "map_noMeasurement": "Keine Messung in den letzten 2 Stunden",
+  "map_measuredCurve": "Gemessen in den letzten {hours} Stunden: {min} bis {max} {unit}",
+  "map_loading": "Lädt die Stunde",
   "map_gust": "Böen {gust} {unit}",
   "map_openStation": "Station öffnen",
   "map_forecastHere": "Vorhersage für diesen Ort",

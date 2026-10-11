@@ -12,6 +12,7 @@ import { Button } from '@/ui/button';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 import type { Pick } from './map-canvas';
+import { MeasuredSpark } from './measured-spark';
 import { SpotStrip } from './spot-strip';
 import { windAt } from './wind-at';
 import type { WindLayers } from './wind-gl';
@@ -29,12 +30,26 @@ interface Props {
   time: number | null;
   onTime: (t: number) => void;
   onClose: () => void;
+  /** Tighter, for the phone's map */
+  compact?: boolean;
   className?: string;
 }
 
 /** What the map knows about a tapped spot: the model's wind there at the hour shown, and for a
  * station its last measurement. */
-export function SpotCard({ pick, station, layers, modelName, unit, hours, time, onTime, onClose, className }: Props) {
+export function SpotCard({
+  pick,
+  station,
+  layers,
+  modelName,
+  unit,
+  hours,
+  time,
+  onTime,
+  onClose,
+  compact = false,
+  className,
+}: Props) {
   const at = windAt(layers, pick.lon, pick.lat);
   const wind = at && speedAndDirection(at.wind);
   // The model's gust, when its hour has one
@@ -42,7 +57,11 @@ export function SpotCard({ pick, station, layers, modelName, unit, hours, time, 
   return (
     <section
       aria-label={station?.name ?? m.map_spot()}
-      className={cn('flex flex-col gap-3 rounded-xl border bg-card/95 p-4 backdrop-blur', className)}
+      className={cn(
+        'flex flex-col rounded-xl border bg-card/95 backdrop-blur',
+        compact ? 'gap-2 p-3' : 'gap-3 p-4',
+        className,
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -108,9 +127,10 @@ export function SpotCard({ pick, station, layers, modelName, unit, hours, time, 
             )}
           </div>
         )}
+        {station && station.at !== null && <MeasuredSpark slug={station.slug} unit={unit} />}
       </div>
 
-      <Button asChild className="w-full">
+      <Button asChild size={compact ? 'sm' : 'default'} className="w-full">
         {station ? (
           <Link to="/station/$slug" params={{ slug: station.slug }}>
             {m.map_openStation()} <ArrowRight aria-hidden="true" />

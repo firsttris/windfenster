@@ -51,6 +51,7 @@ function features(pins: readonly StationWind[], unit: WindUnit): Parameters<GeoJ
       type: 'Feature',
       properties: {
         slug: p.slug,
+        name: p.name,
         live: p.wind !== null ? 1 : 0,
         kn: p.wind ?? NO_WIND,
         color: p.wind !== null ? windBand(p.wind).bg : '#71717a',
@@ -133,13 +134,36 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
       filter: ['all', SINGLE, ['==', ['get', 'arrow'], 1]],
       layout: {
         'icon-image': ARROW,
-        'icon-size': ['interpolate', ['linear'], ['zoom'], ARROW_ZOOM, 1.1, 10, 1.5],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], ARROW_ZOOM, 1.1, 10, 1.5, 13, 1.9],
         'icon-rotate': ['get', 'rotate'],
         'icon-rotation-alignment': 'map',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
       },
       paint: { 'icon-color': ['get', 'color'], 'icon-halo-color': edge, 'icon-halo-width': 2 },
+    },
+    {
+      // From town zoom on the station's name under its value
+      id: 'pins-name',
+      type: 'symbol',
+      source: 'pins',
+      minzoom: 9.5,
+      filter: SINGLE,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-offset': [1.15, 1.7],
+        'text-padding': 0,
+        'text-anchor': 'left',
+        'text-max-width': 10,
+        'text-optional': true,
+      },
+      paint: {
+        'text-color': theme === 'dark' ? '#a1a1aa' : '#52525b',
+        'text-halo-color': theme === 'dark' ? 'rgba(9,9,11,0.8)' : 'rgba(255,255,255,0.9)',
+        'text-halo-width': 1.4,
+      },
     },
     {
       id: 'pins-label',
@@ -150,7 +174,7 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
       layout: {
         'text-field': ['get', 'label'],
         'text-font': ['Noto Sans Medium'],
-        'text-size': 12,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 7, 12, 12, 14],
         'text-offset': [1.3, 0],
         'text-anchor': 'left',
         'text-allow-overlap': false,

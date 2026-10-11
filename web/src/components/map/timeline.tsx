@@ -1,4 +1,4 @@
-import { Pause, Play, RotateCcw } from 'lucide-react';
+import { LoaderCircle, Pause, Play, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
 import { intlLocale } from '@/lib/i18n';
@@ -16,6 +16,8 @@ interface Props {
   onPlay: (playing: boolean) => void;
   /** A CSS background for the track: the wind at the place picked, hour by hour */
   band?: string;
+  /** The hour shown is still loading */
+  loading?: boolean;
   className?: string;
 }
 
@@ -33,7 +35,7 @@ export function frameTime(unix: number): string {
 
 /** Play, the hours on a slider and the days as segments to jump to. The slider steps an hour
  * with the arrow keys and a day with Page up/down; "now" is marked and one tap away. */
-export function Timeline({ frames, time, now, playing, onTime, onPlay, band, className }: Props) {
+export function Timeline({ frames, time, now, playing, onTime, onPlay, band, loading = false, className }: Props) {
   const from = frames[0]?.validAt ?? 0;
   const to = frames.at(-1)?.validAt ?? 0;
   const span = Math.max(1, to - from);
@@ -59,7 +61,16 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, band, cla
       </Button>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="truncate font-semibold text-sm">{frameTime(time)}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-semibold text-sm">{frameTime(time)}</span>
+            {loading && (
+              <LoaderCircle
+                role="status"
+                aria-label={m.map_loading()}
+                className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+              />
+            )}
+          </span>
           {hours === 0 || !nowInRange ? (
             <span className="shrink-0 font-mono text-muted-foreground text-xs">
               {hours === 0 ? m.map_now() : m.map_hours({ hours: hours > 0 ? `+${hours}` : `−${-hours}` })}

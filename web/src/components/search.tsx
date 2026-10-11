@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { MapPin, Search, TowerControl } from 'lucide-react';
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, type ReactNode, type RefObject, useContext, useEffect, useRef, useState } from 'react';
 import type { PlaceHit } from '@/bindings/PlaceHit';
 import type { Station } from '@/bindings/Station';
 import { searchQuery } from '@/lib/api';
@@ -15,9 +15,35 @@ import { Dialog, DialogContent, DialogTitle } from '@/ui/dialog';
 
 const SearchContext = createContext<() => void>(() => {});
 
+/** A picked result, for a page that shows it itself */
+export interface SearchHit {
+  lat: number;
+  lon: number;
+  /** The station's, for a station */
+  slug: string | null;
+}
+
+type Target = (hit: SearchHit) => void;
+const TargetContext = createContext<RefObject<Target | null>>({ current: null });
+
+/** While the calling page is open, a picked result goes to `target` instead of its own page
+ * (the map flies there). */
+export function useSearchTarget(target: Target) {
+  const ref = useContext(TargetContext);
+  const latest = useRef(target);
+  latest.current = target;
+  useEffect(() => {
+    ref.current = (hit) => latest.current(hit);
+    return () => {
+      ref.current = null;
+    };
+  }, [ref]);
+}
+
 /** Opens the search: the header button, ⌘K / Ctrl+K anywhere, or useOpenSearch(). */
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const target = useRef<Target | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -30,8 +56,10 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, []);
   return (
     <SearchContext.Provider value={() => setOpen(true)}>
-      {children}
-      <SearchDialog open={open} onOpenChange={setOpen} />
+      <TargetContext.Provider value={target}>
+        {children}
+        <SearchDialog open={open} onOpenChange={setOpen} target={target} />
+      </TargetContext.Provider>
     </SearchContext.Provider>
   );
 }
@@ -71,7 +99,15 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+function SearchDialog({
+  open,
+  onOpenChange,
+  target,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  target: RefObject<Target | null>;
+}) {
   const [text, setText] = useState('');
   const q = useDebounced(text.trim(), 200);
   const results = useQuery(searchQuery(q, getLocale()));
@@ -84,11 +120,13 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
   };
   const toStation = (s: Station) => {
     close();
-    void navigate({ to: '/station/$slug', params: { slug: s.slug } });
+    if (target.current) target.current({ lat: s.lat, lon: s.lon, slug: s.slug });
+    else void navigate({ to: '/station/$slug', params: { slug: s.slug } });
   };
   const toPoint = (lat: number, lon: number, name?: string) => {
     close();
-    void navigate({ to: '/point', search: { lat, lon, name } });
+    if (target.current) target.current({ lat, lon, slug: null });
+    else void navigate({ to: '/point', search: { lat, lon, name } });
   };
 
   const stations = q.length >= 2 ? (results.data?.stations ?? []) : [];

@@ -162,7 +162,10 @@ hour, layer and model in its query (`?t=…&layer=gusts&model=…`), so the shar
 copied link) opens the same picture; layer and model are also remembered in the browser. With a
 mouse the wind and gusts under the pointer show without a click. The timeline jumps by day
 (tap a day, or Page up/down), marks now and goes back to it in one tap. Keys: ←/→ an hour (with
-Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. With
+Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. A
+search result stays on the map: it flies there and opens the spot. From town zoom on stations
+carry their name; a tapped station shows its last six hours measured as a small curve. While an
+hour's texture is on its way the timeline says so. With
 "reduce motion" set in the system, arrows that stand still take the particles' place. The land, water, borders and places under it come from
 the detailed basemap if one is installed, else from
 [Natural Earth](https://www.naturalearthdata.com/) (`web/scripts/natural-earth.mjs` builds that).

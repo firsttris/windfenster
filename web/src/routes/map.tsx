@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
+import type { MapFrame } from '@/bindings/MapFrame';
 import { basemapFor } from '@/components/map/basemap';
 import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
 import { Legend } from '@/components/map/legend';
@@ -10,6 +11,8 @@ import { SpotCard } from '@/components/map/spot-card';
 import { frameTime, Timeline } from '@/components/map/timeline';
 import { useMapKeys } from '@/components/map/use-map-keys';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
+import type { WindPair } from '@/components/map/wind-gl';
+import { useSearchTarget } from '@/components/search';
 import { mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
 import { formatNumber, runHour } from '@/lib/format';
 import { mapQuery, parseMapState } from '@/lib/map-url';
@@ -62,6 +65,12 @@ function MapPage() {
   const layers = useMemo(() => ({ base, detail }), [base, detail]);
   const [pick, setPick] = useState<Pick | null>(null);
   const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
+  // A search result stays on the map: fly there and show the spot.
+  const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
+  useSearchTarget((hit) => {
+    setPick({ lon: hit.lon, lat: hit.lat, slug: hit.slug });
+    setFocus({ lon: hit.lon, lat: hit.lat });
+  });
   const [field, setFieldState] = useState<FieldLayer>((initial.gusts ?? layerPref === 'gusts') ? 'gusts' : 'wind');
   const setField = (f: FieldLayer) => {
     setFieldState(f);
@@ -95,7 +104,15 @@ function MapPage() {
     ? spotHours(series.data, choice.base?.model ?? null, choice.detail?.model ?? null).filter(
         (h) => h.validAt >= now - 3_600,
       )
-    : undefined;
+    : series.isError
+      ? []
+      : undefined;
+  // An hour asked for whose texture is still on its way: the map shows the last one meanwhile.
+  const behind = (pair: WindPair | null, list: readonly MapFrame[]) => {
+    if (time === null || list.length === 0) return false;
+    return pair?.a.path !== list[positionAt(list, time).i]?.path;
+  };
+  const loading = behind(base, choice.base?.frames ?? []) || behind(detail, hoursAt(choice.detail?.frames ?? [], time));
   // A model hour without gusts (ECMWF's first, some late ones) shows the wind instead.
   const gustless = gusts
     ? [detail, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
@@ -180,6 +197,7 @@ function MapPage() {
         setTime(t);
       }}
       onClose={() => setPick(null)}
+      compact={!desktop}
     />
   );
 
@@ -227,17 +245,42 @@ function MapPage() {
             picked={pick}
             onPick={setPick}
             onCenter={(lon, lat) => setCenter({ lon, lat })}
+            focus={focus}
           />
         )}
         {!desktop && (
-          <div className="absolute top-3 left-3 flex w-[min(260px,calc(100%-76px))] flex-col gap-2 rounded-xl border bg-card/95 p-3 backdrop-blur">
-            <div className="relative flex flex-col pr-8">
-              <ShareButton className="absolute -top-1.5 -right-1.5 size-8" />
-              <h1 className="m-0 truncate font-semibold text-sm">{m.map_title()}</h1>
-              {runLine && <p className="m-0 truncate font-mono text-muted-foreground text-xs">{runLine}</p>}
+          <div className="absolute top-3 left-3 flex w-[min(300px,calc(100%-76px))] flex-col gap-2 rounded-xl border bg-card/95 p-2.5 backdrop-blur">
+            <h1 className="sr-only">{m.map_title()}</h1>
+            <div className="flex items-center gap-2">
+              <p className="m-0 min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">{runLine}</p>
+              <ShareButton className="-my-1.5 -mr-1.5 size-8 shrink-0" />
             </div>
-            {ready.length > 1 && chips}
-            <LayerSwitch value={field} onChange={setField} compact />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {ready.length > 1 && (
+                <fieldset
+                  aria-label={m.map_model()}
+                  className="m-0 inline-flex min-w-0 rounded-md border bg-background/60 p-0.5"
+                >
+                  {ready.map((l) => (
+                    <button
+                      key={l.model}
+                      type="button"
+                      aria-pressed={l.model === choice.selected?.model}
+                      onClick={() => setChosen(l.model)}
+                      className={cn(
+                        'cursor-pointer whitespace-nowrap rounded-[5px] px-2 py-0.5 font-medium text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        l.model === choice.selected?.model
+                          ? 'bg-secondary text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {nameOf(l.model)}
+                    </button>
+                  ))}
+                </fieldset>
+              )}
+              <LayerSwitch value={field} onChange={setField} compact />
+            </div>
             <Legend unit={unit} gusts={gusts} />
             {gustless && (
               <p className="m-0 text-muted-foreground text-xs">
@@ -265,6 +308,7 @@ function MapPage() {
               onTime={setTime}
               onPlay={setPlaying}
               band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
+              loading={loading && !playing}
             />
           )}
           {!desktop && <Attribution osm={!!index.data?.basemap} className="text-right" />}
