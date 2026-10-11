@@ -1,0 +1,26 @@
+[package]
+name = "wf-map"
+description = "Windfenster wind map: model grids from GRIB2 to PNG textures for the particle layer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+wf-core.workspace = true
+bzip2.workspace = true
+grib.workspace = true
+png.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true

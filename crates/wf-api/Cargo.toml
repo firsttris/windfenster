@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 wf-core.workspace = true
 wf-ingest.workspace = true
+wf-map.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 hex.workspace = true

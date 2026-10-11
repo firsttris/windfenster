@@ -15,6 +15,7 @@ use wf_ingest::measurements::{Measurements, Urls};
 use wf_ingest::openmeteo::{self, OpenMeteo};
 use wf_ingest::scheduler::Scheduler;
 use wf_ingest::stations::{self, Sources};
+use wf_map::MapData;
 
 /// Windfenster: wind forecast for water sports. Without a command, `serve` runs.
 #[derive(Parser)]
@@ -40,7 +41,7 @@ enum Command {
 
 #[derive(Args)]
 struct DataArgs {
-    /// Directory for the database (and later the map textures).
+    /// Directory for the database and the map textures.
     #[arg(long, env = "WF_DATA_DIR", default_value = "/data")]
     data_dir: PathBuf,
 }
@@ -98,6 +99,10 @@ struct ServeArgs {
     /// requested.
     #[arg(long, env = "WF_SCHEDULER", default_value_t = true, action = clap::ArgAction::Set)]
     scheduler: bool,
+    /// The wind map: fetch ICON-D2 from the DWD (about 100 MB per run, every three hours) and
+    /// keep two runs as textures in `{data_dir}/map`; `false` turns the map off.
+    #[arg(long, env = "WF_MAP", default_value_t = true, action = clap::ArgAction::Set)]
+    map: bool,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     #[arg(long, env = "WF_DEV_UI")]
     dev_ui: Option<String>,
@@ -187,6 +192,16 @@ async fn serve(args: ServeArgs) -> Result<()> {
         api_key,
     ));
     let measurements = Arc::new(Measurements::new(db.clone(), http.clone(), Urls::default()));
+    let map = args.map.then(|| {
+        Arc::new(MapData::new(
+            args.data.data_dir.join("map"),
+            http.clone(),
+            wf_map::Urls::default(),
+        ))
+    });
+    if let (true, Some(map)) = (args.scheduler, &map) {
+        tokio::spawn(map.clone().keep_current());
+    }
     if args.scheduler {
         tokio::spawn(
             Scheduler {
@@ -205,7 +220,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
             .run(),
         );
     }
-    let state = wf_api::AppState::new(
+    let mut state = wf_api::AppState::new(
         db,
         forecasts,
         Some(geocoder),
@@ -213,6 +228,9 @@ async fn serve(args: ServeArgs) -> Result<()> {
         non_empty(&args.public_url),
         non_empty(&args.dev_ui),
     );
+    if let Some(map) = map {
+        state = state.with_map(map);
+    }
     let listener = TcpListener::bind(args.listen)
         .await
         .with_context(|| format!("binding {}", args.listen))?;

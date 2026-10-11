@@ -43,7 +43,7 @@ build the image yourself: `docker compose up --build` in a checkout.
 
 | Variable | Default | |
 |---|---|---|
-| `WF_DATA_DIR` | `/data` | Database (later also the map textures) |
+| `WF_DATA_DIR` | `/data` | Database and map textures |
 | `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
 | `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages |
 | `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
@@ -53,6 +53,7 @@ build the image yourself: `docker compose up --build` in a checkout.
 | `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
+| `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD every 10 minutes, see below; `false` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -118,6 +119,18 @@ the TAF counts as a model of its own, from its issue time.
   windiest daytime hour of the next two days: up to 4 kn high, up to 8 kn medium, above that
   low. The trend days 8–10 show the same as a dot.
 
+### How the wind map is fed
+
+The map draws the model fields themselves, not Open-Meteo's point series. Every 10 minutes
+Windfenster looks for the newest ICON-D2 run on [DWD Open Data](https://opendata.dwd.de/)
+(2.2 km, Germany and the Alps, a run every 3 hours, 48 hours ahead) and fetches the wind at
+10 m (U and V, GRIB2) for the hours that are out and not on disk yet. Each hour becomes a PNG
+texture in kn (red U, green V, as in [mapbox/webgl-wind](https://github.com/mapbox/webgl-wind))
+with a JSON file for its extent, value range and the model's domain, under
+`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. The newest run and the one before are kept: about
+100 MB of downloads per run and 90 MB on disk. `GET /api/map` lists the hours, each from the
+newest run that has it.
+
 ## Development
 
 Requirements: Rust (stable), Node.js 22.12 or newer, pnpm.
@@ -151,6 +164,7 @@ crates/
                  verification and the mix, database
   wf-ingest/     Open-Meteo, station lists, measurements (METAR, TAF, DWD, PEGELONLINE),
                  geocoding, scheduler
+  wf-map/        wind map: GRIB2 (ICON-D2) to PNG textures, runs on disk
   wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
   windfenster/   the binary: serve | migrate | import-stations | probe
 migrations/      sqlx migrations (SQLite)
@@ -189,7 +203,8 @@ is for non-commercial use only. Running Windfenster commercially needs your own
 instance. Airport names and places come from [OurAirports](https://ourairports.com/data/)
 (public domain); which airports send METARs and TAFs, and the reports themselves, from the
 [Aviation Weather Center](https://aviationweather.gov/) (NOAA, public domain). Wind stations and
-their 10-minute values come from [DWD Open Data](https://opendata.dwd.de/). Water levels from
+their 10-minute values, and the ICON-D2 fields of the wind map, come from
+[DWD Open Data](https://opendata.dwd.de/). Water levels from
 [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
 Bundes), credited on every page that shows them. Further sources (ECMWF
 open data for the map) come with the phases that use them and are listed on an attribution

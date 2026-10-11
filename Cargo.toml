@@ -14,17 +14,22 @@ publish = false
 wf-core = { path = "crates/wf-core" }
 wf-api = { path = "crates/wf-api" }
 wf-ingest = { path = "crates/wf-ingest" }
+wf-map = { path = "crates/wf-map" }
 
 anyhow = "1"
 axum = "0.8"
+bzip2 = "0.6"
 clap = { version = "4", features = ["derive", "env"] }
 csv = "1"
 governor = "0.10"
+# Pure Rust only: CCSDS (ECMWF) through rust-aec, no OpenJPEG or libaec to build
+grib = { version = "0.19", default-features = false, features = ["ccsds-unpack-with-rust-aec", "png-unpack-with-png-crate"] }
 dotenvy = "0.15"
 flate2 = "1"
 hex = "0.4"
 mime_guess = "2"
 moka = { version = "0.12", features = ["future"] }
+png = "0.18"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json", "gzip", "http2"] }
 rust-embed = "8"
 serde = { version = "1", features = ["derive"] }

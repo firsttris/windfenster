@@ -5,6 +5,7 @@ mod error;
 pub mod forecast;
 pub mod history;
 pub mod live;
+pub mod map;
 mod meta;
 pub mod ranking;
 pub mod search;
@@ -28,6 +29,7 @@ use wf_core::model::Model;
 use wf_ingest::forecasts::Forecasts;
 use wf_ingest::geocode::Geocoder;
 use wf_ingest::measurements::Measurements;
+use wf_map::MapData;
 
 pub use error::{ApiError, ErrorCode};
 
@@ -42,6 +44,8 @@ pub struct AppState {
     pub geocoder: Option<Arc<Geocoder>>,
     /// Fetches a station's measurements on request; without it only stored ones are served.
     pub measurements: Option<Arc<Measurements>>,
+    /// The wind map's textures; without them the map has no layers.
+    pub map: Option<Arc<MapData>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
@@ -74,6 +78,7 @@ impl AppState {
             forecasts,
             geocoder,
             measurements,
+            map: None,
             public_url,
             dev_ui,
             cache,
@@ -92,6 +97,14 @@ impl AppState {
                 .max_capacity(10_000)
                 .time_to_live(Duration::from_secs(6 * 3_600))
                 .build(),
+        }
+    }
+
+    /// With the wind map's textures.
+    pub fn with_map(self, map: Arc<MapData>) -> Self {
+        Self {
+            map: Some(map),
+            ..self
         }
     }
 
@@ -118,6 +131,8 @@ pub fn router(state: AppState) -> Router {
         .route("/stations/{slug}/history", get(history::history))
         .route("/point", get(forecast::point))
         .route("/gauges/near", get(water::near))
+        .route("/map", get(map::index))
+        .route("/map/{model}/{run}/{file}", get(map::file))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)

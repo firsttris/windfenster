@@ -12,6 +12,7 @@ publish.workspace = true
 wf-core.workspace = true
 wf-api.workspace = true
 wf-ingest.workspace = true
+wf-map.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true

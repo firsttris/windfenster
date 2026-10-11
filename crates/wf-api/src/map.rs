@@ -1,0 +1,83 @@
+//! The wind map's data: which hours there are, and the textures themselves.
+
+use axum::Json;
+use axum::extract::{Path, State};
+use axum::http::header;
+use axum::response::IntoResponse;
+use wf_map::MapIndex;
+
+use crate::{ApiError, AppState};
+
+/// `GET /api/map`: the hours of every model on the map; empty without map data.
+pub async fn index(State(s): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let index = match &s.map {
+        Some(map) => map.index().await.map_err(ApiError::internal)?,
+        None => MapIndex { layers: vec![] },
+    };
+    // New hours arrive every few minutes.
+    Ok(([(header::CACHE_CONTROL, "public, max-age=60")], Json(index)))
+}
+
+/// Whether `{model}/{run}/{file}` names a texture or its description: a known model, a run
+/// as YYYYMMDDHH, an hour as three digits. Nothing else reaches the file system.
+fn valid(model: &str, run: &str, file: &str) -> Option<&'static str> {
+    let digits = |s: &str, n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    if !wf_map::MODELS.contains(&model) || !digits(run, 10) {
+        return None;
+    }
+    let (step, ext) = file.split_once('.')?;
+    if !digits(step, 3) {
+        return None;
+    }
+    match ext {
+        "png" => Some("image/png"),
+        "json" => Some("application/json"),
+        _ => None,
+    }
+}
+
+/// `GET /api/map/{model}/{run}/{step}.png|json`: a texture never changes once written.
+pub async fn file(
+    State(s): State<AppState>,
+    Path((model, run, file)): Path<(String, String, String)>,
+) -> Result<impl IntoResponse, ApiError> {
+    let map = s.map.as_ref().ok_or(ApiError::NotFound)?;
+    let mime = valid(&model, &run, &file).ok_or(ApiError::NotFound)?;
+    let path = map.root().join(&model).join(&run).join(&file);
+    let bytes = match tokio::fs::read(&path).await {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(ApiError::NotFound),
+        Err(e) => return Err(ApiError::internal(e)),
+    };
+    Ok((
+        [
+            (header::CONTENT_TYPE, mime),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+        ],
+        bytes,
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_texture_paths_pass() {
+        assert_eq!(valid("icon_d2", "2026101106", "003.png"), Some("image/png"));
+        assert_eq!(
+            valid("icon_d2", "2026101106", "048.json"),
+            Some("application/json")
+        );
+        for (m, r, f) in [
+            ("other", "2026101106", "003.png"),
+            ("icon_d2", "..", "003.png"),
+            ("icon_d2", "2026101106", "../x.png"),
+            ("icon_d2", "2026101106", "003.txt"),
+            ("icon_d2", "2026101106", "3.png"),
+            ("icon_d2", "20261011", "003.png"),
+        ] {
+            assert_eq!(valid(m, r, f), None, "{m}/{r}/{f}");
+        }
+    }
+}
