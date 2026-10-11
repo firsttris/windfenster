@@ -54,7 +54,6 @@ struct AirportRow {
     latitude_deg: f64,
     longitude_deg: f64,
     elevation_ft: Option<f64>,
-    continent: String,
     iso_country: String,
     iso_region: String,
     municipality: String,
@@ -70,23 +69,11 @@ struct RegionRow {
     name: String,
 }
 
-/// Countries outside OurAirports' "EU" continent whose coasts and islands are in scope
-/// (Rhodes counts as Asia there, the Canaries as Africa).
-const MEDITERRANEAN_EXTRA: [&str; 10] =
-    ["GR", "CY", "TR", "ES", "PT", "IT", "MA", "TN", "EG", "IL"];
-
-/// Europe including the Mediterranean, the Canaries and the Azores.
-fn in_coverage(continent: &str, country: &str, lat: f64, lon: f64) -> bool {
-    (27.0..=72.0).contains(&lat)
-        && (-32.0..=45.0).contains(&lon)
-        && (continent == "EU" || MEDITERRANEAN_EXTRA.contains(&country))
-}
-
 fn icao(code: &str) -> Option<&str> {
     (code.len() == 4 && code.bytes().all(|b| b.is_ascii_uppercase())).then_some(code)
 }
 
-/// Airfields in coverage that send METARs (`reporting`: ICAO code → sends TAFs too).
+/// Airfields anywhere in the world that send METARs (`reporting`: ICAO code → sends TAFs too).
 pub fn parse_airports(
     airports_csv: &str,
     regions_csv: &str,
@@ -103,11 +90,6 @@ pub fn parse_airports(
         if !matches!(
             a.kind.as_str(),
             "large_airport" | "medium_airport" | "small_airport"
-        ) || !in_coverage(
-            &a.continent,
-            &a.iso_country,
-            a.latitude_deg,
-            a.longitude_deg,
         ) {
             continue;
         }
@@ -162,7 +144,8 @@ mod tests {
 4,"XX01","medium_airport","No Code",48.0,9.0,,"EU","DE","DE-BW","","no","","","","","","",""
 "#;
         let regions = "\"id\",\"code\",\"local_code\",\"name\",\"continent\",\"iso_country\",\"wikipedia_link\",\"keywords\"\n1,\"DE-BW\",\"BW\",\"Baden-Württemberg\",\"EU\",\"DE\",\"\",\"\"\n2,\"GR-L\",\"L\",\"South Aegean\",\"EU\",\"GR\",\"\",\"\"\n";
-        // EDNY sends no METAR in this made-up list, the small field EDXX neither.
+        // EDNY sends no METAR in this made-up list, the small field EDXX neither; airports
+        // count anywhere in the world.
         let reporting: HashMap<String, bool> = [
             ("EDSB", true),
             ("LGRP", true),
@@ -175,7 +158,7 @@ mod tests {
         .collect();
         let list = parse_airports(airports, regions, &reporting).unwrap();
         let codes: Vec<&str> = list.iter().map(|s| s.station.code.as_str()).collect();
-        assert_eq!(codes, ["EDSB", "LGRP", "EDFE"]);
+        assert_eq!(codes, ["EDSB", "LGRP", "EDFE", "KJFK", "OIIE"]);
         assert!(list[0].station.has_taf && !list[2].station.has_taf);
         let edsb = &list[0];
         assert_eq!(edsb.station.slug, "edsb");
@@ -200,14 +183,5 @@ mod tests {
         let r = parse_awc_stations(json).unwrap();
         assert_eq!(r.len(), 2);
         assert_eq!((r["EDAC"], r["EDFE"]), (true, false));
-    }
-
-    #[test]
-    fn coverage() {
-        assert!(in_coverage("EU", "DE", 48.8, 8.1));
-        assert!(in_coverage("AS", "GR", 36.4, 28.1)); // Rhodes
-        assert!(in_coverage("AF", "ES", 28.0, -15.4)); // Gran Canaria
-        assert!(!in_coverage("AS", "IR", 35.4, 51.2));
-        assert!(!in_coverage("EU", "RU", 55.0, 60.0)); // east of the Urals
     }
 }

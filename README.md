@@ -181,7 +181,8 @@ that people look at regularly; larger instances need a key or an own Open-Meteo.
 ### How measurements are fetched
 
 Every ten minutes the server reads aviationweather.gov's cache of all current METARs (one
-file of about 250 KB) and keeps the reports of its stations. DWD stations deliver 10-minute
+file of about 250 KB) and keeps the reports of its stations: every airfield in the world that
+sends METARs (from OurAirports' list and aviationweather.gov's station list, refreshed weekly). DWD stations deliver 10-minute
 values; they are fetched every 30 minutes for the tracked stations and those opened within
 the last seven days, and right away when someone opens a station whose values are stale.
 TAFs (airport forecasts) of the same stations come from aviationweather.gov's TAF API every 30
