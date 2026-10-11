@@ -137,8 +137,8 @@ particles on a canvas of their own, after mapbox/webgl-wind: a shader moves them
 of the hour shown, blended between two model hours while the timeline plays. Tap a spot for the
 model's wind there, tap a station for its last measurement too; stations show their measured
 wind as a dot in the wind scale's colour, from closer up as an arrow with the value. The view
-stays in the address (`/map#zoom/lat/lon`). With "reduce motion" set in the system, the map
-shows no particles. The land, water, borders and places under it come from
+stays in the address (`/map#zoom/lat/lon`). With "reduce motion" set in the system, arrows that
+stand still take the particles' place. The land, water, borders and places under it come from
 [Natural Earth](https://www.naturalearthdata.com/) for now (`web/scripts/natural-earth.mjs`
 builds them); a detailed vector map for closer zoom levels follows.
 

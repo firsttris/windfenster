@@ -11,6 +11,7 @@ import { useMedia } from '@/lib/use-media';
 import { viewOf } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
+import { arrowField } from './arrows';
 import { ABOVE_FIELD, applyTheme, BASEMAP_BOUNDS, basemapStyle, setDomain } from './basemap';
 import { type Particles, particles } from './particles';
 import { PIN_LAYERS, pinTheme, setPins } from './pins';
@@ -88,7 +89,8 @@ export function MapCanvas({ pair, domain, pins, unit, picked, onPick }: Props) {
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
     mp.getContainer().insertBefore(canvas, mp.getContainer().querySelector('.maplibregl-control-container'));
-    parts.current = reduced ? null : particles(canvas);
+    // Less motion asked for: arrows that stand still instead of particles
+    parts.current = reduced ? arrowField(canvas) : particles(canvas);
 
     let zoom = mp.getZoom();
     const sync = () => {
