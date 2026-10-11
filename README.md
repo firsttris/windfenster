@@ -151,7 +151,8 @@ the map comes forward, with forests, meadows, water, industry, airfields and bui
 particles then take the field's colours, so the wind's strength stays readable on the map.
 Tap a spot for the model's wind and gusts there, tap a station for its last measurement too;
 stations show their measured wind as a dot in the wind scale's colour, from closer up as an
-arrow with the value. The line under the models names the model and run drawing at the spot
+arrow with the value; from afar they are bundled, each bundle showing the strongest wind
+measured in it in that colour (tap it to zoom in). Lakes and rivers lie dark over the field. The line under the models names the model and run drawing at the spot
 picked or the middle of the view. The view stays in the address (`/map#zoom/lat/lon`). With
 "reduce motion" set in the system, arrows that stand still take the particles' place. The land, water, borders and places under it come from
 the detailed basemap if one is installed, else from

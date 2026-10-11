@@ -15,7 +15,7 @@ import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
 import { applyTheme, type Basemap, setDomain } from './basemap';
 import { type Particles, particles } from './particles';
-import { PIN_LAYERS, pinTheme, setPins } from './pins';
+import { openCluster, PIN_LAYERS, pinTheme, setPins } from './pins';
 import { type WindField, windField } from './wind-field';
 import type { WindLayers } from './wind-gl';
 
@@ -158,7 +158,9 @@ export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, 
           { layers: PIN_LAYERS.filter((l) => mp.getLayer(l)) },
         )
         .at(0);
-      if (hit && hit.geometry.type === 'Point') {
+      if (hit?.properties.cluster) {
+        void openCluster(mp, hit);
+      } else if (hit && hit.geometry.type === 'Point') {
         const [lon, lat] = hit.geometry.coordinates;
         pick.current({ lon, lat, slug: String(hit.properties.slug) });
       } else {

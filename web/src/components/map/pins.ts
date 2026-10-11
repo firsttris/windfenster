@@ -1,14 +1,27 @@
-/** The stations on the map: a dot in the colour of the measured wind, from closer up an arrow
- * the way it blows and the value; stations without a recent measurement as grey dots. */
-import type { FilterSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+/** The stations on the map: from afar bundled, each bundle showing the strongest wind in it;
+ * a dot in the colour of the measured wind, from closer up an arrow the way it blows and the
+ * value; stations without a recent measurement as grey dots. */
+import type {
+  ExpressionSpecification,
+  GeoJSONSource,
+  LayerSpecification,
+  MapGeoJSONFeature,
+  Map as MapLibreMap,
+} from 'maplibre-gl';
 import type { StationWind } from '@/bindings/StationWind';
 import type { WindUnit } from '@/bindings/WindUnit';
+import { intlLocale } from '@/lib/i18n';
+import { bandColor, CLUSTER_MAX_ZOOM, CLUSTER_RADIUS, NO_WIND, windText } from '@/lib/pin-clusters';
 import type { Theme } from '@/lib/prefs';
 import { formatWind } from '@/lib/units';
 import { windBand } from '@/ui/wind-scale';
 import type { PaintProperty } from './palette';
 
-export const PIN_LAYERS = ['pins-idle', 'pins', 'pins-far', 'pins-arrow'];
+export const PIN_LAYERS = ['pins-cluster', 'pins-idle', 'pins', 'pins-far', 'pins-arrow'];
+
+/** Single stations, not bundles */
+const SINGLE: ExpressionSpecification = ['!', ['has', 'point_count']];
+const NO_LIVE = '#52525b';
 
 const ARROW = 'wind-arrow';
 /** From this zoom on, stations with a direction show an arrow instead of a dot. */
@@ -39,6 +52,7 @@ function features(pins: readonly StationWind[], unit: WindUnit): Parameters<GeoJ
       properties: {
         slug: p.slug,
         live: p.wind !== null ? 1 : 0,
+        kn: p.wind ?? NO_WIND,
         color: p.wind !== null ? windBand(p.wind).bg : '#71717a',
         // Arrows point where the wind goes.
         rotate: p.dir !== null ? (p.dir + 180) % 360 : 0,
@@ -50,14 +64,18 @@ function features(pins: readonly StationWind[], unit: WindUnit): Parameters<GeoJ
   };
 }
 
-function layers(theme: Theme): LayerSpecification[] {
+function clusterLabel(unit: WindUnit): ExpressionSpecification {
+  return ['case', ['<', ['get', 'kn'], 0], '', windText(['get', 'kn'], unit, intlLocale())];
+}
+
+function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
   const edge = theme === 'dark' ? '#09090b' : '#ffffff';
-  const dot = (id: string, filter: FilterSpecification, maxzoom?: number): LayerSpecification => ({
+  const dot = (id: string, filter: ExpressionSpecification, maxzoom?: number): LayerSpecification => ({
     id,
     type: 'circle',
     source: 'pins',
     ...(maxzoom ? { maxzoom } : {}),
-    filter,
+    filter: ['all', SINGLE, filter],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.6, 6, 3, 8, 5, 10, 7],
       'circle-color': ['get', 'color'],
@@ -67,11 +85,40 @@ function layers(theme: Theme): LayerSpecification[] {
   });
   return [
     {
+      id: 'pins-cluster',
+      type: 'circle',
+      source: 'pins',
+      maxzoom: CLUSTER_MAX_ZOOM + 1,
+      filter: ['has', 'point_count'],
+      paint: {
+        // Larger the more stations it holds
+        'circle-radius': ['step', ['get', 'point_count'], 11, 10, 13, 50, 15.5, 100, 18],
+        'circle-color': bandColor(['get', 'kn'], 'bg', NO_LIVE),
+        'circle-stroke-color': edge,
+        'circle-stroke-width': 1.5,
+      },
+    },
+    {
+      id: 'pins-cluster-label',
+      type: 'symbol',
+      source: 'pins',
+      maxzoom: CLUSTER_MAX_ZOOM + 1,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': clusterLabel(unit),
+        'text-font': ['Noto Sans Medium'],
+        'text-size': 12,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: { 'text-color': bandColor(['get', 'kn'], 'fg', '#e4e4e7') },
+    },
+    {
       id: 'pins-idle',
       type: 'circle',
       source: 'pins',
       minzoom: 9,
-      filter: ['==', ['get', 'live'], 0],
+      filter: ['all', SINGLE, ['==', ['get', 'live'], 0]],
       paint: { 'circle-radius': 3, 'circle-color': '#71717a', 'circle-stroke-color': edge, 'circle-stroke-width': 1 },
     },
     // Calm or variable: a dot at every zoom
@@ -83,7 +130,7 @@ function layers(theme: Theme): LayerSpecification[] {
       type: 'symbol',
       source: 'pins',
       minzoom: ARROW_ZOOM,
-      filter: ['==', ['get', 'arrow'], 1],
+      filter: ['all', SINGLE, ['==', ['get', 'arrow'], 1]],
       layout: {
         'icon-image': ARROW,
         'icon-size': ['interpolate', ['linear'], ['zoom'], ARROW_ZOOM, 1.1, 10, 1.5],
@@ -99,7 +146,7 @@ function layers(theme: Theme): LayerSpecification[] {
       type: 'symbol',
       source: 'pins',
       minzoom: 7,
-      filter: ['==', ['get', 'live'], 1],
+      filter: ['all', SINGLE, ['==', ['get', 'live'], 1]],
       layout: {
         'text-field': ['get', 'label'],
         'text-font': ['Noto Sans Medium'],
@@ -123,15 +170,33 @@ export function setPins(map: MapLibreMap, pins: readonly StationWind[], unit: Wi
   const source = map.getSource<GeoJSONSource>('pins');
   if (source) {
     void source.setData(data);
+    map.setLayoutProperty('pins-cluster-label', 'text-field', clusterLabel(unit));
     return;
   }
   if (!map.hasImage(ARROW)) map.addImage(ARROW, arrowImage(), { pixelRatio: 2, sdf: true });
-  map.addSource('pins', { type: 'geojson', data });
-  for (const l of layers(theme)) map.addLayer(l);
+  map.addSource('pins', {
+    type: 'geojson',
+    data,
+    cluster: true,
+    clusterMaxZoom: CLUSTER_MAX_ZOOM,
+    clusterRadius: CLUSTER_RADIUS,
+    // The strongest measured wind of the bundle
+    clusterProperties: { kn: ['max', ['get', 'kn']] },
+  });
+  for (const l of layers(theme, unit)) map.addLayer(l);
+}
+
+/** Zooms in until a tapped bundle falls apart. */
+export async function openCluster(map: MapLibreMap, feature: MapGeoJSONFeature) {
+  const source = map.getSource<GeoJSONSource>('pins');
+  const id = feature.properties.cluster_id;
+  if (!source || typeof id !== 'number' || feature.geometry.type !== 'Point') return;
+  const zoom = await source.getClusterExpansionZoom(id);
+  map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom });
 }
 
 export function pinTheme(map: MapLibreMap, theme: Theme) {
-  for (const l of layers(theme)) {
+  for (const l of layers(theme, 'kn')) {
     if (!map.getLayer(l.id) || !('paint' in l) || !l.paint) continue;
     for (const [k, v] of Object.entries(l.paint)) map.setPaintProperty(l.id, k as PaintProperty, v);
   }
