@@ -215,7 +215,7 @@ async fn basemap_goes_out_in_ranges() -> Result<()> {
     let (_, _, body) = get(&app, "/api/map").await?;
     assert_eq!(
         serde_json::from_slice::<Value>(&body)?["basemap"],
-        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0], "fullZoom": 8, "detail": []})
+        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0], "fullZoom": 8, "detail": [], "detailZoom": 8})
     );
     let res = app
         .clone()
@@ -262,5 +262,30 @@ async fn series_reads_a_place_over_the_hours() -> Result<()> {
     );
     let (status, _, _) = get(&app, "/api/map/series?lat=95&lon=10").await?;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+    Ok(())
+}
+
+#[tokio::test]
+async fn detail_tiles_come_from_the_spots() -> Result<()> {
+    let (dir, app) = app(true).await?;
+    let map = dir.path().join("map");
+    std::fs::write(
+        map.join("basemap.pmtiles"),
+        wf_map::testing::archive(&[(0, 0, 0, b"world"), (8, 133, 88, b"rhine")]),
+    )?;
+    std::fs::create_dir_all(map.join("basemap-spots"))?;
+    std::fs::write(
+        map.join("basemap-spots/48.8_8.0.pmtiles"),
+        wf_map::testing::archive(&[(14, 8559, 5641, b"runway")]),
+    )?;
+    let (status, cache, body) = get(&app, "/api/map/basemap/14/8559/5641").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cache.as_deref(), Some("public, max-age=86400"));
+    assert_eq!(body, b"runway");
+    let (_, _, body) = get(&app, "/api/map/basemap/8/133/88").await?;
+    assert_eq!(body, b"rhine");
+    // Where nobody looked: none, the map enlarges the region's tile.
+    let (status, _, _) = get(&app, "/api/map/basemap/14/0/0").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
     Ok(())
 }

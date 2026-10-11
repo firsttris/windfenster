@@ -213,7 +213,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
     if let (true, Some(map)) = (args.scheduler, &map) {
         tokio::spawn(map.clone().keep_current());
         if args.basemap == "auto" {
-            tokio::spawn(map.clone().keep_basemap(db.clone(), tracked.clone()));
+            tokio::spawn(map.clone().keep_basemap(db.clone()));
         }
     }
     if args.scheduler {

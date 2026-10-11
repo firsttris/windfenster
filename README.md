@@ -179,11 +179,18 @@ Natural Earth.
 
 By default (`WF_BASEMAP=auto`) the server makes the file itself, a minute after the start and
 then checked daily: from Protomaps' newest daily build it takes the map's region up to zoom 8
-(coasts, towns, main roads; about 190 MB) and 20 km around each tracked station
-(`WF_TRACKED_STATIONS`) up to zoom 14 (streets, lakes, beaches), by byte range, into one file. A
-note next to it (`basemap.json`) says what it was made from; it is made again when the tracked
-stations change or after 120 days. Away from the stations the map enlarges the zoom-8 tiles from
-closer up (coarser, but never blank); around them it shows every detail.
+(coasts, towns, main roads; about 190 MB), by byte range, into one file. A note next to it
+(`basemap.json`) says what it was made from; it is made again after 120 days.
+
+Detail (streets, lakes, beaches, up to zoom 14) comes where people look: around each tracked
+station (`WF_TRACKED_STATIONS`), each place opened in the last week and each spot tapped on the
+map, the server cuts 20 km from the newest build into a file of its own,
+`{WF_DATA_DIR}/map/basemap-spots/{lat}_{lon}.pmtiles` (2 to 17 MB; spots are snapped to a 0.2°
+grid, so places close together share one). It checks every minute and makes two at a time, so a
+tapped spot has its detail within a minute or two, and the open map shows it without reloading.
+At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go. The server sends
+their tiles at `/api/map/basemap/{z}/{x}/{y}`. Elsewhere the map enlarges the zoom-8 tiles from
+closer up (coarser, but never blank).
 
 A file you put there yourself (no note next to it) is never replaced. To cover more, cut one
 with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image

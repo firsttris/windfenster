@@ -137,6 +137,7 @@ pub fn router(state: AppState) -> Router {
         .route("/map/stations", get(map::stations))
         .route("/map/series", get(map::series))
         .route("/map/basemap.pmtiles", get(map::basemap))
+        .route("/map/basemap/{z}/{x}/{y}", get(map::basemap_tile))
         .route("/map/{model}/{run}/{file}", get(map::file))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
@@ -152,7 +153,8 @@ pub fn router(state: AppState) -> Router {
                 .compress_when(
                     DefaultPredicate::new()
                         .and(NotForContentType::const_new("font/"))
-                        .and(NotForContentType::const_new(map::PMTILES)),
+                        .and(NotForContentType::const_new(map::PMTILES))
+                        .and(NotForContentType::const_new(map::MVT)),
                 ),
         )
 }

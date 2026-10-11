@@ -1,5 +1,5 @@
 //! Making the basemap against a stand-in for build.protomaps.com: a small archive by byte range,
-//! only yesterday's build out.
+//! only yesterday's build out; the region in one archive, a spot in one of its own.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -94,22 +94,18 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
     let dir = tempfile::tempdir().unwrap();
     let http = reqwest::Client::new();
 
-    // Today's build is not out: yesterday's is taken.
-    let build = basemap::fetch::keep_current(dir.path(), &http, &base, &[SPOT], NOW)
+    // Today's build is not out: yesterday's is taken. The main archive holds the region only.
+    let build = basemap::fetch::keep_current(dir.path(), &http, &base, NOW)
         .await
         .unwrap();
     assert_eq!(build.as_deref(), Some("20261010"));
     let made = std::fs::read(basemap::path(dir.path())).unwrap();
-    let info = basemap::read_header(&made).unwrap();
-    assert_eq!((info.min_zoom, info.max_zoom), (0, 14));
-    // All of the region to zoom 8, deeper only around the spot
-    let ours = basemap::info(dir.path()).await.unwrap();
-    assert_eq!((ours.full_zoom, ours.detail.len()), (8, 1));
+    let header = basemap::read_header(&made).unwrap();
+    assert_eq!((header.min_zoom, header.max_zoom), (0, 8));
     let reader = AsyncPmTilesReader::try_from_source(Memory(made))
         .await
         .unwrap();
     let tile = async |c| reader.get_tile(c).await.unwrap().map(|b| b.to_vec());
-    // The region from afar, the spot from close up, nothing outside
     assert_eq!(
         tile(coord(0, 0, 0)).await.as_deref(),
         Some(b"world".as_slice())
@@ -118,30 +114,52 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
         tile(coord(8, 133, 88)).await.as_deref(),
         Some(b"rhine".as_slice())
     );
+    assert_eq!(tile(coord(12, 2139, 1410)).await, None);
+    assert!(reader.get_metadata().await.unwrap().contains("4.15.2"));
+    let info = basemap::info(dir.path()).await.unwrap();
+    assert_eq!((info.full_zoom, info.detail.len()), (8, 0));
+
+    // A spot looked at gets an archive of its own, served by tile next to the region's.
+    let spot = basemap::spots::Spot::of(SPOT.0, SPOT.1);
+    let n = basemap::spots::make(dir.path(), &http, &base, spot, NOW)
+        .await
+        .unwrap();
+    assert_eq!(n, 2);
+    let info = basemap::info(dir.path()).await.unwrap();
     assert_eq!(
-        tile(coord(12, 2139, 1410)).await.as_deref(),
+        (info.full_zoom, info.detail.len(), info.detail_zoom),
+        (8, 1, 14)
+    );
+    let readers = basemap::serve::Readers::default();
+    let served = async |z, x, y| readers.tile(dir.path(), z, x, y).await.map(|t| t.data);
+    assert_eq!(
+        served(14, 8559, 5641).await.as_deref(),
+        Some(b"runway".as_slice())
+    );
+    assert_eq!(
+        served(12, 2139, 1410).await.as_deref(),
         Some(b"airpark".as_slice())
     );
     assert_eq!(
-        tile(coord(14, 8559, 5641)).await.as_deref(),
-        Some(b"runway".as_slice())
+        served(8, 133, 88).await.as_deref(),
+        Some(b"rhine".as_slice())
     );
-    assert_eq!(tile(coord(12, 0, 0)).await, None);
-    assert!(reader.get_metadata().await.unwrap().contains("4.15.2"));
+    // Out in the Pacific: nobody looked there.
+    assert_eq!(served(12, 0, 0).await, None);
 
-    // Made already for these spots: nothing to do, nothing fetched.
+    // Made already: nothing to do, nothing fetched.
     let asked = fake.ranges.load(Ordering::SeqCst);
-    let again = basemap::fetch::keep_current(dir.path(), &http, &base, &[SPOT], NOW + 86_400)
+    let again = basemap::fetch::keep_current(dir.path(), &http, &base, NOW + 86_400)
         .await
         .unwrap();
     assert_eq!((again, fake.ranges.load(Ordering::SeqCst)), (None, asked));
 
-    // A file without our note is the operator's: never replaced, even for other spots.
+    // A file without our note is the operator's: never replaced, and no spots added.
     std::fs::remove_file(dir.path().join("basemap.json")).unwrap();
-    let theirs = basemap::fetch::keep_current(dir.path(), &http, &base, &[(36.4, 28.1)], NOW)
+    let theirs = basemap::fetch::keep_current(dir.path(), &http, &base, NOW)
         .await
         .unwrap();
     assert_eq!(theirs, None);
     let theirs = basemap::info(dir.path()).await.unwrap();
-    assert_eq!((theirs.full_zoom, theirs.detail.len()), (14, 0));
+    assert_eq!((theirs.full_zoom, theirs.detail.len()), (8, 0));
 }

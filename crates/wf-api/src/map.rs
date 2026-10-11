@@ -41,6 +41,8 @@ pub async fn series(
     GridPoint::new(q.lat, q.lon).ok_or(ApiError::InvalidCoordinates)?;
     let series = match &s.map {
         Some(map) => {
+            // Someone looks here: the basemap fetches detail around it.
+            map.want(q.lat, q.lon);
             let index = map.index().await.map_err(ApiError::internal)?;
             wf_map::series::series(map.root(), &index, q.lat, q.lon).await
         }
@@ -85,6 +87,30 @@ pub async fn stations(State(s): State<AppState>) -> Result<impl IntoResponse, Ap
 
 /// The basemap's media type; responses of it are byte ranges and are never compressed.
 pub const PMTILES: &str = "application/vnd.pmtiles";
+/// A single vector tile, sent compressed as stored
+pub const MVT: &str = "application/vnd.mapbox-vector-tile";
+
+/// `GET /api/map/basemap/{z}/{x}/{y}`: a detail tile of the basemap from the spot that holds
+/// it; 404 where nobody looked yet (the map then enlarges the region's tile).
+pub async fn basemap_tile(
+    State(s): State<AppState>,
+    Path((z, x, y)): Path<(u8, u32, u32)>,
+) -> Result<Response, ApiError> {
+    let map = s.map.as_ref().ok_or(ApiError::NotFound)?;
+    let tile = map.basemap_tile(z, x, y).await.ok_or(ApiError::NotFound)?;
+    let mut res = Response::new(Body::from(tile.data));
+    let h = res.headers_mut();
+    h.insert(header::CONTENT_TYPE, HeaderValue::from_static(MVT));
+    // New detail can come for a spot; a day is short enough.
+    h.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=86400"),
+    );
+    if let Some(e) = tile.encoding {
+        h.insert(header::CONTENT_ENCODING, HeaderValue::from_static(e));
+    }
+    Ok(res)
+}
 
 /// `GET /api/map/basemap.pmtiles`: the detailed basemap, in byte ranges as MapLibre's PMTiles
 /// protocol asks for them; 404 without one.

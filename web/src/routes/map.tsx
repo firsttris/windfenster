@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils';
 import { chooseLayers, hoursAt, insideRing, positionAt, startTime } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 
+const NO_DETAIL: [number, number, number, number][] = [];
+
 export const Route = createFileRoute('/map')({
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(mapIndexQuery);
@@ -41,8 +43,10 @@ function MapPage() {
   const [unit] = useUnit();
   const now = useNow();
   const desktop = useMedia('(min-width: 768px)', true);
-  // Made once per basemap file, not per refetch: a new one would make a new map.
-  const basemapKey = JSON.stringify(index.data?.basemap ?? null);
+  // Made once per basemap file, not per refetch: a new one would make a new map. New detail
+  // boxes only change filters (MapCanvas `detail`).
+  const info = index.data?.basemap ?? null;
+  const basemapKey = JSON.stringify(info && { ...info, detail: [] });
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the basemap's header
   const basemap = useMemo(() => basemapFor(index.data?.basemap ?? null), [basemapKey]);
   // The address wins over what this browser remembers (lib/map-url.ts).
@@ -67,6 +71,13 @@ function MapPage() {
   const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
+  // A place looked at gets detail on the server within a minute or two: ask again then.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!pick) return;
+    const t = setTimeout(() => void queryClient.invalidateQueries({ queryKey: mapIndexQuery.queryKey }), 100_000);
+    return () => clearTimeout(t);
+  }, [pick, queryClient]);
   useSearchTarget((hit) => {
     setPick({ lon: hit.lon, lat: hit.lat, slug: hit.slug });
     setFocus({ lon: hit.lon, lat: hit.lat });
@@ -246,6 +257,7 @@ function MapPage() {
             onPick={setPick}
             onCenter={(lon, lat) => setCenter({ lon, lat })}
             focus={focus}
+            detail={info?.detail ?? NO_DETAIL}
           />
         )}
         {!desktop && (

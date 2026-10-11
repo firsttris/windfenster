@@ -14,6 +14,7 @@ bounds: [number, number, number, number],
  */
 fullZoom: number, 
 /**
- * west, south, east, north of the boxes held up to `max_zoom`
+ * west, south, east, north of the boxes held up to `detail_zoom`, served by tile at
+ * `/api/map/basemap/{z}/{x}/{y}`
  */
-detail: Array<[number, number, number, number]>, };
+detail: Array<[number, number, number, number]>, detailZoom: number, };

@@ -3,6 +3,8 @@
 //! fetches tiles from it by byte range.
 
 pub mod fetch;
+pub mod serve;
+pub mod spots;
 pub mod tiles;
 
 use std::path::{Path, PathBuf};
@@ -23,8 +25,10 @@ pub struct BasemapInfo {
     /// The file holds all of `bounds` up to this zoom; deeper only the `detail` boxes. The map
     /// enlarges the tiles of this zoom elsewhere instead of showing nothing.
     pub full_zoom: u8,
-    /// west, south, east, north of the boxes held up to `max_zoom`
+    /// west, south, east, north of the boxes held up to `detail_zoom`, served by tile at
+    /// `/api/map/basemap/{z}/{x}/{y}`
     pub detail: Vec<[f64; 4]>,
+    pub detail_zoom: u8,
 }
 
 pub const FILE: &str = "basemap.pmtiles";
@@ -50,10 +54,11 @@ pub fn read_header(bytes: &[u8]) -> Option<BasemapInfo> {
         bounds: [deg(102), deg(106), deg(110), deg(114)],
         full_zoom: bytes[101],
         detail: Vec::new(),
+        detail_zoom: bytes[101],
     })
 }
 
-/// The file's header, if there is a basemap; for one we made, also where it holds more detail
+/// The file's header, if there is a basemap; for one we made, also where there is more detail
 /// (an operator's file counts as complete).
 pub async fn info(root: &Path) -> Option<BasemapInfo> {
     let mut file = tokio::fs::File::open(path(root)).await.ok()?;
@@ -61,23 +66,34 @@ pub async fn info(root: &Path) -> Option<BasemapInfo> {
     file.read_exact(&mut bytes).await.ok()?;
     let header = read_header(&bytes)?;
     Some(match fetch::read_note(root).await {
-        Some(note) => with_note(header, &note),
+        Some(note) => {
+            let spots = spots::on_disk(root).await;
+            with_detail(header, &note, spots.iter().map(|(s, _)| *s))
+        }
         None => header,
     })
 }
 
-/// Our file: the region to `REGION_ZOOM`, the spots deeper.
-fn with_note(header: BasemapInfo, note: &fetch::Note) -> BasemapInfo {
-    let detail = note
+/// Our file: the region to `REGION_ZOOM`, deeper the spots' own files (and, in a file made
+/// before those, the spots it holds itself).
+fn with_detail(
+    header: BasemapInfo,
+    note: &fetch::Note,
+    spots: impl Iterator<Item = spots::Spot>,
+) -> BasemapInfo {
+    let boxes = note
         .spots
         .iter()
-        .map(|&[lat, lon]| {
-            let a = tiles::spot(lat, lon);
-            [a.west, a.south, a.east, a.north]
-        })
-        .collect();
+        .map(|&[lat, lon]| tiles::spot(lat, lon))
+        .chain(spots.map(spots::Spot::area));
+    let detail: Vec<[f64; 4]> = boxes.map(|a| [a.west, a.south, a.east, a.north]).collect();
     BasemapInfo {
         full_zoom: header.max_zoom.min(tiles::REGION_ZOOM),
+        detail_zoom: if detail.is_empty() {
+            header.max_zoom
+        } else {
+            tiles::SPOT_ZOOM
+        },
         detail,
         ..header
     }
@@ -106,6 +122,7 @@ mod tests {
                 bounds: [-25.0, 27.0, 45.0, 72.0],
                 full_zoom: 8,
                 detail: vec![],
+                detail_zoom: 8,
             })
         );
         assert_eq!(read_header(&bytes[..100]), None);
@@ -116,21 +133,29 @@ mod tests {
     fn knows_where_our_file_has_detail() {
         let header = BasemapInfo {
             min_zoom: 0,
-            max_zoom: 14,
+            max_zoom: 8,
             bounds: [-25.0, 27.0, 45.0, 72.0],
-            full_zoom: 14,
+            full_zoom: 8,
             detail: vec![],
+            detail_zoom: 8,
         };
         let note = fetch::Note {
             build: "20261011".into(),
-            spots: vec![[48.78, 8.08]],
+            spots: vec![],
             made_at: 0,
         };
-        let info = with_note(header, &note);
-        assert_eq!(info.full_zoom, tiles::REGION_ZOOM);
+        let spot = spots::Spot::of(48.78, 8.08);
+        let info = with_detail(header.clone(), &note, [spot].into_iter());
+        assert_eq!(
+            (info.full_zoom, info.detail_zoom),
+            (tiles::REGION_ZOOM, tiles::SPOT_ZOOM)
+        );
         let [west, south, east, north] = info.detail[0];
-        // 20 km around Baden Airpark
+        // 20 km around the spot
         assert!((north - south - 2.0 * 20.0 / 111.32).abs() < 1e-9);
-        assert!(west < 8.08 && east > 8.08);
+        assert!(west < 8.0 && east > 8.0);
+        // No spots yet: nothing deeper than the region
+        let bare = with_detail(header, &note, std::iter::empty());
+        assert_eq!((bare.detail.len(), bare.detail_zoom), (0, 8));
     }
 }

@@ -57,6 +57,16 @@ fn tile_of(z: u8, lon: f64, lat: f64) -> (u32, u32) {
     (x.clamp(0.0, max) as u32, y.clamp(0.0, max) as u32)
 }
 
+/// Whether the area holds a tile.
+pub fn holds(a: &Area, z: u8, x: u32, y: u32) -> bool {
+    if z < a.min_zoom || z > a.max_zoom {
+        return false;
+    }
+    let (x0, y0) = tile_of(z, a.west, a.north);
+    let (x1, y1) = tile_of(z, a.east, a.south);
+    (x0..=x1).contains(&x) && (y0..=y1).contains(&y)
+}
+
 /// Every tile of the areas, once, in the order of their ids (as the archive stores them).
 pub fn wanted(areas: &[Area]) -> Vec<TileCoord> {
     let mut ids: Vec<u64> = Vec::new();
@@ -114,5 +124,9 @@ mod tests {
             ..spot(48.78, 8.08)
         }]);
         assert!((500..900).contains(&s.len()), "{}", s.len());
+        let airpark = spot(48.78, 8.08);
+        assert!(holds(&airpark, 12, 2139, 1410));
+        assert!(!holds(&airpark, 12, 2200, 1410));
+        assert!(!holds(&airpark, 8, 133, 88));
     }
 }

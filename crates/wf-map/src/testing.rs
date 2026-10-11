@@ -1,4 +1,24 @@
-//! GRIB2 messages built by hand, for the tests here and in `tests/`.
+//! GRIB2 messages built by hand and small PMTiles archives, for the tests here and in `tests/`
+//! and in the API's.
+
+/// A PMTiles archive of MVT tiles stored uncompressed: (z, x, y, bytes).
+pub fn archive(tiles: &[(u8, u32, u32, &[u8])]) -> Vec<u8> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut w = pmtiles::PmTilesWriter::new(pmtiles::TileType::Mvt)
+        .tile_compression(pmtiles::Compression::None)
+        .create(&mut out)
+        .expect("writer");
+    let mut sorted = tiles.to_vec();
+    sorted.sort_by_key(|&(z, x, y, _)| {
+        pmtiles::TileId::from(pmtiles::TileCoord::new(z, x, y).expect("tile")).value()
+    });
+    for (z, x, y, data) in sorted {
+        w.add_raw_tile(pmtiles::TileCoord::new(z, x, y).expect("tile"), data)
+            .expect("tile");
+    }
+    w.finalize().expect("archive");
+    out.into_inner()
+}
 
 /// A GRIB2 message by hand: a regular grid (template 3.0), simple packing with 8 bits
 /// (template 5.0) and a bitmap, laid out as WMO FM 92 describes the sections.

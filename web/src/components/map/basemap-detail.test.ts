@@ -1,7 +1,7 @@
 import type { LayerSpecification } from 'maplibre-gl';
 import { describe, expect, it } from 'vitest';
 import type { BasemapInfo } from '@/bindings/BasemapInfo';
-import { boxes, splitLayers, splitPaint } from './basemap-detail';
+import { boxes, hasDetail, splitFilters, splitLayers, splitPaint } from './basemap-detail';
 
 const info: BasemapInfo = {
   minZoom: 0,
@@ -9,6 +9,7 @@ const info: BasemapInfo = {
   bounds: [-25, 27, 45, 72],
   fullZoom: 8,
   detail: [[7.8, 48.6, 8.4, 49]],
+  detailZoom: 14,
 };
 
 const layers: LayerSpecification[] = [
@@ -22,7 +23,7 @@ const layers: LayerSpecification[] = [
 ];
 
 describe('basemap with detail around the spots', () => {
-  const out = splitLayers(layers, info);
+  const out = splitLayers(layers, info.detail);
   const byId = Object.fromEntries(out.map((l) => [l.id, l]));
   const inside = boxes(info.detail);
 
@@ -53,6 +54,20 @@ describe('basemap with detail around the spots', () => {
     // Polygons cannot be split: from afar only
     expect(byId.coast).toEqual(layers[4]);
     expect(byId['coast-near']).toBeUndefined();
+  });
+
+  it('gives new boxes to the filters alone', () => {
+    const later = splitFilters(layers, [...info.detail, [27.9, 36.2, 28.3, 36.6]]);
+    expect(later.map(([id]) => id)).toEqual(['roads', 'roads-near', 'places', 'places-near']);
+    expect(later[1][1]).toEqual([
+      'all',
+      ['==', ['get', 'kind'], 'highway'],
+      boxes([...info.detail, [27.9, 36.2, 28.3, 36.6]]),
+    ]);
+    // No boxes yet: a speck nowhere, so the far layers draw everything
+    expect(JSON.stringify(boxes([]))).toContain('0.0001');
+    expect(hasDetail(info)).toBe(true);
+    expect(hasDetail({ ...info, detailZoom: 8 })).toBe(false);
   });
 
   it('gives the near layers the same theme', () => {

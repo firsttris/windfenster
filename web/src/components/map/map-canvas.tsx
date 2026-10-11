@@ -1,6 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { LocateFixed, Minus, Plus } from 'lucide-react';
-import { addProtocol, type GeoJSONSource, Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl';
+import { addProtocol, type GeoJSONSource, Map as MapLibreMap, setWorkerUrl, type VectorTileSource } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { Protocol } from 'pmtiles';
 import { useEffect, useRef, useState } from 'react';
@@ -41,6 +41,8 @@ interface Props {
   onCenter: (lon: number, lat: number) => void;
   /** A place to fly to (a new object flies again) */
   focus: { lon: number; lat: number } | null;
+  /** Boxes with detail tiles; new ones show without making the map anew */
+  detail: readonly (readonly [number, number, number, number])[];
 }
 
 // MapLibre looks for its worker next to its own module, which the bundle no longer has.
@@ -56,7 +58,19 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, onPick, onCenter, focus }: Props) {
+export function MapCanvas({
+  basemap,
+  layers,
+  gusts,
+  domain,
+  pins,
+  unit,
+  picked,
+  onPick,
+  onCenter,
+  focus,
+  detail,
+}: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -193,6 +207,21 @@ export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, 
     field.current?.show(layers);
     parts.current?.show(layers);
   }, [layers]);
+
+  const detailKey = JSON.stringify(detail);
+  const detailShown = useRef(detailKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for `detail`
+  useEffect(() => {
+    const mp = map.current;
+    if (!ready || !mp || !basemap.detailFilters || detailShown.current === detailKey) return;
+    detailShown.current = detailKey;
+    for (const [id, filter] of basemap.detailFilters(detail)) {
+      if (mp.getLayer(id)) mp.setFilter(id, filter);
+    }
+    // Tiles asked for before the detail was there came back empty: ask again.
+    const near = mp.getSource<VectorTileSource>('pm-near');
+    if (near?.tiles) near.setTiles(near.tiles);
+  }, [ready, basemap, detailKey]);
 
   useEffect(() => {
     const mp = map.current;

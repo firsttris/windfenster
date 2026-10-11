@@ -1,6 +1,7 @@
 //! Keeps the textures current: finds the newest model run, fetches the hours not yet on disk
 //! and turns them into textures; old runs are removed. One file per model.
 
+mod basemap;
 mod ecmwf;
 mod icon_d2;
 
@@ -66,6 +67,10 @@ pub struct MapData {
     root: PathBuf,
     http: reqwest::Client,
     urls: Urls,
+    /// Open basemap archives, for the detail tiles
+    readers: crate::basemap::serve::Readers,
+    /// Spots tapped on the map, with when (service/basemap.rs)
+    tapped: std::sync::Mutex<Vec<(crate::basemap::spots::Spot, i64)>>,
 }
 
 /// The map's region (west, south, east, north): global fields are cut to it.
@@ -73,7 +78,13 @@ pub const REGION: [f64; 4] = [-25.0, 27.0, 45.0, 72.0];
 
 impl MapData {
     pub fn new(root: PathBuf, http: reqwest::Client, urls: Urls) -> Self {
-        Self { root, http, urls }
+        Self {
+            root,
+            http,
+            urls,
+            readers: Default::default(),
+            tapped: Default::default(),
+        }
     }
 
     pub fn root(&self) -> &std::path::Path {
@@ -113,37 +124,6 @@ impl MapData {
                     Ok(n) => tracing::info!("map: {n} new {model} hours"),
                     Err(e) => tracing::warn!("map {model}: {e}"),
                 }
-            }
-        }
-    }
-
-    /// The background loop for the basemap: a minute after the start (the station lists first),
-    /// then daily, makes it for the tracked stations if it is due.
-    pub async fn keep_basemap(self: Arc<Self>, db: wf_core::db::Db, tracked: Vec<String>) {
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        let mut tick = tokio::time::interval(Duration::from_secs(86_400));
-        loop {
-            tick.tick().await;
-            let mut spots = Vec::new();
-            for slug in &tracked {
-                match wf_core::station::by_slug(&db, slug).await {
-                    Ok(Some(s)) => spots.push((s.lat, s.lon)),
-                    Ok(None) => {}
-                    Err(e) => tracing::warn!("basemap spots: {e}"),
-                }
-            }
-            let now = wf_core::time::now();
-            match crate::basemap::fetch::keep_current(
-                &self.root,
-                &self.http,
-                &self.urls.protomaps,
-                &spots,
-                now,
-            )
-            .await
-            {
-                Ok(_) => {}
-                Err(e) => tracing::warn!("basemap: {e}"),
             }
         }
     }

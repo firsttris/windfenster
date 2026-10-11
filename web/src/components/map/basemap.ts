@@ -3,10 +3,16 @@
  * one, else Europe from Natural Earth. Both with labels in Noto Sans, recoloured for the theme
  * without touching the wind layers on top.
  */
-import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import type {
+  FilterSpecification,
+  GeoJSONSource,
+  LayerSpecification,
+  Map as MapLibreMap,
+  StyleSpecification,
+} from 'maplibre-gl';
 import type { BasemapInfo } from '@/bindings/BasemapInfo';
 import type { Theme } from '@/lib/prefs';
-import { splitLayers, splitPaint, splitSources } from './basemap-detail';
+import { hasDetail, splitFilters, splitLayers, splitPaint, splitSources } from './basemap-detail';
 import {
   NATURAL_EARTH_ABOVE_FIELD,
   naturalEarthLayers,
@@ -34,6 +40,8 @@ export interface Basemap {
   bounds: [number, number, number, number];
   /** Closest zoom worth showing: vector tiles stay sharp a few levels past their data */
   maxZoom: number;
+  /** Filters for new detail boxes, set on the map as they come (basemap-detail.ts) */
+  detailFilters?: (detail: readonly (readonly [number, number, number, number])[]) => [string, FilterSpecification][];
 }
 
 const DOMAIN: LayerSpecification = {
@@ -67,7 +75,7 @@ function style(
 export function basemapFor(info: BasemapInfo | null): Basemap {
   if (info) {
     // Our own file: the region whole, the spots deeper (basemap-detail.ts)
-    const split = info.detail.length > 0;
+    const split = hasDetail(info);
     const paint = (theme: Theme) => {
       const p = withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line);
       return split ? splitPaint(p) : p;
@@ -75,12 +83,17 @@ export function basemapFor(info: BasemapInfo | null): Basemap {
     return {
       style: (theme, lang) =>
         split
-          ? style(splitSources(info, PROTOMAPS_ATTRIBUTION), splitLayers(protomapsLayers(lang), info), paint(theme))
+          ? style(
+              splitSources(info, PROTOMAPS_ATTRIBUTION),
+              splitLayers(protomapsLayers(lang), info.detail),
+              paint(theme),
+            )
           : style(protomapsSources(), protomapsLayers(lang), paint(theme)),
       aboveField: PROTOMAPS_ABOVE_FIELD,
       paint,
       bounds: info.bounds as [number, number, number, number],
-      maxZoom: Math.min(16, info.maxZoom + 3),
+      maxZoom: Math.min(16, Math.max(info.maxZoom, info.detailZoom) + 3),
+      detailFilters: split ? (detail) => splitFilters(protomapsLayers('en'), detail) : undefined,
     };
   }
   return {

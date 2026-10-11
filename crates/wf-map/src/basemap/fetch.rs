@@ -1,8 +1,8 @@
 //! Puts a basemap in place without the operator doing anything: from the newest Protomaps daily
-//! build, the map's region from afar and the tracked spots from close up, read by byte range
-//! (pmtiles crate) and written to one archive. A file the operator put there is never touched;
-//! ours carries a note next to it (`basemap.json`) and is renewed when the spots change or it
-//! grows old.
+//! build, the map's region from afar, read by byte range (pmtiles crate) and written to one
+//! archive. The spots people look at get archives of their own (`spots.rs`). A file the
+//! operator put there is never touched; ours carries a note next to it (`basemap.json`) and is
+//! renewed when it grows old.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -43,14 +43,11 @@ pub enum Error {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Note {
     pub build: String,
-    /// lat, lon of the spots, to 0.01°
+    /// lat, lon of spots held in the same file, to 0.01°: only in files made before the spots
+    /// got archives of their own
+    #[serde(default)]
     pub spots: Vec<[f64; 2]>,
     pub made_at: i64,
-}
-
-fn round(spots: &[(f64, f64)]) -> Vec<[f64; 2]> {
-    let r = |v: f64| (v * 100.0).round() / 100.0;
-    spots.iter().map(|&(lat, lon)| [r(lat), r(lon)]).collect()
 }
 
 /// The note next to our basemap; None for an operator's file or none at all.
@@ -59,18 +56,18 @@ pub async fn read_note(root: &Path) -> Option<Note> {
     serde_json::from_slice(&bytes).ok()
 }
 
-/// Whether to make our basemap now: none there, ours for other spots, or ours grown old. A
-/// file without our note is the operator's.
-pub fn due(file_exists: bool, note: Option<&Note>, spots: &[(f64, f64)], now: i64) -> bool {
+/// Whether to make our basemap now: none there, ours grown old, or ours from before the spots
+/// had their own files. A file without our note is the operator's.
+pub fn due(file_exists: bool, note: Option<&Note>, now: i64) -> bool {
     match (file_exists, note) {
         (false, _) => true,
         (true, None) => false,
-        (true, Some(n)) => n.spots != round(spots) || now - n.made_at > RENEW_S,
+        (true, Some(n)) => !n.spots.is_empty() || now - n.made_at > RENEW_S,
     }
 }
 
 /// A PMTiles file on a web server, read by byte range with our HTTP client.
-struct Http {
+pub(crate) struct Http {
     client: reqwest::Client,
     url: String,
 }
@@ -93,7 +90,7 @@ impl AsyncBackend for Http {
     }
 }
 
-type Reader = AsyncPmTilesReader<Http, HashMapCache>;
+pub(crate) type Reader = AsyncPmTilesReader<Http, HashMapCache>;
 
 async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reader> {
     let backend = Http {
@@ -104,7 +101,7 @@ async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reader> {
 }
 
 /// The newest build that answers: YYYYMMDD and its reader.
-async fn newest_build(
+pub(crate) async fn newest_build(
     http: &reqwest::Client,
     base: &str,
     now: i64,
@@ -120,7 +117,7 @@ async fn newest_build(
 }
 
 /// Copies the tiles of `areas` from `reader` into a new archive at `target`; returns how many.
-async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Result<usize, Error> {
+pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Result<usize, Error> {
     let reader = Arc::new(reader);
     let (tile_type, compression) = (
         reader.get_header().tile_type,
@@ -174,31 +171,28 @@ async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Result<usize, Er
     write.await?
 }
 
-/// Makes our basemap if it is due: the newest build, cut to the region and the spots.
-/// Returns the build used, or None when nothing was due.
+/// Makes our basemap if it is due: the newest build, cut to the region. Returns the build
+/// used, or None when nothing was due.
 pub async fn keep_current(
     root: &Path,
     http: &reqwest::Client,
     base: &str,
-    spots: &[(f64, f64)],
     now: i64,
 ) -> Result<Option<String>, Error> {
     let file = super::path(root);
     let note = read_note(root).await;
     let exists = tokio::fs::try_exists(&file).await.unwrap_or(false);
-    if !due(exists, note.as_ref(), spots, now) {
+    if !due(exists, note.as_ref(), now) {
         return Ok(None);
     }
     let (build, reader) = newest_build(http, base, now).await?;
-    let mut areas = vec![tiles::region()];
-    areas.extend(spots.iter().map(|&(lat, lon)| tiles::spot(lat, lon)));
     tokio::fs::create_dir_all(root).await?;
     let partial = root.join("basemap.pmtiles.part");
-    let n = copy(reader, &areas, &partial).await?;
+    let n = copy(reader, &[tiles::region()], &partial).await?;
     tokio::fs::rename(&partial, &file).await?;
     let note = Note {
         build: build.clone(),
-        spots: round(spots),
+        spots: Vec::new(),
         made_at: now,
     };
     tokio::fs::write(
@@ -216,18 +210,21 @@ mod tests {
 
     #[test]
     fn leaves_the_operators_file_alone() {
-        let spots = [(48.7794, 8.0805)];
         let ours = Note {
             build: "20261010".into(),
-            spots: round(&spots),
+            spots: vec![],
             made_at: 0,
         };
-        assert!(due(false, None, &spots, 0));
+        assert!(due(false, None, 0));
         // Someone else's file
-        assert!(!due(true, None, &spots, 0));
-        assert!(!due(true, Some(&ours), &spots, 86_400));
-        // Other spots, or old
-        assert!(due(true, Some(&ours), &[(36.4, 28.1)], 86_400));
-        assert!(due(true, Some(&ours), &spots, RENEW_S + 1));
+        assert!(!due(true, None, 0));
+        assert!(!due(true, Some(&ours), 86_400));
+        // Old, or from before the spots had files of their own
+        assert!(due(true, Some(&ours), RENEW_S + 1));
+        let older = Note {
+            spots: vec![[48.78, 8.08]],
+            ..ours
+        };
+        assert!(due(true, Some(&older), 86_400));
     }
 }
