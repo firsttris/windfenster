@@ -275,6 +275,25 @@ pub async fn current(db: &SqlitePool, station_id: i64, now: i64) -> sqlx::Result
     Ok(row.and_then(Row::into_taf))
 }
 
+/// Every TAF of a station valid at some time in [from, to), oldest first.
+pub async fn between(
+    db: &SqlitePool,
+    station_id: i64,
+    from: i64,
+    to: i64,
+) -> sqlx::Result<Vec<Taf>> {
+    let rows: Vec<Row> = sqlx::query_as(
+        "SELECT issued_at, valid_from, valid_to, raw, groups, fetched_at FROM taf \
+         WHERE station_id = ? AND valid_to > ? AND valid_from < ? ORDER BY issued_at",
+    )
+    .bind(station_id)
+    .bind(from)
+    .bind(to)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().filter_map(Row::into_taf).collect())
+}
+
 /// When the station's TAF was last fetched, if ever.
 pub async fn last_fetch(db: &SqlitePool, station_id: i64) -> sqlx::Result<Option<i64>> {
     sqlx::query_scalar("SELECT MAX(fetched_at) FROM taf WHERE station_id = ?")
@@ -439,6 +458,8 @@ mod tests {
         assert_eq!(got.issued_at, T0 + 2 * H);
         assert_eq!(got.hours.len(), 24);
         assert_eq!(last_fetch(&db, 1).await?, Some(T0 + 2 * H));
+        assert_eq!(between(&db, 1, T0 + 23 * H, T0 + 30 * H).await?.len(), 2);
+        assert!(between(&db, 1, T0 + 24 * H, T0 + 30 * H).await?.is_empty());
         assert!(current(&db, 1, T0 + 24 * H).await?.is_none());
         assert_eq!(purge(&db, T0 + 25 * H).await?, 2);
         Ok(())

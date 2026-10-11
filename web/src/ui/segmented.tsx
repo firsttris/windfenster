@@ -2,7 +2,8 @@ import { cn } from '@/lib/utils';
 
 interface SegmentedProps<T extends string> {
   label: string;
-  value: T;
+  /** null: none pressed */
+  value: T | null;
   options: readonly { value: T; label: string; disabled?: boolean }[];
   onChange: (value: T) => void;
   className?: string;

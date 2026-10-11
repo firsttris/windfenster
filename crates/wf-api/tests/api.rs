@@ -280,10 +280,16 @@ async fn station_forecast_is_fetched_once_then_cached() -> Result<()> {
     );
     assert_eq!(fc["timezone"], "Europe/Berlin");
     assert_eq!(fc["notice"], Value::Null);
-    // The fake has values for every model it is asked for.
-    assert_eq!(fc["series"].as_array().unwrap().len(), 5);
-    assert_eq!(fc["series"][0]["model"], "icon_d2");
+    // The fake has values for every model it is asked for; the mix comes first.
+    assert_eq!(fc["series"].as_array().unwrap().len(), 6);
+    assert_eq!(fc["models"][0]["class"], "mix");
+    assert_eq!(fc["series"][0]["model"], "mix");
     assert_eq!(fc["series"][0]["wind"], json!([10.0, 12.5, 15.0]));
+    assert_eq!(fc["series"][1]["model"], "icon_d2");
+    // Nothing verified yet
+    assert_eq!(body["ranking"]["days"], 0);
+    assert_eq!(body["ranking"]["scores"], json!([]));
+    assert_eq!(body["ranking"]["bestSuper"], Value::Null);
     assert_eq!(calls.forecast.load(Ordering::SeqCst), 1);
 
     get_json(&app, "/api/stations/edsb").await?;
@@ -302,16 +308,19 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["nearest"]["station"]["slug"], "edsb");
     assert!(body["nearest"]["distanceKm"].as_f64().unwrap() < 5.0);
+    // Within 5 km the point takes the station's ranking.
+    assert_eq!(body["ranking"]["days"], 0);
     // Rhodes: only the global models, no station nearby.
     let (_, body) = get_json(&app, "/api/point?lat=36.4&lon=28.1").await?;
     assert_eq!(body["nearest"], Value::Null);
+    assert_eq!(body["ranking"], Value::Null);
     let ids: Vec<&str> = body["forecast"]["models"]
         .as_array()
         .unwrap()
         .iter()
         .map(|m| m["id"].as_str().unwrap())
         .collect();
-    assert_eq!(ids, ["ecmwf_ifs025", "gfs_global"]);
+    assert_eq!(ids, ["mix", "ecmwf_ifs025", "gfs_global"]);
 
     for bad in [
         "/api/point?lat=95&lon=8",

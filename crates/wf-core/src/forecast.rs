@@ -31,6 +31,14 @@ impl SeriesData {
     pub fn len(&self) -> usize {
         self.wind.len()
     }
+
+    /// The index of the value at `t`, when a step falls on it.
+    pub fn index(&self, t: i64) -> Option<usize> {
+        let d = t - self.start;
+        (d >= 0 && self.step_s > 0 && d % self.step_s == 0)
+            .then(|| (d / self.step_s) as usize)
+            .filter(|i| *i < self.len())
+    }
 }
 
 /// A model run, e.g. ICON-D2 12 UTC.
@@ -240,6 +248,9 @@ pub struct StoredSeries {
     pub data: SeriesData,
 }
 
+const SERIES_COLUMNS: &str = "s.model_id, s.run_id, r.run_at, s.fetched_at, s.start_at, s.step_s, \
+    s.wind, s.gust, s.dir, s.temp, s.rain, s.cloud";
+
 #[derive(sqlx::FromRow)]
 struct SeriesRow {
     model_id: String,
@@ -256,39 +267,61 @@ struct SeriesRow {
     cloud: Vec<u8>,
 }
 
+impl SeriesRow {
+    fn decode(self) -> anyhow::Result<StoredSeries> {
+        Ok(StoredSeries {
+            model_id: self.model_id,
+            run_id: self.run_id,
+            run_at: self.run_at,
+            fetched_at: self.fetched_at,
+            data: SeriesData {
+                start: self.start_at,
+                step_s: self.step_s,
+                wind: series::decode(Quantity::Wind, &self.wind)?,
+                gust: series::decode(Quantity::Gust, &self.gust)?,
+                dir: series::decode(Quantity::Direction, &self.dir)?,
+                temp: series::decode(Quantity::Temperature, &self.temp)?,
+                rain: series::decode(Quantity::Rain, &self.rain)?,
+                cloud: series::decode(Quantity::Cloud, &self.cloud)?,
+            },
+        })
+    }
+}
+
 pub async fn latest_series(db: &SqlitePool, p: GridPoint) -> anyhow::Result<Vec<StoredSeries>> {
-    let rows: Vec<SeriesRow> = sqlx::query_as(
-        "SELECT s.model_id, s.run_id, r.run_at, s.fetched_at, s.start_at, s.step_s, s.wind, s.gust, \
-         s.dir, s.temp, s.rain, s.cloud \
-         FROM forecast_series s JOIN model_run r ON r.id = s.run_id \
+    let rows: Vec<SeriesRow> = sqlx::query_as(&format!(
+        "SELECT {SERIES_COLUMNS} FROM forecast_series s JOIN model_run r ON r.id = s.run_id \
          WHERE s.lat_e2 = ?1 AND s.lon_e2 = ?2 AND r.run_at = ( \
            SELECT MAX(r2.run_at) FROM forecast_series s2 JOIN model_run r2 ON r2.id = s2.run_id \
-           WHERE s2.lat_e2 = ?1 AND s2.lon_e2 = ?2 AND s2.model_id = s.model_id)",
-    )
+           WHERE s2.lat_e2 = ?1 AND s2.lon_e2 = ?2 AND s2.model_id = s.model_id)"
+    ))
     .bind(p.lat_e2)
     .bind(p.lon_e2)
     .fetch_all(db)
     .await?;
-    rows.into_iter()
-        .map(|r| {
-            Ok(StoredSeries {
-                model_id: r.model_id,
-                run_id: r.run_id,
-                run_at: r.run_at,
-                fetched_at: r.fetched_at,
-                data: SeriesData {
-                    start: r.start_at,
-                    step_s: r.step_s,
-                    wind: series::decode(Quantity::Wind, &r.wind)?,
-                    gust: series::decode(Quantity::Gust, &r.gust)?,
-                    dir: series::decode(Quantity::Direction, &r.dir)?,
-                    temp: series::decode(Quantity::Temperature, &r.temp)?,
-                    rain: series::decode(Quantity::Rain, &r.rain)?,
-                    cloud: series::decode(Quantity::Cloud, &r.cloud)?,
-                },
-            })
-        })
-        .collect()
+    rows.into_iter().map(SeriesRow::decode).collect()
+}
+
+/// Every stored series of a place whose run started in [from, to), oldest run first; empty
+/// series (models without values here) are left out.
+pub async fn series_between(
+    db: &SqlitePool,
+    p: GridPoint,
+    from: i64,
+    to: i64,
+) -> anyhow::Result<Vec<StoredSeries>> {
+    let rows: Vec<SeriesRow> = sqlx::query_as(&format!(
+        "SELECT {SERIES_COLUMNS} FROM forecast_series s JOIN model_run r ON r.id = s.run_id \
+         WHERE s.lat_e2 = ? AND s.lon_e2 = ? AND r.run_at >= ? AND r.run_at < ? \
+         AND length(s.wind) > 0 ORDER BY r.run_at"
+    ))
+    .bind(p.lat_e2)
+    .bind(p.lon_e2)
+    .bind(from)
+    .bind(to)
+    .fetch_all(db)
+    .await?;
+    rows.into_iter().map(SeriesRow::decode).collect()
 }
 
 /// Drops runs older than `runs_before` (with their series) and free points nobody asked for

@@ -6,6 +6,7 @@
  */
 import type { Forecast } from '@/bindings/Forecast';
 import type { ModelSeries } from '@/bindings/ModelSeries';
+import type { Ranking } from '@/bindings/Ranking';
 
 export type Mode = 'super' | 'global';
 export type Stage = 'hourly' | 'threeHourly' | 'trend';
@@ -49,14 +50,34 @@ export interface Day {
   cells: Cell[];
 }
 
+export const MIX = 'mix';
+
 /** The first model of a class (in the default order) that has values here. */
 export function defaultModel(fc: Forecast, mode: Mode): string | null {
   const wanted = fc.models.filter((m) => m.class === mode).map((m) => m.id);
   return fc.series.find((s) => wanted.includes(s.model))?.model ?? null;
 }
 
-export function modeOf(fc: Forecast, modelId: string): Mode {
-  return fc.models.find((m) => m.id === modelId)?.class === 'super' ? 'super' : 'global';
+const has = (fc: Forecast, id: string | null | undefined): id is string =>
+  !!id && fc.series.some((s) => s.model === id);
+
+/** The model of a class the station's ranking picks, else the default order's first. */
+export function autoModel(fc: Forecast, ranking: Ranking | null | undefined, mode: Mode): string | null {
+  const best = mode === 'super' ? ranking?.bestSuper : ranking?.bestGlobal;
+  return has(fc, best) ? best : defaultModel(fc, mode);
+}
+
+/** What a page opens with: the mix where it beat every model, else the best regional model,
+ * else the best global one. */
+export function initialModel(fc: Forecast, ranking: Ranking | null | undefined): string | null {
+  if (ranking?.mixFirst && has(fc, MIX)) return MIX;
+  return autoModel(fc, ranking, 'super') ?? autoModel(fc, ranking, 'global');
+}
+
+/** Superforecast or Forecast; null for the mix, which is neither. */
+export function modeOf(fc: Forecast, modelId: string): Mode | null {
+  const cls = fc.models.find((m) => m.id === modelId)?.class;
+  return cls === 'super' ? 'super' : cls === 'global' ? 'global' : null;
 }
 
 /** Local date and hour of a Unix time in a time zone. */
@@ -105,12 +126,17 @@ function rainOver(s: ModelSeries, i: number | undefined, hours: number): number 
   return Math.round(sum * 10) / 10;
 }
 
-/** Builds the table for the chosen model at `now` (Unix seconds). */
-export function buildDays(fc: Forecast, selected: string, now: number): Day[] {
+/** Builds the table for the chosen model at `now` (Unix seconds); where it ends, `globalId`
+ * (by default the first global model) takes over. */
+export function buildDays(
+  fc: Forecast,
+  selected: string,
+  now: number,
+  globalId: string | null = defaultModel(fc, 'global'),
+): Day[] {
   const clock = localClock(fc.timezone ?? 'UTC');
   const bySource = new Map(fc.series.map((s) => [s.model, s]));
   const chosen = bySource.get(selected);
-  const globalId = defaultModel(fc, 'global');
   const fallback = globalId ? bySource.get(globalId) : undefined;
   const base = fallback ?? chosen;
   if (!base) return [];

@@ -11,7 +11,7 @@ import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { WindCell } from '@/ui/wind-cell';
 import { windBand } from '@/ui/wind-scale';
-import { modelName, StageChip, Weather } from './shared';
+import { AgreementDot, modelName, StageChip, Weather } from './shared';
 
 interface Row {
   label: string;
@@ -139,6 +139,7 @@ export function ForecastTable({ fc, days, unit, now, measured, taf }: Props) {
                 </span>
                 <span className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
                   <StageChip fc={fc} day={d} />
+                  {d.stage === 'trend' && <AgreementDot fc={fc} day={d} />}
                   <span className="font-mono text-[11px] text-dim">{modelName(fc, d.source)}</span>
                 </span>
               </th>

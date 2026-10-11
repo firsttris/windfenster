@@ -263,7 +263,8 @@ impl Forecasts {
 fn availability_delay(m: &Model) -> i64 {
     match m.class {
         ModelClass::Super => 3 * 3_600,
-        ModelClass::Global => 9 * 3_600,
+        // The mix is no model of the table; global's delay is the safe answer.
+        ModelClass::Global | ModelClass::Mix => 9 * 3_600,
     }
 }
 

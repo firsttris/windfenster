@@ -4,7 +4,8 @@ use ts_rs::TS;
 
 /// Which selection rule a model serves. "Superforecast" and "Forecast" are not models of their
 /// own: Superforecast takes the best regional model (≤ 3 km) whose domain covers the place,
-/// Forecast the best global one.
+/// Forecast the best global one. `Mix` is the Windfenster mix, which the API adds to a
+/// forecast; it is never a row of the `model` table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, TS)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(rename_all = "lowercase")]
@@ -12,6 +13,7 @@ use ts_rs::TS;
 pub enum ModelClass {
     Super,
     Global,
+    Mix,
 }
 
 /// Computational domain of a regional model, in degrees.

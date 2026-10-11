@@ -83,6 +83,16 @@ pub async fn since(db: &SqlitePool, station_id: i64, since: i64) -> sqlx::Result
     Ok(rows.into_iter().map(Observation::from).collect())
 }
 
+/// A measurement counts for a forecast hour this close to it (METARs come at :20 and :50).
+pub const MATCH_S: i64 = 20 * 60;
+
+/// The measurement closest to `time` within `within` seconds; `obs` oldest first.
+pub fn nearest(obs: &[Observation], time: i64, within: i64) -> Option<&Observation> {
+    obs.iter()
+        .filter(|o| (o.at - time).abs() <= within)
+        .min_by_key(|o| (o.at - time).abs())
+}
+
 /// Station ids of a source by the source's code (ICAO code, DWD number).
 pub async fn station_ids(
     db: &SqlitePool,
@@ -149,6 +159,8 @@ mod tests {
         store(&db, &[(id, o(200, 11.0))]).await?;
         let got = since(&db, id, 150).await?;
         assert_eq!(got, [o(200, 11.0)]);
+        assert_eq!(nearest(&got, 2_000, MATCH_S), None);
+        assert_eq!(nearest(&got, 210, MATCH_S), Some(&o(200, 11.0)));
         assert_eq!(purge(&db, 150).await?, 1);
         assert_eq!(since(&db, id, 0).await?.len(), 1);
         Ok(())

@@ -2,12 +2,22 @@ import { describe, expect, it } from 'vitest';
 import type { Forecast } from '@/bindings/Forecast';
 import type { Model } from '@/bindings/Model';
 import type { ModelSeries } from '@/bindings/ModelSeries';
-import { buildDays, compassIndex, defaultModel, localClock, modeOf, weatherOf } from './forecast';
+import type { Ranking } from '@/bindings/Ranking';
+import {
+  autoModel,
+  buildDays,
+  compassIndex,
+  defaultModel,
+  initialModel,
+  localClock,
+  modeOf,
+  weatherOf,
+} from './forecast';
 
 const MIDNIGHT = 1_791_669_600; // 2026-10-11 00:00 in Berlin (22:00 UTC the day before)
 const HOUR = 3600;
 
-const model = (id: string, cls: 'super' | 'global', rank: number): Model => ({
+const model = (id: string, cls: 'super' | 'global' | 'mix', rank: number): Model => ({
   id,
   name: id,
   provider: 'test',
@@ -117,5 +127,40 @@ describe('helpers', () => {
     expect(compassIndex(225)).toBe(10);
     expect(compassIndex(350)).toBe(0);
     expect(compassIndex(-90)).toBe(12);
+  });
+});
+
+describe('model choice', () => {
+  const ranking = (r: Partial<Ranking>): Ranking => ({
+    days: 20,
+    scores: [],
+    bestSuper: null,
+    bestGlobal: null,
+    mixFirst: false,
+    ...r,
+  });
+  const withMix: Forecast = {
+    ...fc,
+    models: [model('mix', 'mix', 0), ...fc.models],
+    series: [series('mix', 240, 0), ...fc.series],
+  };
+
+  it('follows the default order without a ranking', () => {
+    expect(initialModel(withMix, null)).toBe('icon_d2');
+    expect(autoModel(withMix, null, 'global')).toBe('ecmwf');
+    expect(modeOf(withMix, 'mix')).toBeNull();
+    expect(modeOf(withMix, 'gfs')).toBe('global');
+  });
+
+  it('takes what the ranking picked', () => {
+    expect(autoModel(withMix, ranking({ bestGlobal: 'gfs' }), 'global')).toBe('gfs');
+    expect(initialModel(withMix, ranking({ mixFirst: true }))).toBe('mix');
+    // A pick without values here falls back to the order.
+    expect(autoModel(withMix, ranking({ bestSuper: 'arome' }), 'super')).toBe('icon_d2');
+  });
+
+  it('lets the chosen global model take over after the regional one', () => {
+    const days = buildDays(withMix, 'icon_d2', MIDNIGHT + 10 * HOUR, 'gfs');
+    expect(days[2].source).toBe('gfs');
   });
 });

@@ -1,11 +1,12 @@
 //! The background loop: station lists weekly, model runs every five minutes, METARs every ten,
-//! water gauges every ten, TAFs and DWD measurements every thirty, cleanup hourly.
+//! water gauges every ten, TAFs and DWD measurements every thirty, verification and cleanup
+//! hourly.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use sqlx::SqlitePool;
-use wf_core::station;
+use wf_core::{station, verification};
 
 use crate::forecasts::{Forecasts, HOT_FOR_S};
 use crate::observations::Measurements;
@@ -113,6 +114,21 @@ impl Scheduler {
                 }
                 if let Err(e) = wf_core::taf::purge(&self.db, now - KEEP_OBSERVATIONS_S).await {
                     tracing::error!("TAF purge: {e}");
+                }
+                let keep_from = wf_core::time::yyyymmdd(now - KEEP_OBSERVATIONS_S);
+                if let Err(e) = verification::purge(&self.db, keep_from).await {
+                    tracing::error!("verification purge: {e}");
+                }
+                // Today so far, and the two days before for measurements that came late.
+                let today = now - now.rem_euclid(86_400);
+                for day0 in [today - 2 * 86_400, today - 86_400, today] {
+                    match verification::verify_day(&self.db, day0).await {
+                        Ok(n) => tracing::debug!(
+                            "verified {n} stations for {}",
+                            wf_core::time::yyyymmdd(day0)
+                        ),
+                        Err(e) => tracing::error!("verification: {e:#}"),
+                    }
                 }
             }
         }

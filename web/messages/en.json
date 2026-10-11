@@ -77,7 +77,6 @@
     }
   ],
   "models_noData": "No values at this place",
-  "models_defaultHint": "The first model of a fixed order is preselected until measurements show which one is closest here.",
   "stage_hourly": "{label} · hourly",
   "stage_threeHourly": "Forecast · 3 h",
   "stage_trend": "Trend · 6 h",
@@ -219,5 +218,45 @@
   "water_temperature": "Water temperature",
   "water_source": "PEGELONLINE (WSV) · {time}",
   "water_currentNote": "Current estimated from the flow and a blanket cross-section",
-  "footer_gauges": "Gauges:"
+  "footer_gauges": "Gauges:",
+  "mix_name": "Mix",
+  "mix_sub": "weighted · {days} days",
+  "models_top": "Best here",
+  "models_auto": "Auto choice: {model} came closest to the measurements here over the last 30 days.",
+  "models_autoMix": "Auto choice: the mix came closer to the measurements here over the last 30 days than any single model.",
+  "models_collecting": "The first model of a fixed order is preselected. From 14 days of measurements on, Windfenster picks the model that is closest here ({days} of 14 so far).",
+  "models_noStation": "The first model of a fixed order is preselected; without a station within 5 km there is no ranking here.",
+  "ranking_title": "Who hits at {code}?",
+  "ranking_sub": "Mean error against {source}, last 30 days, first day ahead",
+  "ranking_from": "Ranking of the station {name}, {distance} away",
+  "ranking_empty": "Nothing verified yet. As soon as measurements and stored runs come together, Windfenster compares them every hour.",
+  "ranking_young": "Only {days} of 14 days: the order can still change a lot.",
+  "ranking_hours": [
+    {
+      "declarations": ["input hours", "local hoursPlural = hours: plural"],
+      "selectors": ["hoursPlural"],
+      "match": {
+        "hoursPlural=one": "Basis: {source}, {hours} hour compared",
+        "hoursPlural=other": "Basis: {source}, {hours} hours compared"
+      }
+    }
+  ],
+  "ranking_method": "How it is compared",
+  "ranking_tafSub": "aviation",
+  "ranking_mixSub": "weighted",
+  "ranking_bias": "bias {bias}",
+  "agree_title": "Do the models agree?",
+  "agree_high": "High",
+  "agree_medium": "Medium",
+  "agree_low": "Low",
+  "agree_spread": "Spread {spread} · {models}",
+  "agree_today": "Today",
+  "agree_none": "Too few models to compare.",
+  "agree_day": "Model agreement: {level}",
+  "chart_title": "Models compared · today",
+  "chart_sub": "Mean wind in {unit} · dots = {source}, measured so far",
+  "chart_subPlain": "Mean wind in {unit}",
+  "chart_now": "now",
+  "chart_aria": "Line chart: the models' wind forecast for today, 7 am to 7 pm",
+  "chart_measured": "Measured"
 }

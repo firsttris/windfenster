@@ -77,7 +77,6 @@
     }
   ],
   "models_noData": "Keine Werte an diesem Ort",
-  "models_defaultHint": "Vorausgewählt ist das erste Modell der festen Rangfolge, bis Messwerte zeigen, welches hier am besten trifft.",
   "stage_hourly": "{label} · stündlich",
   "stage_threeHourly": "Forecast · 3 h",
   "stage_trend": "Trend · 6 h",
@@ -219,5 +218,45 @@
   "water_temperature": "Wassertemperatur",
   "water_source": "PEGELONLINE (WSV) · {time}",
   "water_currentNote": "Strömung aus Abfluss und pauschalem Querschnitt geschätzt",
-  "footer_gauges": "Pegel:"
+  "footer_gauges": "Pegel:",
+  "mix_name": "Mix",
+  "mix_sub": "gewichtet · {days} Tage",
+  "models_top": "Top hier",
+  "models_auto": "Auto-Auswahl: {model} lag hier in den letzten 30 Tagen am nächsten an der Messung.",
+  "models_autoMix": "Auto-Auswahl: Der Mix lag hier in den letzten 30 Tagen näher an der Messung als jedes einzelne Modell.",
+  "models_collecting": "Vorausgewählt ist das erste Modell der festen Rangfolge. Ab 14 Tagen Messdaten wählt Windfenster das Modell, das hier am besten trifft (bisher {days} von 14).",
+  "models_noStation": "Vorausgewählt ist das erste Modell der festen Rangfolge; ohne Station in 5 km gibt es hier kein Ranking.",
+  "ranking_title": "Wer trifft an {code}?",
+  "ranking_sub": "Ø Abweichung von {source}, letzte 30 Tage, erster Tag",
+  "ranking_from": "Ranking der Station {name}, {distance} entfernt",
+  "ranking_empty": "Noch keine Auswertung. Sobald Messwerte und gespeicherte Läufe zusammenkommen, vergleicht Windfenster jede Stunde.",
+  "ranking_young": "Erst {days} von 14 Tagen: Die Reihenfolge kann sich noch deutlich ändern.",
+  "ranking_hours": [
+    {
+      "declarations": ["input hours", "local hoursPlural = hours: plural"],
+      "selectors": ["hoursPlural"],
+      "match": {
+        "hoursPlural=one": "Basis: {source}, {hours} Stunde verglichen",
+        "hoursPlural=other": "Basis: {source}, {hours} Stunden verglichen"
+      }
+    }
+  ],
+  "ranking_method": "So wird verglichen",
+  "ranking_tafSub": "Flugwetter",
+  "ranking_mixSub": "gewichtet",
+  "ranking_bias": "Tendenz {bias}",
+  "agree_title": "Sind sich die Modelle einig?",
+  "agree_high": "Hoch",
+  "agree_medium": "Mittel",
+  "agree_low": "Gering",
+  "agree_spread": "Spread {spread} · {models}",
+  "agree_today": "Heute",
+  "agree_none": "Zu wenige Modelle für einen Vergleich.",
+  "agree_day": "Einigkeit der Modelle: {level}",
+  "chart_title": "Modelle im Vergleich · heute",
+  "chart_sub": "Windmittel in {unit} · Punkte = {source}, bisher gemessen",
+  "chart_subPlain": "Windmittel in {unit}",
+  "chart_now": "jetzt",
+  "chart_aria": "Liniendiagramm: Windvorhersage der Modelle für heute, 7 bis 19 Uhr",
+  "chart_measured": "Gemessen"
 }

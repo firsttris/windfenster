@@ -39,7 +39,7 @@ function PointPage() {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return <Failed error={null} />;
   if (q.isPending) return <Loading />;
   if (q.isError) return <Failed error={q.error} />;
-  const { forecast, nearest } = q.data;
+  const { forecast, nearest, ranking } = q.data;
   return (
     <Page>
       <section className="flex flex-col gap-2.5">
@@ -60,7 +60,20 @@ function PointPage() {
           </Link>
         )}
       </section>
-      <ForecastView fc={forecast} tiles={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />} />
+      <ForecastView
+        fc={forecast}
+        tiles={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />}
+        ranking={ranking}
+        rankingStation={
+          nearest && ranking
+            ? {
+                code: nearest.station.code,
+                source: `${nearest.station.source === 'metar' ? 'METAR' : 'DWD'} ${nearest.station.code}`,
+                from: m.ranking_from({ name: nearest.station.name, distance: km(nearest.distanceKm) }),
+              }
+            : undefined
+        }
+      />
     </Page>
   );
 }

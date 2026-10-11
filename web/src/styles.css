@@ -54,6 +54,14 @@
   --chart-3: #d97706;
   --chart-4: #7c3aed;
   --chart-5: #71717a;
+
+  /* the Windfenster mix */
+  --chart-mix: #db2777;
+
+  /* do the models agree: high, medium, low */
+  --agree-high: #65a30d;
+  --agree-medium: #ca8a04;
+  --agree-low: #ea580c;
 }
 
 .dark {
@@ -100,6 +108,12 @@
   --chart-3: #f59e0b;
   --chart-4: #a78bfa;
   --chart-5: #8e8e97;
+
+  --chart-mix: #f472b6;
+
+  --agree-high: #8bd450;
+  --agree-medium: #f2d544;
+  --agree-low: #f5a03a;
 }
 
 @theme inline {
@@ -151,6 +165,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  --color-chart-mix: var(--chart-mix);
+
+  --color-agree-high: var(--agree-high);
+  --color-agree-medium: var(--agree-medium);
+  --color-agree-low: var(--agree-low);
 }
 
 @layer base {

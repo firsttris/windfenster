@@ -1,7 +1,8 @@
 /** Pieces the desktop table and the phone list share. */
 import type { Forecast } from '@/bindings/Forecast';
 import type { WindUnit } from '@/bindings/WindUnit';
-import { type Day, type Stage, weatherOf } from '@/lib/forecast';
+import { dayAgreement } from '@/lib/agreement';
+import { type Day, MIX, type Stage, weatherOf } from '@/lib/forecast';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
@@ -9,14 +10,19 @@ import { WeatherIcon } from '@/ui/weather-icon';
 import { WIND_SCALE } from '@/ui/wind-scale';
 
 export function modelName(fc: Forecast, id: string): string {
+  if (id === MIX) return m.mix_name();
+  if (id === 'taf') return 'TAF';
   return fc.models.find((x) => x.id === id)?.name ?? id;
 }
 
-/** Colour of a model's dot and line: its place in the list. */
+/** Colour of a model's dot and line: its place among the models; the mix and the TAF have
+ * their own. */
 export function modelColor(fc: Forecast, id: string): string {
+  if (id === MIX) return 'var(--chart-mix)';
+  if (id === 'taf') return 'var(--success-foreground)';
   const i = Math.max(
     0,
-    fc.models.findIndex((x) => x.id === id),
+    fc.models.filter((x) => x.id !== MIX).findIndex((x) => x.id === id),
   );
   return `var(--chart-${(i % 5) + 1})`;
 }
@@ -30,6 +36,23 @@ export function stageLabel(fc: Forecast, day: Day): string {
   };
   return stages[day.stage]();
 }
+
+const AGREE_LABEL = { high: m.agree_high, medium: m.agree_medium, low: m.agree_low } as const;
+const AGREE_DOT = { high: 'bg-agree-high', medium: 'bg-agree-medium', low: 'bg-agree-low' } as const;
+
+/** The trend days' light: how far apart the models are at the day's windiest hour. */
+export function AgreementDot({ fc, day }: { fc: Forecast; day: Day }) {
+  const a = dayAgreement(
+    fc,
+    day.cells.map((c) => c.time),
+  );
+  if (!a) return null;
+  const text = m.agree_day({ level: AGREE_LABEL[a.level]() });
+  // An sr-only text would be positioned outside the table's scroll area; a label is not.
+  return <span role="img" aria-label={text} title={text} className={cn('size-2 rounded-full', AGREE_DOT[a.level])} />;
+}
+
+export { AGREE_DOT, AGREE_LABEL };
 
 export function StageChip({ fc, day }: { fc: Forecast; day: Day }) {
   return (

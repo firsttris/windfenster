@@ -24,7 +24,8 @@
     "lucide-react": "^1.55.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@inlang/paraglide-js": "^2.27.0",

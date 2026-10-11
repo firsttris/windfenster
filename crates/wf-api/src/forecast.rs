@@ -13,6 +13,7 @@ use wf_core::geo::GridPoint;
 use wf_core::station::{self, Station};
 use wf_ingest::forecasts::Forecasts;
 
+use crate::ranking::{RANKING_MAX_KM, Ranking, with_mix};
 use crate::{ApiError, AppState};
 
 /// Free points take over a station's ranking only this close (Phase 2); farther stations are
@@ -85,7 +86,9 @@ enum Partial {
 #[ts(export)]
 pub struct StationForecast {
     pub station: Station,
+    /// With the Windfenster mix in front, weighted by the station's scores
     pub forecast: Forecast,
+    pub ranking: Ranking,
 }
 
 pub async fn station(
@@ -95,11 +98,16 @@ pub async fn station(
     let station = station::by_slug(&s.db, &slug)
         .await?
         .ok_or(ApiError::NotFound)?;
+    let id = station::id_of(&s.db, &slug)
+        .await?
+        .ok_or(ApiError::NotFound)?;
     let p = GridPoint::new(station.lat, station.lon).ok_or(ApiError::NotFound)?;
     let forecast = forecast_for(&s, p, true).await?;
+    let verified = s.verified(id, &forecast.models).await?;
     Ok(Json(StationForecast {
         station,
-        forecast: (*forecast).clone(),
+        forecast: with_mix(&forecast, &verified.weights, wf_core::time::now()),
+        ranking: verified.ranking.clone(),
     }))
 }
 
@@ -123,9 +131,12 @@ pub struct NearbyStation {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct PointForecast {
+    /// With the Windfenster mix in front, weighted by the ranking if there is one
     pub forecast: Forecast,
     /// The nearest station within 50 km.
     pub nearest: Option<NearbyStation>,
+    /// The nearest station's ranking, when it is at most 5 km away
+    pub ranking: Option<Ranking>,
 }
 
 pub async fn point(
@@ -141,8 +152,22 @@ pub async fn point(
             station,
             distance_km: (d * 10.0).round() / 10.0,
         });
+    let verified = match &nearest {
+        Some(n) if n.distance_km <= RANKING_MAX_KM => {
+            match station::id_of(&s.db, &n.station.slug).await? {
+                Some(id) => Some(s.verified(id, &forecast.models).await?),
+                None => None,
+            }
+        }
+        _ => None,
+    };
+    let weights = verified
+        .as_ref()
+        .map(|v| v.weights.clone())
+        .unwrap_or_default();
     Ok(Json(PointForecast {
-        forecast: (*forecast).clone(),
+        forecast: with_mix(&forecast, &weights, wf_core::time::now()),
         nearest,
+        ranking: verified.map(|v| v.ranking.clone()),
     }))
 }

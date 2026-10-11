@@ -5,6 +5,7 @@ mod error;
 pub mod forecast;
 pub mod live;
 mod meta;
+pub mod ranking;
 pub mod search;
 mod spa;
 pub mod water;
@@ -51,6 +52,7 @@ pub struct AppState {
     /// Stations (row ids) whose measurements were fetched on request within ten minutes.
     fetched: moka::future::Cache<i64, ()>,
     gauge_history: water::HistoryCache,
+    rankings: ranking::RankingCache,
 }
 
 impl AppState {
@@ -82,6 +84,7 @@ impl AppState {
                 .time_to_live(Duration::from_secs(600))
                 .build(),
             gauge_history: water::new_cache(),
+            rankings: ranking::new_cache(),
         }
     }
 

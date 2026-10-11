@@ -3,6 +3,7 @@
 /**
  * Which selection rule a model serves. "Superforecast" and "Forecast" are not models of their
  * own: Superforecast takes the best regional model (≤ 3 km) whose domain covers the place,
- * Forecast the best global one.
+ * Forecast the best global one. `Mix` is the Windfenster mix, which the API adds to a
+ * forecast; it is never a row of the `model` table.
  */
-export type ModelClass = "super" | "global";
+export type ModelClass = "super" | "global" | "mix";

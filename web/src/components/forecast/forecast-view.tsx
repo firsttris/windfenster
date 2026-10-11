@@ -1,8 +1,12 @@
 import { TriangleAlert } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
+import type { Ranking } from '@/bindings/Ranking';
 import type { Taf } from '@/bindings/Taf';
-import { buildDays, defaultModel, type Mode, modeOf } from '@/lib/forecast';
+import { AgreementTile } from '@/components/verification/agreement-tile';
+import { CompareChart } from '@/components/verification/compare-chart';
+import { RankingCard } from '@/components/verification/ranking-card';
+import { autoModel, buildDays, initialModel, MIX, type Mode, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
 import type { Measured } from '@/lib/observations';
@@ -15,7 +19,7 @@ import { Segmented } from '@/ui/segmented';
 import { ForecastList } from './forecast-list';
 import { ForecastTable } from './forecast-table';
 import { ModelChips } from './model-chips';
-import { ScaleLegend } from './shared';
+import { modelName, ScaleLegend } from './shared';
 
 interface Props {
   fc: Forecast;
@@ -25,20 +29,35 @@ interface Props {
   measured?: Measured;
   /** The station's TAF, for its row (desktop). */
   taf?: Taf | null;
+  /** "Who hits here?": the station's, or for a point the nearest station's within 5 km */
+  ranking?: Ranking | null;
+  /** The station the ranking belongs to: its code, and for points how far away it is */
+  rankingStation?: { code: string; source: string; from?: string };
 }
 
 /** Everything below a place's title: mode and unit, the models, tiles, the ten days. */
-export function ForecastView({ fc, tiles, measured, taf }: Props) {
+export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
-  const superModel = defaultModel(fc, 'super');
-  const globalModel = defaultModel(fc, 'global');
-  const selected = picked && fc.series.some((s) => s.model === picked) ? picked : (superModel ?? globalModel);
+  const superModel = autoModel(fc, ranking, 'super');
+  const globalModel = autoModel(fc, ranking, 'global');
+  const selected = picked && fc.series.some((s) => s.model === picked) ? picked : initialModel(fc, ranking);
   const now = useNow();
-  const days = useMemo(() => (selected ? buildDays(fc, selected, now) : []), [fc, selected, now]);
+  const days = useMemo(
+    () => (selected ? buildDays(fc, selected, now, globalModel) : []),
+    [fc, selected, now, globalModel],
+  );
   const desktop = useMedia('(min-width: 768px)', true);
   const series = fc.series.find((s) => s.model === selected);
-  const mode: Mode = selected ? modeOf(fc, selected) : 'global';
+  const mode = selected ? modeOf(fc, selected) : null;
+  const top = ranking?.mixFirst ? MIX : (ranking?.bestSuper ?? ranking?.bestGlobal ?? null);
+  const hint = ranking?.mixFirst
+    ? m.models_autoMix()
+    : top
+      ? m.models_auto({ model: modelName(fc, top) })
+      : ranking
+        ? m.models_collecting({ days: ranking.days })
+        : m.models_noStation();
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +88,9 @@ export function ForecastView({ fc, tiles, measured, taf }: Props) {
         </div>
       </div>
 
-      {fc.models.length > 0 && <ModelChips fc={fc} selected={selected} onSelect={setPicked} />}
+      {fc.models.length > 0 && (
+        <ModelChips fc={fc} selected={selected} onSelect={setPicked} top={top} hint={hint} auto={!!top} />
+      )}
 
       {fc.notice && (
         <p
@@ -81,7 +102,10 @@ export function ForecastView({ fc, tiles, measured, taf }: Props) {
         </p>
       )}
 
-      {tiles && <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{tiles}</div>}
+      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {tiles}
+        {fc.series.length > 1 && <AgreementTile fc={fc} />}
+      </div>
 
       {days.length > 0 ? (
         <section aria-labelledby="fc-title" className="overflow-hidden sm:rounded-xl sm:border sm:bg-card">
@@ -111,6 +135,29 @@ export function ForecastView({ fc, tiles, measured, taf }: Props) {
             {m.forecast_empty()}
           </p>
         )
+      )}
+
+      {fc.series.length > 0 && (
+        <div className="flex flex-wrap items-start gap-4">
+          <CompareChart
+            fc={fc}
+            selected={selected}
+            onSelect={setPicked}
+            observations={measured?.observations ?? []}
+            source={measured?.source ?? null}
+          />
+          {ranking && rankingStation && (
+            <RankingCard
+              fc={fc}
+              ranking={ranking}
+              code={rankingStation.code}
+              source={rankingStation.source}
+              from={rankingStation.from}
+              selected={selected}
+              onSelect={setPicked}
+            />
+          )}
+        </div>
       )}
     </div>
   );

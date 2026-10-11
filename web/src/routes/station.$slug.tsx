@@ -68,6 +68,8 @@ function StationPage() {
           }
         }
         taf={live.data?.taf}
+        ranking={q.data.ranking}
+        rankingStation={{ code: st.code, source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}` }}
       />
     </Page>
   );

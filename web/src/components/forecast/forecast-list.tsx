@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { WindCell } from '@/ui/wind-cell';
-import { modelName, StageChip, Weather } from './shared';
+import { AgreementDot, modelName, StageChip, Weather } from './shared';
 
 /** Phone: one day at a time, picked from a row of day chips, as in the mockup. */
 export function ForecastList({ fc, days, unit }: { fc: Forecast; days: Day[]; unit: WindUnit }) {
@@ -45,7 +45,10 @@ export function ForecastList({ fc, days, unit }: { fc: Forecast; days: Day[]; un
 
       <div className={cn('rounded-xl border bg-card px-3 pb-1', day.stage === 'trend' && 'opacity-70')}>
         <div className="flex h-10 items-center justify-between gap-2">
-          <StageChip fc={fc} day={day} />
+          <span className="flex items-center gap-1.5">
+            <StageChip fc={fc} day={day} />
+            {day.stage === 'trend' && <AgreementDot fc={fc} day={day} />}
+          </span>
           <span className="font-mono text-[11px] text-muted-foreground">{modelName(fc, day.source)}</span>
         </div>
         <table className="w-full border-collapse text-sm">
