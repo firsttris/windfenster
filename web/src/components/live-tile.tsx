@@ -3,12 +3,14 @@ import { ChevronDown, Code } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import type { Observation } from '@/bindings/Observation';
 import type { Station } from '@/bindings/Station';
+import type { Taf } from '@/bindings/Taf';
 import { liveQuery } from '@/lib/api';
 import { ago, clock, compass } from '@/lib/format';
 import { decodeMetar } from '@/lib/metar';
 import { type Context, describe, summary } from '@/lib/metar-text';
 import { latest, STALE_S } from '@/lib/observations';
 import { useUnit } from '@/lib/prefs';
+import { groupWhat, groupWhen, prevailingBefore } from '@/lib/taf-text';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
@@ -48,7 +50,36 @@ export function LiveTile({ station, timeZone }: { station: Station; timeZone: st
       ) : (
         <p className="m-0 text-muted-foreground text-sm">{m.live_none()}</p>
       )}
+      {q.data?.taf && <TafBlock taf={q.data.taf} timeZone={timeZone} now={now} />}
     </Card>
+  );
+}
+
+/** The airport forecast group by group in words, with the TAF as sent. */
+function TafBlock({ taf, timeZone, now }: { taf: Taf; timeZone: string; now: number }) {
+  const [unit] = useUnit();
+  const ctx = { unit, at: taf.issuedAt, timeZone };
+  const prev = prevailingBefore(taf.groups);
+  return (
+    <section aria-labelledby="taf-title" className="flex flex-col gap-2.5 border-t pt-3.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 id="taf-title" className="m-0 font-semibold text-[13px]">
+          {m.taf_title()}
+        </h3>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {m.live_clock({ time: clock(taf.issuedAt, timeZone) })} · {ago(taf.issuedAt, now)}
+        </span>
+      </div>
+      <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-2.5 gap-y-1.5 text-[13px] text-subtle leading-snug">
+        {taf.groups.map((g, i) => (
+          <div key={`${g.change}-${g.from}-${g.to}-${g.probability}`} className="contents">
+            <dt className="pt-px font-mono text-[11.5px] text-muted-foreground">{groupWhen(g, now, timeZone)}</dt>
+            <dd className="m-0 min-w-0 first-letter:uppercase">{groupWhat(g, ctx, prev[i])}</dd>
+          </div>
+        ))}
+      </dl>
+      <code className="break-words font-mono text-[11px] text-dim leading-normal">{taf.raw}</code>
+    </section>
   );
 }
 

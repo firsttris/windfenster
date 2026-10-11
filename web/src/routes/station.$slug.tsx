@@ -61,6 +61,7 @@ function StationPage() {
             observations: live.data.observations,
           }
         }
+        taf={live.data?.taf}
       />
     </Page>
   );

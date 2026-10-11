@@ -1,8 +1,10 @@
 import type { Forecast } from '@/bindings/Forecast';
+import type { Taf } from '@/bindings/Taf';
 import type { WindUnit } from '@/bindings/WindUnit';
 import type { Cell, Day } from '@/lib/forecast';
 import { compass, dayMonth, formatNumber, hour, weekday } from '@/lib/format';
 import { type Measured, nearest } from '@/lib/observations';
+import { tafHour } from '@/lib/taf-text';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
@@ -16,8 +18,8 @@ interface Row {
   sub?: string;
   height: string;
   cell: (c: Cell) => React.ReactNode;
-  /** Measured values: label in two lines, past hours not faded. */
-  measured?: boolean;
+  /** Measured values and the TAF: label in two lines, past hours not faded. */
+  extra?: 'measured' | 'taf';
 }
 
 interface Props {
@@ -27,10 +29,11 @@ interface Props {
   /** Unix seconds */
   now: number;
   measured?: Measured;
+  taf?: Taf | null;
 }
 
 /** Desktop: days side by side, scrolling sideways; the row labels stay in place. */
-export function ForecastTable({ fc, days, unit, now, measured }: Props) {
+export function ForecastTable({ fc, days, unit, now, measured, taf }: Props) {
   const rows: Row[] = [
     {
       label: measured ? m.table_forecast() : m.table_wind(),
@@ -44,8 +47,19 @@ export function ForecastTable({ fc, days, unit, now, measured }: Props) {
             label: m.table_measured(),
             sub: measured.source,
             height: 'h-[38px]',
-            measured: true,
+            extra: 'measured' as const,
             cell: (c: Cell) => <MeasuredCell cell={c} now={now} measured={measured} unit={unit} />,
+          },
+        ]
+      : []),
+    ...(taf
+      ? [
+          {
+            label: m.taf_row(),
+            sub: m.taf_rowSub(),
+            height: 'h-[34px]',
+            extra: 'taf' as const,
+            cell: (c: Cell) => <TafCell cell={c} taf={taf} unit={unit} />,
           },
         ]
       : []),
@@ -147,9 +161,16 @@ export function ForecastTable({ fc, days, unit, now, measured }: Props) {
           {rows.map((r) => (
             <tr key={r.label}>
               <th scope="row" className={labelClass(r.height)}>
-                {r.measured ? (
+                {r.extra ? (
                   <span className="flex flex-col leading-tight">
-                    <span className="font-semibold text-success-foreground">{r.label}</span>
+                    <span
+                      className={cn(
+                        'font-semibold',
+                        r.extra === 'measured' ? 'text-success-foreground' : 'text-foreground',
+                      )}
+                    >
+                      {r.label}
+                    </span>
                     <span className="font-mono text-[10.5px]">{r.sub}</span>
                   </span>
                 ) : (
@@ -161,7 +182,7 @@ export function ForecastTable({ fc, days, unit, now, measured }: Props) {
               </th>
               {days.flatMap((d) =>
                 d.cells.map((c, i) => (
-                  <td key={`${d.date}-${c.hour}`} className={cn(cellClass(d, i, c, !r.measured), r.height)}>
+                  <td key={`${d.date}-${c.hour}`} className={cn(cellClass(d, i, c, !r.extra), r.height)}>
                     {r.cell(c)}
                   </td>
                 )),
@@ -199,6 +220,25 @@ function MeasuredCell({ cell, now, measured, unit }: { cell: Cell; now: number; 
       style={{ borderColor: windBand(o.wind).bg }}
     >
       {formatWind(o.wind, unit)}
+    </span>
+  );
+}
+
+/** The TAF for an hour: its prevailing wind, or the span TEMPO allows, in a dashed frame. */
+function TafCell({ cell, taf, unit }: { cell: Cell; taf: Taf; unit: WindUnit }) {
+  const h = tafHour(taf, cell.time);
+  if (h?.wind == null) return <span className="mx-auto block h-0.5 w-11 rounded-full bg-line" />;
+  const range = h.low !== null && h.high !== null;
+  return (
+    <span
+      className={cn(
+        'mx-auto flex h-6 min-w-11 items-center justify-center whitespace-nowrap rounded-[6px] border border-dashed px-1 font-mono font-semibold',
+        range ? 'text-[11px]' : 'text-[13px]',
+      )}
+      style={{ borderColor: windBand(h.high ?? h.wind).bg }}
+      title={h.probability ? `PROB${h.probability}` : undefined}
+    >
+      {range ? `${formatWind(h.low ?? 0, unit)}–${formatWind(h.high ?? 0, unit)}` : formatWind(h.wind, unit)}
     </span>
   );
 }

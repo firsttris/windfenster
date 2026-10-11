@@ -1,4 +1,4 @@
-//! What a station measures now.
+//! What a station measures now, and its airport forecast (TAF).
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -8,11 +8,15 @@ use serde::Serialize;
 use ts_rs::TS;
 use wf_core::observation::{self, Observation};
 use wf_core::station::{self, StationSource};
+use wf_core::taf::{self, Taf};
 
 use crate::{ApiError, AppState};
 
 /// Measurements shown: the last 24 hours.
 const WINDOW_S: i64 = 24 * 3_600;
+
+/// TAFs come every three or six hours (amendments any time); asked for again after this.
+const TAF_STALE_S: i64 = 35 * 60;
 
 /// `GET /api/stations/{slug}/live`
 #[derive(Debug, Serialize, TS)]
@@ -21,6 +25,8 @@ const WINDOW_S: i64 = 24 * 3_600;
 pub struct StationLive {
     /// The last 24 hours, oldest first; empty when the station sent nothing.
     pub observations: Vec<Observation>,
+    /// The TAF in force, for stations that publish one.
+    pub taf: Option<Taf>,
 }
 
 /// Whether to ask the source now instead of waiting for the scheduler: the newest value is
@@ -54,8 +60,12 @@ pub async fn live(
         .ok_or(ApiError::NotFound)?;
     let now = wf_core::time::now();
     let mut observations = observation::since(&s.db, id, now - WINDOW_S).await?;
+    let taf_stale = st.has_taf
+        && taf::last_fetch(&s.db, id)
+            .await?
+            .is_none_or(|at| at < now - TAF_STALE_S);
     if let Some(m) = &s.measurements
-        && wants_fetch(st.source, &observations, now)
+        && (taf_stale || wants_fetch(st.source, &observations, now))
         && !s.fetched.contains_key(&id)
     {
         // Once per station within the cache's lifetime, however many ask at the same time.
@@ -68,9 +78,14 @@ pub async fn live(
             .await;
         observations = observation::since(&s.db, id, now - WINDOW_S).await?;
     }
+    let taf = if st.has_taf {
+        taf::current(&s.db, id, now).await?
+    } else {
+        None
+    };
     Ok((
         [(header::CACHE_CONTROL, "public, max-age=60")],
-        Json(StationLive { observations }),
+        Json(StationLive { observations, taf }),
     ))
 }
 

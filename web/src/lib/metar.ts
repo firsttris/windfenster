@@ -180,6 +180,13 @@ export function decodeMetar(raw: string): Group[] {
   while (i < tokens.length && /^(METAR|SPECI)$/.test(tokens[i])) i++;
   if (tokens[i] === 'COR') i++;
   if (/^[A-Z][A-Z0-9]{3}$/.test(tokens[i] ?? '')) i++;
+  return decodeGroups(tokens.slice(i));
+}
+
+/** Groups without a report header, e.g. the weather of a TAF group ("-SHRA BR"). */
+export function decodeGroups(input: string | string[]): Group[] {
+  const tokens = typeof input === 'string' ? input.trim().split(/\s+/).filter(Boolean) : input;
+  let i = 0;
   const out: Group[] = [];
   while (i < tokens.length) {
     const token = tokens[i++];

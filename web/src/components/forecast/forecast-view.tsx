@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
+import type { Taf } from '@/bindings/Taf';
 import { buildDays, defaultModel, type Mode, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
@@ -22,10 +23,12 @@ interface Props {
   tiles?: ReactNode;
   /** Measured values for the row under the forecast (desktop). */
   measured?: Measured;
+  /** The station's TAF, for its row (desktop). */
+  taf?: Taf | null;
 }
 
 /** Everything below a place's title: mode and unit, the models, tiles, the ten days. */
-export function ForecastView({ fc, tiles, measured }: Props) {
+export function ForecastView({ fc, tiles, measured, taf }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
   const superModel = defaultModel(fc, 'super');
@@ -87,13 +90,16 @@ export function ForecastView({ fc, tiles, measured }: Props) {
               <h2 id="fc-title" className="m-0 font-semibold text-lg tracking-[-0.02em]">
                 {m.forecast_title()}
               </h2>
-              <p className="m-0 mt-1 text-muted-foreground text-[13px]">{m.forecast_note()}</p>
+              <p className="m-0 mt-1 text-muted-foreground text-[13px]">
+                {m.forecast_note()}
+                {taf && ` · ${m.taf_row()}: ${m.taf_legend()}`}
+              </p>
             </div>
             <ScaleLegend unit={unit} />
           </div>
           <div className={desktop ? 'pb-3' : ''}>
             {desktop ? (
-              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} />
+              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} />
             ) : (
               <ForecastList fc={fc} days={days} unit={unit} />
             )}

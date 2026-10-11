@@ -1,5 +1,5 @@
 //! The background loop: station lists weekly, model runs every five minutes, METARs every ten,
-//! DWD measurements every thirty, cleanup hourly.
+//! TAFs and DWD measurements every thirty, cleanup hourly.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,7 +11,7 @@ use crate::forecasts::{Forecasts, HOT_FOR_S};
 use crate::observations::Measurements;
 use crate::stations::{self, Sources};
 
-/// Measurements are kept for 13 months: a full season to compare against.
+/// Measurements and TAFs are kept for 13 months: a full season to compare against.
 pub const KEEP_OBSERVATIONS_S: i64 = 395 * 86_400;
 
 pub struct Scheduler {
@@ -31,6 +31,7 @@ impl Scheduler {
         let mut next_import = 0;
         let mut next_metar = 0;
         let mut next_dwd = 0;
+        let mut next_taf = 0;
         let mut next_purge = 0;
         let mut mark_tracked = true;
         loop {
@@ -78,6 +79,13 @@ impl Scheduler {
                     Err(e) => tracing::warn!("DWD measurements: {e:#}"),
                 }
             }
+            if now >= next_taf {
+                next_taf = now + 1_740;
+                match self.measurements.import_tafs(now - HOT_FOR_S).await {
+                    Ok(n) => tracing::debug!("stored {n} TAFs"),
+                    Err(e) => tracing::warn!("TAFs: {e:#}"),
+                }
+            }
             if let Err(e) = self.forecasts.detect_runs(now).await {
                 tracing::error!("run detection: {e}");
             }
@@ -93,6 +101,9 @@ impl Scheduler {
                     wf_core::observation::purge(&self.db, now - KEEP_OBSERVATIONS_S).await
                 {
                     tracing::error!("observation purge: {e}");
+                }
+                if let Err(e) = wf_core::taf::purge(&self.db, now - KEEP_OBSERVATIONS_S).await {
+                    tracing::error!("TAF purge: {e}");
                 }
             }
         }

@@ -24,6 +24,7 @@ use wf_ingest::openmeteo::{Config, OpenMeteo};
 struct Calls {
     forecast: AtomicUsize,
     metar: AtomicUsize,
+    taf: AtomicUsize,
 }
 
 async fn fake_forecast(
@@ -75,12 +76,36 @@ async fn fake_metar(
     .to_string()
 }
 
+/// The TAF API, valid from the last full hour for 24 hours, in its JSON shape.
+async fn fake_taf(
+    State(calls): State<Arc<Calls>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> String {
+    calls.taf.fetch_add(1, Ordering::SeqCst);
+    assert_eq!(q["ids"], "EDSB");
+    let now = wf_core::time::now();
+    let from = now - now % 3_600;
+    json!([{"icaoId": "EDSB", "issueTime": "2026-10-11T05:00:00.000Z",
+    "validTimeFrom": from, "validTimeTo": from + 86_400,
+    "rawTAF": "TAF EDSB 110500Z 1106/1206 22007KT CAVOK BECMG 1117/1120 VRB03KT",
+    "fcsts": [
+        {"timeFrom": from, "timeTo": from + 43_200, "timeBec": null, "fcstChange": null,
+         "probability": null, "wdir": 220, "wspd": 7, "wgst": null, "visib": "6+",
+         "wxString": "NSW", "clouds": [{"cover": "NSC", "base": null, "type": null}]},
+        {"timeFrom": from + 43_200, "timeTo": from + 86_400, "timeBec": from + 54_000,
+         "fcstChange": "BECMG", "probability": null, "wdir": "VRB", "wspd": 3, "wgst": null,
+         "visib": "6+", "wxString": "NSW", "clouds": []}
+    ]}])
+    .to_string()
+}
+
 async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
     let calls = Arc::new(Calls::default());
     let fake = Router::new()
         .route("/v1/forecast", get(fake_forecast))
         .route("/v1/search", get(fake_geocode))
         .route("/api/data/metar", get(fake_metar))
+        .route("/api/data/taf", get(fake_taf))
         .with_state(calls.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
@@ -266,9 +291,20 @@ async fn live_fetches_a_new_station_once() -> Result<()> {
         "METAR EDSB 110850Z AUTO 21009KT CAVOK 13/10 Q1015"
     );
     assert_eq!(calls.metar.load(Ordering::SeqCst), 1);
+    let taf = &body["taf"];
+    assert_eq!(
+        taf["raw"],
+        "TAF EDSB 110500Z 1106/1206 22007KT CAVOK BECMG 1117/1120 VRB03KT"
+    );
+    assert_eq!(taf["groups"][1]["change"], "becoming");
+    assert_eq!(taf["hours"].as_array().unwrap().len(), 24);
+    assert_eq!(taf["hours"][0]["wind"].as_f64(), Some(7.0));
+    assert_eq!(taf["hours"][23]["wind"].as_f64(), Some(3.0));
+    assert_eq!(calls.taf.load(Ordering::SeqCst), 1);
     // The history still starts late, but the station was asked a moment ago.
     get_json(&app, "/api/stations/edsb/live").await?;
     assert_eq!(calls.metar.load(Ordering::SeqCst), 1);
+    assert_eq!(calls.taf.load(Ordering::SeqCst), 1);
 
     let (status, _) = get_json(&app, "/api/stations/xxxx/live").await?;
     assert_eq!(status, StatusCode::NOT_FOUND);

@@ -187,5 +187,16 @@
   "wx_FC": "funnel cloud",
   "wx_SS": "sandstorm",
   "wx_DS": "duststorm",
-  "footer_measurements": "Measurements:"
+  "footer_measurements": "Measurements and TAF:",
+  "taf_title": "Aerodrome forecast (TAF)",
+  "taf_until": "until {time}",
+  "taf_from": "from {time}",
+  "taf_tempo": "at times {time}",
+  "taf_probTempo": "{probability} % at times {time}",
+  "taf_prob": "{probability} % {time}",
+  "taf_wind": "{compass} ({deg}°), {speed}",
+  "taf_windVariable": "variable, {speed}",
+  "taf_row": "TAF",
+  "taf_rowSub": "aviation",
+  "taf_legend": "range = at times or changing"
 }

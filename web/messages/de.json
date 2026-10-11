@@ -187,5 +187,16 @@
   "wx_FC": "Trichterwolke",
   "wx_SS": "Sandsturm",
   "wx_DS": "Staubsturm",
-  "footer_measurements": "Messwerte:"
+  "footer_measurements": "Messwerte und TAF:",
+  "taf_title": "Flugwetter-Vorhersage (TAF)",
+  "taf_until": "bis {time}",
+  "taf_from": "ab {time}",
+  "taf_tempo": "zeitw. {time}",
+  "taf_probTempo": "{probability} % zeitw. {time}",
+  "taf_prob": "{probability} % {time}",
+  "taf_wind": "{compass} ({deg}°), {speed}",
+  "taf_windVariable": "umlaufend, {speed}",
+  "taf_row": "TAF",
+  "taf_rowSub": "Flugwetter",
+  "taf_legend": "Spanne = zeitweise oder im Übergang"
 }
