@@ -20,8 +20,8 @@ impl Area {
     }
 }
 
-/// The world up to zoom 6 by default: coasts, countries, big towns (`WF_BASEMAP_WORLD_ZOOM`)
-pub const WORLD_ZOOM: u8 = 6;
+/// The world up to zoom 7 by default: coasts, countries, towns (`WF_BASEMAP_WORLD_ZOOM`)
+pub const WORLD_ZOOM: u8 = 7;
 /// The region (Europe by default, `WF_BASEMAP_REGION`) up to zoom 8 by default: coasts, towns
 /// and main roads, about 190 MB (`WF_BASEMAP_ZOOM`)
 pub const REGION_ZOOM: u8 = 8;

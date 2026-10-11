@@ -137,7 +137,7 @@ struct ServeArgs {
     #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
     basemap: String,
     /// How deep the basemap covers the whole world; every level about four times more.
-    #[arg(long, env = "WF_BASEMAP_WORLD_ZOOM", default_value_t = 6, value_parser = clap::value_parser!(u8).range(4..=12))]
+    #[arg(long, env = "WF_BASEMAP_WORLD_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(4..=12))]
     basemap_world_zoom: u8,
     /// The region the basemap covers deeper, `west,south,east,north` in degrees (Europe by
     /// default), or `none`.

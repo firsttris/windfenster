@@ -73,9 +73,9 @@ Volume=%h/windfenster/data:/data:Z
 
 # The public address: canonical links and meta tags of the station pages
 Environment=WF_PUBLIC_URL=https://windfenster.example
-# Basemap: the world to zoom 7, Europe to zoom 12 with every town's streets (about 7 GB, an
-# hour or so the first time)
-Environment=WF_BASEMAP_WORLD_ZOOM=7
+# Basemap: the world to zoom 8 (estimated 500 MB), Europe to zoom 12 with every town's streets
+# (about 7 GB, an hour or so the first time)
+Environment=WF_BASEMAP_WORLD_ZOOM=8
 Environment=WF_BASEMAP_ZOOM=12
 # Full detail (zoom 14) kept for up to 500 spots where people look (2 to 17 MB each)
 Environment=WF_BASEMAP_SPOTS=500
@@ -154,7 +154,7 @@ What follows:
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
 | `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
-| `WF_BASEMAP_WORLD_ZOOM` | `6` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, every level roughly three to four times more |
+| `WF_BASEMAP_WORLD_ZOOM` | `7` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, 7 about 150 MB, every level roughly three to four times more |
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
 | `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
 | `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
@@ -285,8 +285,8 @@ viewer's language. Without them the map shows the world from
 
 By default (`WF_BASEMAP=auto`) the server makes the basemap itself, a minute after the start and
 then checked daily: from Protomaps' newest daily build it takes, by byte range, the whole world
-up to zoom 6 (coasts, countries, bigger towns; 45 MB, about two minutes) and a region deeper, Europe up to
-zoom 8 by default (towns and main roads; about 190 MB more), into one file,
+up to zoom 7 (coasts, countries, towns) and a region deeper, Europe up to zoom 8 by default
+(main roads), into one file (together 323 MB, 24,752 tiles, about 13 minutes on 11 October),
 `{WF_DATA_DIR}/map/basemap.pmtiles`. A note next to it (`basemap.json`) says what it was made
 from; it is made again after 120 days, or when the settings change.
 

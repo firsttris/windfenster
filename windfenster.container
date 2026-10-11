@@ -26,8 +26,8 @@ Volume=%h/windfenster/data:/data:Z
 # Environment=WF_PUBLIC_URL=https://windfenster.example
 # Optional: Open-Meteo key for the customer API (commercial use)
 # Environment=OPEN_METEO_API_KEY=
-# With room to spare: the world to zoom 7, Europe to 12 (about 7 GB), finer relief
-# Environment=WF_BASEMAP_WORLD_ZOOM=7
+# With room to spare: the world to zoom 8, Europe to 12 (about 7 GB), finer relief
+# Environment=WF_BASEMAP_WORLD_ZOOM=8
 # Environment=WF_BASEMAP_ZOOM=12
 # Environment=WF_TERRAIN_ZOOM=8
 Environment=RUST_LOG=info
