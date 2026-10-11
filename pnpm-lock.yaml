@@ -50,6 +50,9 @@ importers:
       maplibre-gl:
         specifier: ^6.13.0
         version: 6.13.0
+      pmtiles:
+        specifier: ^4.5.0
+        version: 4.5.0
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -1521,6 +1524,9 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pmtiles@4.5.0:
+    resolution: {integrity: sha512-CBeD4SoUluFziGdy/8k7FOjQxQy486n+929W/tWophauvMICpkZ26vGBWhDt/6b1FZQWNaf4jFdT/5+q0Wii5w==}
 
   postcss@8.5.29:
     resolution: {integrity: sha512-49cGhUbXj8Qenv0iTMxA1cFBzxXoctpC9Ujd77t1WcbJIr6nF/eI7g/8MgxrYldFRuAXvja7xQRwavoW7kgrxQ==}
@@ -3056,6 +3062,10 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  pmtiles@4.5.0:
+    dependencies:
+      fflate: 0.8.3
 
   postcss@8.5.29:
     dependencies:

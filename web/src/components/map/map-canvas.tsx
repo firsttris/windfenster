@@ -1,7 +1,8 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { LocateFixed, Minus, Plus } from 'lucide-react';
-import { type GeoJSONSource, Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl';
+import { addProtocol, type GeoJSONSource, Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { Protocol } from 'pmtiles';
 import { useEffect, useRef, useState } from 'react';
 import type { StationWind } from '@/bindings/StationWind';
 import type { WindUnit } from '@/bindings/WindUnit';
@@ -12,7 +13,7 @@ import { viewOf } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
-import { ABOVE_FIELD, applyTheme, BASEMAP_BOUNDS, basemapStyle, setDomain } from './basemap';
+import { applyTheme, type Basemap, setDomain } from './basemap';
 import { type Particles, particles } from './particles';
 import { PIN_LAYERS, pinTheme, setPins } from './pins';
 import { type WindField, windField } from './wind-field';
@@ -26,6 +27,7 @@ export interface Pick {
 }
 
 interface Props {
+  basemap: Basemap;
   layers: WindLayers;
   domain: [number, number][] | null;
   pins: readonly StationWind[] | undefined;
@@ -36,6 +38,8 @@ interface Props {
 
 // MapLibre looks for its worker next to its own module, which the bundle no longer has.
 setWorkerUrl(workerUrl);
+// pmtiles://… sources: tiles by byte range from one file
+addProtocol('pmtiles', new Protocol().tile);
 
 const FIELD_OPACITY = { dark: 0.85, light: 0.8 } as const;
 
@@ -45,7 +49,7 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props) {
+export function MapCanvas({ basemap, layers, domain, pins, unit, picked, onPick }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -61,16 +65,16 @@ export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props)
     if (!container.current) return;
     const mp = new MapLibreMap({
       container: container.current,
-      style: basemapStyle(theme, getLocale()),
+      style: basemap.style(theme, getLocale()),
       bounds: START,
       // The view in the address (#zoom/lat/lon), to share or come back to
       hash: true,
       maxBounds: [
-        [BASEMAP_BOUNDS[0], BASEMAP_BOUNDS[1]],
-        [BASEMAP_BOUNDS[2], BASEMAP_BOUNDS[3]],
+        [basemap.bounds[0], basemap.bounds[1]],
+        [basemap.bounds[2], basemap.bounds[3]],
       ],
       minZoom: 2.5,
-      maxZoom: 11,
+      maxZoom: basemap.maxZoom,
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
@@ -109,7 +113,7 @@ export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props)
     mp.on('move', sync);
     mp.on('resize', sync);
     mp.on('load', () => {
-      mp.addLayer(f.layer, ABOVE_FIELD);
+      mp.addLayer(f.layer, basemap.aboveField);
       mp.addSource('picked', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       mp.addLayer({
         id: 'picked',
@@ -158,7 +162,7 @@ export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props)
       map.current = null;
       setReady(false);
     };
-  }, [reduced]);
+  }, [reduced, basemap]);
 
   useEffect(() => {
     field.current?.show(layers);
@@ -172,11 +176,11 @@ export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props)
   useEffect(() => {
     const mp = map.current;
     if (!ready || !mp) return;
-    applyTheme(mp, theme);
+    applyTheme(mp, basemap, theme);
     pinTheme(mp, theme);
     field.current?.setOpacity(FIELD_OPACITY[theme]);
     mp.setPaintProperty('picked', 'circle-stroke-color', theme === 'dark' ? '#fafafa' : '#09090b');
-  }, [ready, theme]);
+  }, [ready, theme, basemap]);
 
   useEffect(() => {
     if (ready && map.current && pins) setPins(map.current, pins, unit, theme);

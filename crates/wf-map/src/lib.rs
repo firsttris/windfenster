@@ -3,6 +3,7 @@
 //! The texture format follows mapbox/webgl-wind (`data/prepare.js`): red is U, green is V,
 //! each scaled to the file's own range, which a JSON file next to it gives.
 
+pub mod basemap;
 pub mod ecmwf;
 pub mod grid;
 pub mod icon_d2;
@@ -13,6 +14,7 @@ pub mod store;
 pub mod testing;
 pub mod texture;
 
+pub use basemap::BasemapInfo;
 pub use index::{MapFrame, MapIndex, MapLayer};
 pub use service::{MapData, REGION, Urls};
 

@@ -6,7 +6,7 @@ import type { WindUnit } from '@/bindings/WindUnit';
 import type { Theme } from '@/lib/prefs';
 import { formatWind } from '@/lib/units';
 import { windBand } from '@/ui/wind-scale';
-import type { PaintProperty } from './basemap';
+import type { PaintProperty } from './palette';
 
 export const PIN_LAYERS = ['pins-idle', 'pins', 'pins-far', 'pins-arrow'];
 

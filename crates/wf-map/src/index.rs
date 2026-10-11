@@ -3,13 +3,16 @@
 use serde::Serialize;
 use ts_rs::TS;
 
+use crate::basemap::BasemapInfo;
 use crate::store::MapRun;
 
-/// `GET /api/map`: the layers with their hours.
+/// `GET /api/map`: the layers with their hours, and the detailed basemap if there is one.
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[ts(export)]
 pub struct MapIndex {
     pub layers: Vec<MapLayer>,
+    /// Served at `/api/map/basemap.pmtiles`; null without one (the app falls back to its own)
+    pub basemap: Option<BasemapInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]

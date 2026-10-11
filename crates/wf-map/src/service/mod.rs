@@ -88,7 +88,10 @@ impl MapData {
         for model in crate::MODELS {
             layers.push(index::layer(model, &self.runs(model).await?));
         }
-        Ok(MapIndex { layers })
+        Ok(MapIndex {
+            layers,
+            basemap: crate::basemap::info(&self.root).await,
+        })
     }
 
     /// The background loop: new hours every ten minutes.

@@ -135,6 +135,7 @@ pub fn router(state: AppState) -> Router {
         .route("/gauges/near", get(water::near))
         .route("/map", get(map::index))
         .route("/map/stations", get(map::stations))
+        .route("/map/basemap.pmtiles", get(map::basemap))
         .route("/map/{model}/{run}/{file}", get(map::file))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
@@ -142,11 +143,16 @@ pub fn router(state: AppState) -> Router {
         .route("/station/{slug}", get(meta::station_page))
         .fallback(spa::serve)
         .with_state(state)
-        // gzip/br for the bundle and JSON; fonts (woff2) are compressed already.
+        // gzip/br for the bundle and JSON; fonts (woff2) are compressed already, the basemap
+        // goes out in byte ranges of compressed tiles.
         .layer(
             CompressionLayer::new()
                 .quality(CompressionLevel::Precise(6))
-                .compress_when(DefaultPredicate::new().and(NotForContentType::const_new("font/"))),
+                .compress_when(
+                    DefaultPredicate::new()
+                        .and(NotForContentType::const_new("font/"))
+                        .and(NotForContentType::const_new(map::PMTILES)),
+                ),
         )
 }
 

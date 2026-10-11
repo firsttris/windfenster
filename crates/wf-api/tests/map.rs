@@ -122,7 +122,7 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
                 {"validAt": R06 + 3 * 3_600, "runAt": R06, "path": "icon_d2/2026101106/003"}
             ]},
             {"model": "ecmwf_ifs025", "frames": []}
-        ]})
+        ], "basemap": null})
     );
 
     // Without map data: no layers.
@@ -130,7 +130,7 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
     let (_, _, body) = get(&off, "/api/map").await?;
     assert_eq!(
         serde_json::from_slice::<Value>(&body)?,
-        json!({"layers": []})
+        json!({"layers": [], "basemap": null})
     );
     Ok(())
 }
@@ -179,5 +179,62 @@ async fn pins_carry_the_newest_measurement() -> Result<()> {
         json!([{"slug": "edsb", "source": "metar", "code": "EDSB", "name": "Baden Airpark",
             "lat": 48.78, "lon": 8.08, "at": *NOW - 600, "wind": 12.0, "gust": 22.0, "dir": 240.0}])
     );
+    Ok(())
+}
+
+/// A PMTiles v3 header: zooms 0 to 8, bounds 25° W to 45° E, 27° N to 72° N, then some bytes.
+fn pmtiles() -> Vec<u8> {
+    let mut b = vec![0u8; 127];
+    b[..7].copy_from_slice(b"PMTiles");
+    b[7] = 3;
+    b[101] = 8;
+    for (i, deg) in [-25.0f64, 27.0, 45.0, 72.0].into_iter().enumerate() {
+        let at = 102 + i * 4;
+        b[at..at + 4].copy_from_slice(&((deg * 1e7) as i32).to_le_bytes());
+    }
+    b.extend((0..2_000u32).map(|i| (i % 251) as u8));
+    b
+}
+
+#[tokio::test]
+async fn basemap_goes_out_in_ranges() -> Result<()> {
+    let (dir, app) = app(true).await?;
+    // None yet: the app falls back to its own.
+    let (status, _, _) = get(&app, "/api/map/basemap.pmtiles").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, _, body) = get(&app, "/api/map").await?;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body)?["basemap"],
+        Value::Null
+    );
+
+    let file = pmtiles();
+    std::fs::write(dir.path().join("map/basemap.pmtiles"), &file)?;
+    let (_, _, body) = get(&app, "/api/map").await?;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body)?["basemap"],
+        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0]})
+    );
+    let res = app
+        .clone()
+        .oneshot(
+            Request::get("/api/map/basemap.pmtiles")
+                .header(header::RANGE, "bytes=100-1099")
+                .header(header::ACCEPT_ENCODING, "gzip, br")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        res.headers()[header::CONTENT_TYPE],
+        "application/vnd.pmtiles"
+    );
+    assert!(res.headers().get(header::CONTENT_ENCODING).is_none());
+    assert!(
+        res.headers().get(header::ETAG).is_some()
+            || res.headers().get(header::LAST_MODIFIED).is_some()
+    );
+    let body = to_bytes(res.into_body(), 1 << 22).await?;
+    assert_eq!(&body[..], &file[100..1100]);
     Ok(())
 }

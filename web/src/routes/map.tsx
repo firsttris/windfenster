@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
+import { basemapFor } from '@/components/map/basemap';
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
 import { SpotCard } from '@/components/map/spot-card';
@@ -32,6 +33,10 @@ function MapPage() {
   const [unit] = useUnit();
   const now = useNow();
   const desktop = useMedia('(min-width: 768px)', true);
+  // Made once per basemap file, not per refetch: a new one would make a new map.
+  const basemapKey = JSON.stringify(index.data?.basemap ?? null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the basemap's header
+  const basemap = useMemo(() => basemapFor(index.data?.basemap ?? null), [basemapKey]);
   const [chosen, setChosen] = useState<string | null>(null);
   const choice = chooseLayers(index.data?.layers ?? [], chosen);
   const frames = choice.frames;
@@ -131,18 +136,23 @@ function MapPage() {
             <Legend unit={unit} />
           </div>
           {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
-          <Attribution className="mt-auto" />
+          <Attribution osm={!!index.data?.basemap} className="mt-auto" />
         </aside>
       )}
       <div className="relative min-h-[420px]">
-        <MapCanvas
-          layers={layers}
-          domain={detail ? (detail.a.meta.domain as [number, number][]) : null}
-          pins={pins.data}
-          unit={unit}
-          picked={pick}
-          onPick={setPick}
-        />
+        {index.isPending ? (
+          <div className="h-full w-full animate-pulse bg-muted" />
+        ) : (
+          <MapCanvas
+            basemap={basemap}
+            layers={layers}
+            domain={detail ? (detail.a.meta.domain as [number, number][]) : null}
+            pins={pins.data}
+            unit={unit}
+            picked={pick}
+            onPick={setPick}
+          />
+        )}
         {!desktop && (
           <div className="absolute top-3 left-3 flex w-[min(260px,calc(100%-76px))] flex-col gap-2 rounded-xl border bg-card/95 p-3 backdrop-blur">
             <div className="flex flex-col">
@@ -166,32 +176,32 @@ function MapPage() {
           {frames.length > 0 && time !== null && (
             <Timeline frames={frames} time={time} now={now} playing={playing} onTime={setTime} onPlay={setPlaying} />
           )}
-          {!desktop && <Attribution className="text-right" />}
+          {!desktop && <Attribution osm={!!index.data?.basemap} className="text-right" />}
         </div>
       </div>
     </main>
   );
 }
 
-function Attribution({ className }: { className?: string }) {
+function Attribution({ osm, className }: { osm: boolean; className?: string }) {
+  const link = (href: string, label: string) => (
+    <a href={href} className="text-subtle hover:text-foreground">
+      {label}
+    </a>
+  );
   return (
     <p className={cn('m-0 text-[11px] text-muted-foreground leading-snug', className)}>
-      {m.map_attribution()}{' '}
-      <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
-        DWD
-      </a>{' '}
-      ·{' '}
-      <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" className="text-subtle hover:text-foreground">
-        ECMWF
-      </a>{' '}
-      (CC BY 4.0) ·{' '}
-      <a href="https://www.naturalearthdata.com/" className="text-subtle hover:text-foreground">
-        Natural Earth
-      </a>{' '}
-      ·{' '}
-      <a href="https://maplibre.org/" className="text-subtle hover:text-foreground">
-        MapLibre
-      </a>
+      {m.map_attribution()} {link('https://opendata.dwd.de/', 'DWD')} ·{' '}
+      {link('https://www.ecmwf.int/en/forecasts/datasets/open-data', 'ECMWF')} (CC BY 4.0) ·{' '}
+      {osm ? (
+        <>
+          {link('https://www.openstreetmap.org/copyright', '© OpenStreetMap')} ·{' '}
+          {link('https://protomaps.com', 'Protomaps')}
+        </>
+      ) : (
+        link('https://www.naturalearthdata.com/', 'Natural Earth')
+      )}{' '}
+      · {link('https://maplibre.org/', 'MapLibre')}
     </p>
   );
 }

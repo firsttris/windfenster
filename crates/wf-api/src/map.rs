@@ -4,9 +4,12 @@
 use std::sync::Arc;
 
 use axum::Json;
-use axum::extract::{Path, State};
-use axum::http::header;
-use axum::response::IntoResponse;
+use axum::body::Body;
+use axum::extract::{Path, Request, State};
+use axum::http::{HeaderValue, header};
+use axum::response::{IntoResponse, Response};
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 use wf_core::observation::{self, StationWind};
 use wf_map::MapIndex;
 
@@ -16,7 +19,10 @@ use crate::{ApiError, AppState};
 pub async fn index(State(s): State<AppState>) -> Result<impl IntoResponse, ApiError> {
     let index = match &s.map {
         Some(map) => map.index().await.map_err(ApiError::internal)?,
-        None => MapIndex { layers: vec![] },
+        None => MapIndex {
+            layers: vec![],
+            basemap: None,
+        },
     };
     // New hours arrive every few minutes.
     Ok(([(header::CACHE_CONTROL, "public, max-age=60")], Json(index)))
@@ -51,6 +57,32 @@ pub async fn stations(State(s): State<AppState>) -> Result<impl IntoResponse, Ap
         [(header::CACHE_CONTROL, "public, max-age=60")],
         Json(pins.as_ref().clone()),
     ))
+}
+
+/// The basemap's media type; responses of it are byte ranges and are never compressed.
+pub const PMTILES: &str = "application/vnd.pmtiles";
+
+/// `GET /api/map/basemap.pmtiles`: the detailed basemap, in byte ranges as MapLibre's PMTiles
+/// protocol asks for them; 404 without one.
+pub async fn basemap(State(s): State<AppState>, req: Request) -> Result<Response, ApiError> {
+    let map = s.map.as_ref().ok_or(ApiError::NotFound)?;
+    let path = wf_map::basemap::path(map.root());
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+        return Err(ApiError::NotFound);
+    }
+    let mut res = ServeFile::new(path)
+        .oneshot(req)
+        .await
+        .map_err(ApiError::internal)?
+        .map(Body::new);
+    let headers = res.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(PMTILES));
+    // The operator may swap the file; the ETag tells MapLibre when.
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=3600"),
+    );
+    Ok(res)
 }
 
 /// Whether `{model}/{run}/{file}` names a texture or its description: a known model, a run

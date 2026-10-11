@@ -145,8 +145,25 @@ model's wind there, tap a station for its last measurement too; stations show th
 wind as a dot in the wind scale's colour, from closer up as an arrow with the value. The view
 stays in the address (`/map#zoom/lat/lon`). With "reduce motion" set in the system, arrows that
 stand still take the particles' place. The land, water, borders and places under it come from
-[Natural Earth](https://www.naturalearthdata.com/) for now (`web/scripts/natural-earth.mjs`
-builds them); a detailed vector map for closer zoom levels follows.
+the detailed basemap if one is installed, else from
+[Natural Earth](https://www.naturalearthdata.com/) (`web/scripts/natural-earth.mjs` builds that).
+
+### The detailed basemap
+
+For towns, roads and lakes from close up, put a [Protomaps](https://protomaps.com/) extract of
+OpenStreetMap at `{WF_DATA_DIR}/map/basemap.pmtiles`; the map uses it from the next page load,
+in its own style, light and dark, with names in the viewer's language. Cut one from a daily
+build with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image
+`protomaps/go-pmtiles`), choosing the area and how close it goes:
+
+```bash
+pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pmtiles \
+  --bbox=-25,27,45,72 --maxzoom=12
+```
+
+Europe to zoom 12 (towns and main roads) is about 7 GB, to zoom 8 about 190 MB; a smaller area
+can go all the way to zoom 15 (the Upper Rhine is about 210 MB). The server sends the file in
+byte ranges (`/api/map/basemap.pmtiles`); OpenStreetMap is credited on the map.
 
 ## Development
 
@@ -226,7 +243,8 @@ their 10-minute values, and the ICON-D2 fields of the wind map, come from
 [DWD Open Data](https://opendata.dwd.de/). Water levels from
 [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
 Bundes), credited on every page that shows them. The map's land, borders and places come from
-[Natural Earth](https://www.naturalearthdata.com/) (public domain), its labels are set in Noto
+[Natural Earth](https://www.naturalearthdata.com/) (public domain) or, where installed, from
+[OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL) through Protomaps, its labels are set in Noto
 Sans ([OFL](web/public/glyphs/OFL.txt), glyphs from
 [protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). The map's
 global wind comes from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)

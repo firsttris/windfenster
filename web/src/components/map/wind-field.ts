@@ -75,7 +75,10 @@ export function windField(id: string, opacity: number): WindField {
       bindTexture(g, ramp, 4);
       g.uniform1i(program.u.u_ramp, 4);
       g.uniform1f(program.u.u_ramp_max, RAMP_MAX_KN);
-      g.uniform1f(program.u.u_opacity, alpha);
+      // From town zoom on the map's own detail matters more: the field pales.
+      const z = map?.getZoom() ?? 0;
+      const pale = Math.min(1, Math.max(0, (z - 9) / 3.5));
+      g.uniform1f(program.u.u_opacity, alpha * (1 - 0.45 * pale * pale * (3 - 2 * pale)));
       g.enable(g.BLEND);
       g.blendFunc(g.ONE, g.ONE_MINUS_SRC_ALPHA);
       g.drawArrays(g.TRIANGLES, 0, 6);
