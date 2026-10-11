@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
-import { Search } from 'lucide-react';
+import { createRootRouteWithContext, Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Map as MapIcon, Search } from 'lucide-react';
 import { useEffect } from 'react';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
 import { watchTheme } from '@/lib/prefs';
@@ -19,51 +19,59 @@ const REPO = 'https://github.com/firsttris/windfenster';
 
 function RootLayout() {
   useEffect(() => watchTheme(), []);
+  // The map fills the window below the header; its sources stand on the map itself.
+  const fullscreen = useRouterState({ select: (s) => s.location.pathname === '/map' });
   return (
     <SearchProvider>
-      <div className="flex min-h-dvh flex-col">
+      <div className={fullscreen ? 'flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'}>
         <Header />
         <Outlet />
-        <footer className="mx-auto mt-auto w-full max-w-[1360px] px-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-line border-t pt-5 pb-6 text-muted-foreground text-xs">
-            <span>
-              <a href="https://open-meteo.com/" className="text-subtle hover:text-foreground">
-                {m.footer_weatherData()}
-              </a>{' '}
-              (CC BY 4.0) · {m.footer_stations()}{' '}
-              <a href="https://ourairports.com/data/" className="text-subtle hover:text-foreground">
-                OurAirports
-              </a>
-              ,{' '}
-              <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
-                DWD
-              </a>{' '}
-              · {m.footer_measurements()}{' '}
-              <a href="https://aviationweather.gov/" className="text-subtle hover:text-foreground">
-                aviationweather.gov
-              </a>
-              ,{' '}
-              <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
-                DWD
-              </a>{' '}
-              · {m.footer_gauges()}{' '}
-              <a href="https://www.pegelonline.wsv.de/" className="text-subtle hover:text-foreground">
-                PEGELONLINE (WSV)
-              </a>
-            </span>
-            <span className="flex flex-wrap items-center gap-3">
-              <span>
-                {m.footer_openSource()} ·{' '}
-                <a href={REPO} className="text-subtle hover:text-foreground">
-                  GitHub
-                </a>
-              </span>
-              <LanguageSwitch />
-            </span>
-          </div>
-        </footer>
+        {!fullscreen && <Footer />}
       </div>
     </SearchProvider>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="mx-auto mt-auto w-full max-w-[1360px] px-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-line border-t pt-5 pb-6 text-muted-foreground text-xs">
+        <span>
+          <a href="https://open-meteo.com/" className="text-subtle hover:text-foreground">
+            {m.footer_weatherData()}
+          </a>{' '}
+          (CC BY 4.0) · {m.footer_stations()}{' '}
+          <a href="https://ourairports.com/data/" className="text-subtle hover:text-foreground">
+            OurAirports
+          </a>
+          ,{' '}
+          <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
+            DWD
+          </a>{' '}
+          · {m.footer_measurements()}{' '}
+          <a href="https://aviationweather.gov/" className="text-subtle hover:text-foreground">
+            aviationweather.gov
+          </a>
+          ,{' '}
+          <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
+            DWD
+          </a>{' '}
+          · {m.footer_gauges()}{' '}
+          <a href="https://www.pegelonline.wsv.de/" className="text-subtle hover:text-foreground">
+            PEGELONLINE (WSV)
+          </a>
+        </span>
+        <span className="flex flex-wrap items-center gap-3">
+          <span>
+            {m.footer_openSource()} ·{' '}
+            <a href={REPO} className="text-subtle hover:text-foreground">
+              GitHub
+            </a>
+          </span>
+          <LanguageSwitch />
+        </span>
+      </div>
+    </footer>
   );
 }
 
@@ -83,6 +91,13 @@ function Header() {
           >
             {m.nav_forecast()}
           </Link>
+          <Link
+            to="/map"
+            className="rounded-sm px-3 py-2 font-medium text-muted-foreground text-sm no-underline hover:text-foreground"
+            activeProps={{ className: 'bg-secondary !text-foreground' }}
+          >
+            {m.nav_map()}
+          </Link>
         </nav>
         <div className="flex flex-1 items-center justify-end gap-2.5">
           <SearchButton className="hidden max-w-xs sm:flex" />
@@ -94,6 +109,11 @@ function Header() {
             onClick={openSearch}
           >
             <Search aria-hidden="true" />
+          </Button>
+          <Button variant="outline" size="icon" className="sm:hidden" aria-label={m.nav_map()} asChild>
+            <Link to="/map">
+              <MapIcon aria-hidden="true" />
+            </Link>
           </Button>
           <ThemeToggle />
         </div>

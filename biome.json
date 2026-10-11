@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/web/src/bindings", "!**/web/src/paraglide", "!**/web/src/routeTree.gen.ts", "!**/target"]
+    "includes": [
+      "**",
+      "!**/web/src/bindings",
+      "!**/web/src/paraglide",
+      "!**/web/src/routeTree.gen.ts",
+      "!**/web/src/assets",
+      "!**/target"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

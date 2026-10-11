@@ -16,8 +16,11 @@ pub fn index_html() -> Option<String> {
 
 /// Serves the built SPA; unknown paths get `index.html` so client-side routes work.
 pub async fn serve(State(state): State<AppState>, uri: Uri, headers: HeaderMap) -> Response {
-    let path = uri.path().trim_start_matches('/');
-    if let Some(file) = Assets::get(path).filter(|_| !path.is_empty()) {
+    // Font stacks have spaces: /glyphs/Noto%20Sans%20Regular/0-255.pbf
+    let decoded = percent_decode(uri.path());
+    let path = decoded.trim_start_matches('/');
+    let plain = !path.is_empty() && !path.split('/').any(|s| s == "..");
+    if let Some(file) = Assets::get(path).filter(|_| plain) {
         let mime = mime_guess::from_path(path).first_or_octet_stream();
         // Vite puts content-hashed files under assets/; they never change.
         let cache = if path.starts_with("assets/") {
@@ -26,6 +29,10 @@ pub async fn serve(State(state): State<AppState>, uri: Uri, headers: HeaderMap) 
             "no-cache"
         };
         return embedded(&headers, file, mime.as_ref(), cache);
+    }
+    // The map's fonts: a range not shipped is missing, not a page of the app.
+    if path.starts_with("glyphs/") {
+        return StatusCode::NOT_FOUND.into_response();
     }
     match Assets::get("index.html") {
         Some(index) => embedded(&headers, index, "text/html; charset=utf-8", "no-cache"),
@@ -40,6 +47,31 @@ pub async fn serve(State(state): State<AppState>, uri: Uri, headers: HeaderMap) 
                 .into_response(),
         },
     }
+}
+
+/// `%XX` escapes of a URL path as bytes; anything malformed stays as it is.
+fn percent_decode(path: &str) -> String {
+    let b = path.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = |c: u8| (c as char).to_digit(16);
+        match (
+            b[i],
+            b.get(i + 1).copied().and_then(hex),
+            b.get(i + 2).copied().and_then(hex),
+        ) {
+            (b'%', Some(h), Some(l)) => {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+            }
+            (c, _, _) => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// An embedded file with an ETag from its build-time SHA-256; a matching `If-None-Match`
@@ -96,5 +128,16 @@ mod tests {
         assert!(etag_matches("*", etag));
         assert!(!etag_matches("\"abcd\"", etag));
         assert!(!etag_matches("", etag));
+    }
+
+    #[test]
+    fn decodes_paths() {
+        assert_eq!(
+            percent_decode("/glyphs/Noto%20Sans%20Regular/0-255.pbf"),
+            "/glyphs/Noto Sans Regular/0-255.pbf"
+        );
+        assert_eq!(percent_decode("/M%C3%BCnster"), "/Münster");
+        assert_eq!(percent_decode("/50%"), "/50%");
+        assert_eq!(percent_decode("/a%zz"), "/a%zz");
     }
 }

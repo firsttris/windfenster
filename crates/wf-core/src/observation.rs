@@ -132,6 +132,42 @@ pub async fn station_ids(
     Ok(rows.into_iter().collect())
 }
 
+/// A station with its newest measurement, for the map's pins.
+#[derive(Debug, Clone, PartialEq, Serialize, sqlx::FromRow, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct StationWind {
+    pub slug: String,
+    pub source: StationSource,
+    pub code: String,
+    pub name: String,
+    pub lat: f64,
+    pub lon: f64,
+    /// When the newest measurement since the asked time was taken; null without one
+    #[ts(type = "number | null")]
+    pub at: Option<i64>,
+    /// kn
+    pub wind: Option<f32>,
+    pub gust: Option<f32>,
+    /// Where the wind comes from, degrees; null when variable
+    pub dir: Option<f32>,
+}
+
+/// Every station with its newest measurement taken at `since` or later.
+pub async fn newest_per_station(db: &SqlitePool, since: i64) -> sqlx::Result<Vec<StationWind>> {
+    // One index lookup per station: the primary key is (station_id, observed_at).
+    sqlx::query_as(
+        "SELECT s.slug, s.source, s.code, s.name, s.lat, s.lon, o.observed_at AS at, \
+         o.wind_kn AS wind, o.gust_kn AS gust, o.dir_deg AS dir \
+         FROM station s LEFT JOIN observation o ON o.station_id = s.id AND o.observed_at = \
+         (SELECT MAX(observed_at) FROM observation WHERE station_id = s.id AND observed_at >= ?) \
+         ORDER BY s.id",
+    )
+    .bind(since)
+    .fetch_all(db)
+    .await
+}
+
 /// Drops measurements older than `before`.
 pub async fn purge(db: &SqlitePool, before: i64) -> sqlx::Result<u64> {
     Ok(sqlx::query("DELETE FROM observation WHERE observed_at < ?")
@@ -190,6 +226,12 @@ mod tests {
         assert_eq!(between(&db, id, 100, 200).await?, [o(100, 9.0)]);
         assert_eq!(oldest(&db, id).await?, Some(100));
         assert_eq!(nearest(&got, 210, MATCH_S), Some(&o(200, 11.0)));
+        let pins = newest_per_station(&db, 150).await?;
+        assert_eq!(
+            (pins[0].slug.as_str(), pins[0].at, pins[0].wind, pins[0].dir),
+            ("edsb", Some(200), Some(11.0), Some(210.0))
+        );
+        assert_eq!(newest_per_station(&db, 201).await?[0].at, None);
         assert_eq!(purge(&db, 150).await?, 1);
         assert_eq!(since(&db, id, 0).await?.len(), 1);
         Ok(())

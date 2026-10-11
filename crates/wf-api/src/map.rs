@@ -1,9 +1,13 @@
-//! The wind map's data: which hours there are, and the textures themselves.
+//! The wind map's data: which hours there are, the textures themselves, and the stations'
+//! newest measurements for the pins.
+
+use std::sync::Arc;
 
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::header;
 use axum::response::IntoResponse;
+use wf_core::observation::{self, StationWind};
 use wf_map::MapIndex;
 
 use crate::{ApiError, AppState};
@@ -16,6 +20,37 @@ pub async fn index(State(s): State<AppState>) -> Result<impl IntoResponse, ApiEr
     };
     // New hours arrive every few minutes.
     Ok(([(header::CACHE_CONTROL, "public, max-age=60")], Json(index)))
+}
+
+/// The pins, built at most once a minute.
+pub type PinCache = moka::future::Cache<(), Arc<Vec<StationWind>>>;
+
+pub fn new_pin_cache() -> PinCache {
+    moka::future::Cache::builder()
+        .max_capacity(1)
+        .time_to_live(std::time::Duration::from_secs(60))
+        .build()
+}
+
+/// A pin shows a measurement up to this old; METARs come every 30 or 60 minutes.
+const PIN_MAX_AGE_S: i64 = 2 * 3_600;
+
+/// `GET /api/map/stations`: every station with its newest measurement of the last two hours.
+pub async fn stations(State(s): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let pins = s
+        .pins
+        .try_get_with((), async {
+            let since = wf_core::time::now() - PIN_MAX_AGE_S;
+            observation::newest_per_station(&s.db, since)
+                .await
+                .map(Arc::new)
+        })
+        .await
+        .map_err(ApiError::internal)?;
+    Ok((
+        [(header::CACHE_CONTROL, "public, max-age=60")],
+        Json(pins.as_ref().clone()),
+    ))
 }
 
 /// Whether `{model}/{run}/{file}` names a texture or its description: a known model, a run

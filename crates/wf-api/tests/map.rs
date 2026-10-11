@@ -17,6 +17,9 @@ use wf_map::grid::LatLonGrid;
 /// 2026-10-11 06 UTC
 const R06: i64 = 1_791_698_400;
 
+/// Measurement times are relative to the clock: pins show the last two hours.
+static NOW: std::sync::LazyLock<i64> = std::sync::LazyLock::new(wf_core::time::now);
+
 async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
     let dir = tempfile::tempdir()?;
     let db = wf_core::db::connect(&dir.path().join("test.db")).await?;
@@ -24,6 +27,46 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
     let http = reqwest::Client::builder().no_proxy().build()?;
     let om = OpenMeteo::new(http.clone(), Config::default());
     let forecasts = Arc::new(Forecasts::new(db.clone(), om, vec![]));
+    let station = wf_core::station::Station {
+        slug: "edsb".into(),
+        source: wf_core::station::StationSource::Metar,
+        code: "EDSB".into(),
+        name: "Baden Airpark".into(),
+        country: Some("DE".into()),
+        region: None,
+        municipality: None,
+        lat: 48.78,
+        lon: 8.08,
+        elevation_m: None,
+        has_taf: true,
+    };
+    wf_core::station::upsert(
+        &db,
+        &[wf_core::station::NewStation {
+            station,
+            keywords: None,
+        }],
+        1,
+    )
+    .await?;
+    let id = wf_core::station::id_of(&db, "edsb").await?.unwrap();
+    let obs = |at: i64, wind| wf_core::observation::Observation {
+        at,
+        wind: Some(wind),
+        gust: Some(22.0),
+        dir: Some(240.0),
+        temp: None,
+        raw: None,
+    };
+    // Three hours ago is too old for a pin; ten minutes ago is the newest.
+    wf_core::observation::store(
+        &db,
+        &[
+            (id, obs(*NOW - 3 * 3_600, 5.0)),
+            (id, obs(*NOW - 600, 12.0)),
+        ],
+    )
+    .await?;
     let root = dir.path().join("map");
     let grid = |values| LatLonGrid {
         lon0: 10.0,
@@ -115,5 +158,23 @@ async fn textures_are_served_and_cached_for_good() -> Result<()> {
         let (status, _, _) = get(&app, uri).await?;
         assert_eq!(status, StatusCode::NOT_FOUND, "{uri}");
     }
+    // A font range the app does not ship is a 404 for MapLibre, not the app's page.
+    let (status, _, _) = get(&app, "/glyphs/Noto%20Sans%20Regular/65024-65279.pbf").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    Ok(())
+}
+
+#[tokio::test]
+async fn pins_carry_the_newest_measurement() -> Result<()> {
+    let (_dir, app) = app(true).await?;
+    let (status, cache, body) = get(&app, "/api/map/stations").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cache.as_deref(), Some("public, max-age=60"));
+    let pins: Value = serde_json::from_slice(&body)?;
+    assert_eq!(
+        pins,
+        json!([{"slug": "edsb", "source": "metar", "code": "EDSB", "name": "Baden Airpark",
+            "lat": 48.78, "lon": 8.08, "at": *NOW - 600, "wind": 12.0, "gust": 22.0, "dir": 240.0}])
+    );
     Ok(())
 }

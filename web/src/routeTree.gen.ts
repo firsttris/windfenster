@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MapRouteImport } from './routes/map'
 import { Route as PointRouteImport } from './routes/point'
 import { Route as StationSlugRouteImport } from './routes/station.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapRoute = MapRouteImport.update({
+  id: '/map',
+  path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PointRoute = PointRouteImport.update({
@@ -31,30 +37,34 @@ const StationSlugRoute = StationSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/map': typeof MapRoute
   '/point': typeof PointRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/map': typeof MapRoute
   '/point': typeof PointRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/map': typeof MapRoute
   '/point': typeof PointRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/point' | '/station/$slug'
+  fullPaths: '/' | '/map' | '/point' | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/point' | '/station/$slug'
-  id: '__root__' | '/' | '/point' | '/station/$slug'
+  to: '/' | '/map' | '/point' | '/station/$slug'
+  id: '__root__' | '/' | '/map' | '/point' | '/station/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MapRoute: typeof MapRoute
   PointRoute: typeof PointRoute
   StationSlugRoute: typeof StationSlugRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/map': {
+      id: '/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/point': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MapRoute: MapRoute,
   PointRoute: PointRoute,
   StationSlugRoute: StationSlugRoute,
 }

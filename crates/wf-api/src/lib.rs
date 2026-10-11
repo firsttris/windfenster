@@ -58,6 +58,7 @@ pub struct AppState {
     fetched: moka::future::Cache<i64, ()>,
     gauge_history: water::HistoryCache,
     rankings: ranking::RankingCache,
+    pins: map::PinCache,
     /// Stations (row ids) whose past days were filled in within six hours.
     backfilled: moka::future::Cache<i64, ()>,
 }
@@ -93,6 +94,7 @@ impl AppState {
                 .build(),
             gauge_history: water::new_cache(),
             rankings: ranking::new_cache(),
+            pins: map::new_pin_cache(),
             backfilled: moka::future::Cache::builder()
                 .max_capacity(10_000)
                 .time_to_live(Duration::from_secs(6 * 3_600))
@@ -132,6 +134,7 @@ pub fn router(state: AppState) -> Router {
         .route("/point", get(forecast::point))
         .route("/gauges/near", get(water::near))
         .route("/map", get(map::index))
+        .route("/map/stations", get(map::stations))
         .route("/map/{model}/{run}/{file}", get(map::file))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
