@@ -1,4 +1,5 @@
-//! The basemap's background work: the region renewed when it grows old, and detail fetched for
+//! The basemap's background work: the region and its relief renewed when they grow old, and
+//! detail fetched for
 //! the spots people look at (tracked stations, places opened in the last week, spots tapped on
 //! the map), a few per round so Protomaps is not asked for much at once.
 
@@ -62,6 +63,16 @@ impl MapData {
                         tracing::warn!("basemap: {e}");
                         region_next = now + 3_600;
                     }
+                }
+                let terrain = crate::basemap::terrain::keep_current(
+                    &self.root,
+                    &self.http,
+                    &self.urls.mapterhorn,
+                    now,
+                );
+                if let Err(e) = terrain.await {
+                    tracing::warn!("terrain: {e}");
+                    region_next = now + 3_600;
                 }
             }
             if let Err(e) = self.keep_spots(&db, now).await {

@@ -124,7 +124,7 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
                 {"validAt": R06 + 3 * 3_600, "runAt": R06, "path": "icon_d2/2026101106/003"}
             ]},
             {"model": "ecmwf_ifs025", "frames": []}
-        ], "basemap": null})
+        ], "basemap": null, "terrain": null})
     );
 
     // Without map data: no layers.
@@ -132,7 +132,7 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
     let (_, _, body) = get(&off, "/api/map").await?;
     assert_eq!(
         serde_json::from_slice::<Value>(&body)?,
-        json!({"layers": [], "basemap": null})
+        json!({"layers": [], "basemap": null, "terrain": null})
     );
     Ok(())
 }

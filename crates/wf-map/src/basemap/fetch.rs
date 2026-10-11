@@ -92,7 +92,7 @@ impl AsyncBackend for Http {
 
 pub(crate) type Reader = AsyncPmTilesReader<Http, HashMapCache>;
 
-async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reader> {
+pub(crate) async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reader> {
     let backend = Http {
         client: http.clone(),
         url,

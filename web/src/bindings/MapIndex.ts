@@ -9,4 +9,8 @@ export type MapIndex = { layers: Array<MapLayer>,
 /**
  * Served at `/api/map/basemap.pmtiles`; null without one (the app falls back to its own)
  */
-basemap: BasemapInfo | null, };
+basemap: BasemapInfo | null, 
+/**
+ * Elevation for the relief, served at `/api/map/terrain.pmtiles`; null without
+ */
+terrain: BasemapInfo | null, };

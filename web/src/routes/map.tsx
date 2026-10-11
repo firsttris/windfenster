@@ -6,6 +6,7 @@ import { basemapFor } from '@/components/map/basemap';
 import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
+import { withRelief } from '@/components/map/relief';
 import { ShareButton } from '@/components/map/share-button';
 import { SpotCard } from '@/components/map/spot-card';
 import { frameTime, Timeline } from '@/components/map/timeline';
@@ -46,9 +47,13 @@ function MapPage() {
   // Made once per basemap file, not per refetch: a new one would make a new map. New detail
   // boxes only change filters (MapCanvas `detail`).
   const info = index.data?.basemap ?? null;
-  const basemapKey = JSON.stringify(info && { ...info, detail: [] });
+  const relief = index.data?.terrain != null;
+  const basemapKey = JSON.stringify([info && { ...info, detail: [] }, relief]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the basemap's header
-  const basemap = useMemo(() => basemapFor(index.data?.basemap ?? null), [basemapKey]);
+  const basemap = useMemo(() => {
+    const b = basemapFor(index.data?.basemap ?? null);
+    return relief ? withRelief(b) : b;
+  }, [basemapKey]);
   // The address wins over what this browser remembers (lib/map-url.ts).
   const [initial] = useState(() => parseMapState(window.location.search));
   const [layerPref, setLayerPref] = usePref('wf.mapLayer');
@@ -239,7 +244,7 @@ function MapPage() {
           </div>
           {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
           <p className="m-0 mt-auto text-[11px] text-muted-foreground leading-snug">{m.map_keys()}</p>
-          <Attribution osm={!!index.data?.basemap} />
+          <Attribution osm={!!index.data?.basemap} relief={relief} />
         </aside>
       )}
       <div className="relative min-h-[420px]">
@@ -323,14 +328,14 @@ function MapPage() {
               loading={loading && !playing}
             />
           )}
-          {!desktop && <Attribution osm={!!index.data?.basemap} className="text-right" />}
+          {!desktop && <Attribution osm={!!index.data?.basemap} relief={relief} className="text-right" />}
         </div>
       </div>
     </main>
   );
 }
 
-function Attribution({ osm, className }: { osm: boolean; className?: string }) {
+function Attribution({ osm, relief, className }: { osm: boolean; relief: boolean; className?: string }) {
   const link = (href: string, label: string) => (
     <a href={href} className="text-subtle hover:text-foreground">
       {label}
@@ -348,7 +353,8 @@ function Attribution({ osm, className }: { osm: boolean; className?: string }) {
       ) : (
         link('https://www.naturalearthdata.com/', 'Natural Earth')
       )}{' '}
-      · {link('https://maplibre.org/', 'MapLibre')}
+      {relief && <>· {link('https://mapterhorn.com/attribution', '© Mapterhorn')} </>}·{' '}
+      {link('https://maplibre.org/', 'MapLibre')}
     </p>
   );
 }

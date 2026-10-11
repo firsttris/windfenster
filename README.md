@@ -192,6 +192,12 @@ At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go. T
 their tiles at `/api/map/basemap/{z}/{x}/{y}`. Elsewhere the map enlarges the zoom-8 tiles from
 closer up (coarser, but never blank).
 
+Relief comes from [Mapterhorn](https://mapterhorn.com/) (elevation from national surveys and
+other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the region to
+zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (about 90 MB, renewed
+yearly, served at `/api/map/terrain.pmtiles`), and the map draws it as hillshade over the colour
+field and under water, roads and labels, softer from town zoom on.
+
 A file you put there yourself (no note next to it) is never replaced. To cover more, cut one
 with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image
 `protomaps/go-pmtiles`):
@@ -288,7 +294,8 @@ Bundes), credited on every page that shows them. The map's land, borders and pla
 Sans ([OFL](web/public/glyphs/OFL.txt), glyphs from
 [protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). The map's
 global wind comes from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
-(CC BY 4.0). Further sources come with the phases that use them and are listed on an
+(CC BY 4.0), its relief from [Mapterhorn](https://mapterhorn.com/attribution) (open elevation
+data of many national surveys, mostly CC BY; credited on the map). Further sources come with the phases that use them and are listed on an
 attribution page.
 
 ---

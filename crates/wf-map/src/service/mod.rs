@@ -44,6 +44,8 @@ pub struct Urls {
     pub ecmwf: String,
     /// Protomaps' daily builds, for the basemap
     pub protomaps: String,
+    /// Mapterhorn's downloads, for the relief
+    pub mapterhorn: String,
 }
 
 impl Default for Urls {
@@ -52,6 +54,7 @@ impl Default for Urls {
             icon_d2: icon_d2_files::BASE.into(),
             ecmwf: ecmwf_files::BASE.into(),
             protomaps: crate::basemap::fetch::BUILDS.into(),
+            mapterhorn: crate::basemap::terrain::DOWNLOADS.into(),
         }
     }
 }
@@ -105,6 +108,7 @@ impl MapData {
         Ok(MapIndex {
             layers,
             basemap: crate::basemap::info(&self.root).await,
+            terrain: crate::basemap::terrain::info(&self.root).await,
         })
     }
 

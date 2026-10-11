@@ -25,6 +25,7 @@ pub async fn index(State(s): State<AppState>) -> Result<impl IntoResponse, ApiEr
         None => MapIndex {
             layers: vec![],
             basemap: None,
+            terrain: None,
         },
     };
     // New hours arrive every few minutes.
@@ -116,7 +117,16 @@ pub async fn basemap_tile(
 /// protocol asks for them; 404 without one.
 pub async fn basemap(State(s): State<AppState>, req: Request) -> Result<Response, ApiError> {
     let map = s.map.as_ref().ok_or(ApiError::NotFound)?;
-    let path = wf_map::basemap::path(map.root());
+    archive(wf_map::basemap::path(map.root()), req).await
+}
+
+/// `GET /api/map/terrain.pmtiles`: the relief's elevation, the same way; 404 without one.
+pub async fn terrain(State(s): State<AppState>, req: Request) -> Result<Response, ApiError> {
+    let map = s.map.as_ref().ok_or(ApiError::NotFound)?;
+    archive(wf_map::basemap::terrain::path(map.root()), req).await
+}
+
+async fn archive(path: std::path::PathBuf, req: Request) -> Result<Response, ApiError> {
     if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Err(ApiError::NotFound);
     }

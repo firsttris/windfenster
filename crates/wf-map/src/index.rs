@@ -13,6 +13,8 @@ pub struct MapIndex {
     pub layers: Vec<MapLayer>,
     /// Served at `/api/map/basemap.pmtiles`; null without one (the app falls back to its own)
     pub basemap: Option<BasemapInfo>,
+    /// Elevation for the relief, served at `/api/map/terrain.pmtiles`; null without
+    pub terrain: Option<BasemapInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]

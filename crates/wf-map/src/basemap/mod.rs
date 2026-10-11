@@ -5,6 +5,7 @@
 pub mod fetch;
 pub mod serve;
 pub mod spots;
+pub mod terrain;
 pub mod tiles;
 
 use std::path::{Path, PathBuf};
