@@ -18,10 +18,10 @@ import {
   type Program,
 } from './gl';
 import { COPY_FRAG, DRAW_FRAG, DRAW_VERT, FADE_FRAG, QUAD_VERT, UPDATE_FRAG } from './shaders';
-import { bindWind, type WindPair, windTextures } from './wind-gl';
+import { bindWind, hasWind, NO_WIND, type WindLayers, windTextures } from './wind-gl';
 
 export interface Particles {
-  show(pair: WindPair | null): void;
+  show(layers: WindLayers): void;
   /** The visible map changed; `zoomed` starts the particles afresh. */
   setView(view: MercatorView, cssWidth: number, cssHeight: number, pixelRatio: number, zoomed: boolean): void;
   setColor(rgb: [number, number, number]): void;
@@ -56,7 +56,7 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   const fb = gl.createFramebuffer();
   const textures = windTextures(gl);
 
-  let pair: WindPair | null = null;
+  let shown: WindLayers = NO_WIND;
   let view: MercatorView = { x: 0, y: 0, w: 1, h: 1 };
   let shift: [number, number, number, number] = [1, 1, 0, 0];
   let size = { w: 1, h: 1, ratio: 1 };
@@ -102,12 +102,12 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     const dt = last ? Math.min(3, (now - last) / (1000 / 60)) : 1;
     last = now;
     const { width, height } = canvas;
-    if (!pair) {
+    if (!hasWind(shown)) {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
-    textures.keep(pair);
+    textures.keep(shown);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
 
@@ -115,9 +115,9 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     bindFramebuffer(gl, fb, state[1]);
     gl.viewport(0, 0, res, res);
     activate(gl, update);
-    bindWind(gl, update, textures, pair, 0);
-    bindTexture(gl, state[0], 2);
-    gl.uniform1i(update.u.u_particles, 2);
+    bindWind(gl, update, textures, shown, 0);
+    bindTexture(gl, state[0], 4);
+    gl.uniform1i(update.u.u_particles, 4);
     gl.uniform4f(update.u.u_view, view.x, view.y, view.w, view.h);
     gl.uniform4f(update.u.u_shift, ...shift);
     gl.uniform2f(update.u.u_screen, size.w, size.h);
@@ -130,8 +130,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     bindFramebuffer(gl, fb, trails[1]);
     gl.viewport(0, 0, width, height);
     activate(gl, fade);
-    bindTexture(gl, trails[0], 2);
-    gl.uniform1i(fade.u.u_screen_tex, 2);
+    bindTexture(gl, trails[0], 4);
+    gl.uniform1i(fade.u.u_screen_tex, 4);
     gl.uniform1f(fade.u.u_fade, FADE ** dt);
     screenQuad(fade);
 
@@ -139,11 +139,11 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     activate(gl, draw);
-    bindWind(gl, draw, textures, pair, 0);
-    bindTexture(gl, state[0], 2);
-    bindTexture(gl, state[1], 3);
-    gl.uniform1i(draw.u.u_before, 2);
-    gl.uniform1i(draw.u.u_after, 3);
+    bindWind(gl, draw, textures, shown, 0);
+    bindTexture(gl, state[0], 4);
+    bindTexture(gl, state[1], 5);
+    gl.uniform1i(draw.u.u_before, 4);
+    gl.uniform1i(draw.u.u_after, 5);
     gl.uniform4f(draw.u.u_shift, ...shift);
     gl.uniform4f(draw.u.u_view, view.x, view.y, view.w, view.h);
     gl.uniform2f(draw.u.u_screen, width, height);
@@ -157,8 +157,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     // 4. Onto the canvas
     bindFramebuffer(gl, null);
     activate(gl, copy);
-    bindTexture(gl, trails[1], 2);
-    gl.uniform1i(copy.u.u_screen_tex, 2);
+    bindTexture(gl, trails[1], 4);
+    gl.uniform1i(copy.u.u_screen_tex, 4);
     screenQuad(copy);
 
     state = [state[1], state[0]];
@@ -169,8 +169,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   frame = requestAnimationFrame(step);
 
   return {
-    show(p) {
-      pair = p;
+    show(layers) {
+      shown = layers;
     },
     setView(next, cssWidth, cssHeight, pixelRatio, zoomed) {
       const width = Math.round(cssWidth * pixelRatio);

@@ -3,6 +3,8 @@ import type { MapFrame } from '@/bindings/MapFrame';
 import type { TextureMeta } from '@/bindings/TextureMeta';
 import {
   blend,
+  chooseLayers,
+  hoursAt,
   latOf,
   mercatorX,
   mercatorY,
@@ -113,5 +115,41 @@ describe('wind', () => {
   it('blends two hours', () => {
     expect(blend({ u: 0, v: 10 }, { u: 10, v: 0 }, 0.25)).toEqual({ u: 2.5, v: 7.5 });
     expect(blend(null, { u: 1, v: 1 }, 0.5)).toEqual({ u: 1, v: 1 });
+  });
+});
+
+describe('layers', () => {
+  const at = (model: string, hours: number[]) => ({
+    model,
+    frames: hours.map((h) => ({ validAt: h * 3_600, runAt: 0, path: `${model}/2026101100/${h}` })),
+  });
+  const icon = at('icon_d2', [0, 1, 2]);
+  const ecmwf = at('ecmwf_ifs025', [0, 3, 6]);
+
+  it('puts the finer model over the base', () => {
+    const c = chooseLayers([icon, ecmwf], null);
+    expect([c.selected?.model, c.detail?.model, c.base?.model]).toEqual(['icon_d2', 'icon_d2', 'ecmwf_ifs025']);
+    // Each hour once, the finer model's first
+    expect(c.frames.map((f) => f.path)).toEqual([
+      'icon_d2/2026101100/0',
+      'icon_d2/2026101100/1',
+      'icon_d2/2026101100/2',
+      'ecmwf_ifs025/2026101100/3',
+      'ecmwf_ifs025/2026101100/6',
+    ]);
+  });
+
+  it('shows the base alone when picked, and whatever has hours', () => {
+    const c = chooseLayers([icon, ecmwf], 'ecmwf_ifs025');
+    expect([c.detail, c.base?.model]).toEqual([null, 'ecmwf_ifs025']);
+    const d = chooseLayers([icon, at('ecmwf_ifs025', [])], null);
+    expect([d.detail?.model, d.base]).toEqual(['icon_d2', null]);
+    expect(chooseLayers([], null).selected).toBeNull();
+  });
+
+  it('ends the finer model with its hours', () => {
+    expect(hoursAt(icon.frames, 3_600)).toBe(icon.frames);
+    expect(hoursAt(icon.frames, 4 * 3_600)).toEqual([]);
+    expect(hoursAt(icon.frames, null)).toEqual([]);
   });
 });

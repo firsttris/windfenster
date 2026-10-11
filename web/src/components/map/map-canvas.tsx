@@ -16,7 +16,7 @@ import { ABOVE_FIELD, applyTheme, BASEMAP_BOUNDS, basemapStyle, setDomain } from
 import { type Particles, particles } from './particles';
 import { PIN_LAYERS, pinTheme, setPins } from './pins';
 import { type WindField, windField } from './wind-field';
-import type { WindPair } from './wind-gl';
+import type { WindLayers } from './wind-gl';
 
 /** A spot someone tapped: a station's pin or any place. */
 export interface Pick {
@@ -26,7 +26,7 @@ export interface Pick {
 }
 
 interface Props {
-  pair: WindPair | null;
+  layers: WindLayers;
   domain: [number, number][] | null;
   pins: readonly StationWind[] | undefined;
   unit: WindUnit;
@@ -45,7 +45,7 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ pair, domain, pins, unit, picked, onPick }: Props) {
+export function MapCanvas({ layers, domain, pins, unit, picked, onPick }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -161,9 +161,9 @@ export function MapCanvas({ pair, domain, pins, unit, picked, onPick }: Props) {
   }, [reduced]);
 
   useEffect(() => {
-    field.current?.show(pair);
-    parts.current?.show(pair);
-  }, [pair]);
+    field.current?.show(layers);
+    parts.current?.show(layers);
+  }, [layers]);
 
   useEffect(() => {
     if (ready && map.current) setDomain(map.current, domain);

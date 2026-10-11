@@ -280,14 +280,14 @@
   "title_map": "Windkarte | Windfenster",
   "nav_map": "Karte",
   "map_eyebrow": "Windkarte",
-  "map_title": "Wind über Mitteleuropa",
+  "map_title": "Wind über Europa",
   "map_model": "Modell",
   "map_domainNote": "gestrichelt = Rechengebiet",
   "map_run": "Lauf {run} · {provider}",
   "map_speed": "Windgeschwindigkeit in 10 m",
   "map_legend": "Farbskala der Windgeschwindigkeit in {unit}",
   "map_hint": "Tippe auf die Karte oder eine Station: Dann siehst du den Wind dort zur gezeigten Stunde.",
-  "map_empty": "Noch keine Winddaten für die Karte. Der Server lädt ICON-D2 alle 10 Minuten; der erste Lauf ist wenige Minuten nach dem Start da.",
+  "map_empty": "Noch keine Winddaten für die Karte. Der Server lädt ICON-D2 und ECMWF alle 10 Minuten; die ersten Stunden sind wenige Minuten nach dem Start da.",
   "map_play": "Abspielen",
   "map_pause": "Anhalten",
   "map_time": "Stunde",
@@ -305,5 +305,6 @@
   "map_openStation": "Station öffnen",
   "map_forecastHere": "Vorhersage für diesen Ort",
   "map_attribution": "Daten:",
-  "history_hint": "Zeigen oder tippen: Werte zu jedem Messzeitpunkt"
+  "history_hint": "Zeigen oder tippen: Werte zu jedem Messzeitpunkt",
+  "map_layered": "{fine} in seinem Rechengebiet, sonst {base}"
 }

@@ -5,37 +5,31 @@ import type { WindUnit } from '@/bindings/WindUnit';
 import { ago, compass, coordinates } from '@/lib/format';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
-import { blend, sampleWind, speedAndDirection } from '@/lib/wind-map';
+import { speedAndDirection } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
-import { framePixels } from './frames';
 import type { Pick } from './map-canvas';
-import type { WindPair } from './wind-gl';
+import { windAt } from './wind-at';
+import type { WindLayers } from './wind-gl';
 
 interface Props {
   pick: Pick;
   station: StationWind | null;
-  pair: WindPair | null;
-  model: string;
+  layers: WindLayers;
+  /** Model names by id */
+  modelName: (id: string) => string;
   unit: WindUnit;
   onClose: () => void;
   className?: string;
 }
 
-function modelWind(pair: WindPair | null, lon: number, lat: number) {
-  if (!pair) return null;
-  const a = sampleWind(pair.a.meta, framePixels(pair.a), lon, lat);
-  const b = pair.t > 0 ? sampleWind(pair.b.meta, framePixels(pair.b), lon, lat) : a;
-  const w = blend(a, b, pair.t);
-  return w ? speedAndDirection(w) : null;
-}
-
 /** What the map knows about a tapped spot: the model's wind there at the hour shown, and for a
  * station its last measurement. */
-export function SpotCard({ pick, station, pair, model, unit, onClose, className }: Props) {
-  const wind = modelWind(pair, pick.lon, pick.lat);
+export function SpotCard({ pick, station, layers, modelName, unit, onClose, className }: Props) {
+  const at = windAt(layers, pick.lon, pick.lat);
+  const wind = at && speedAndDirection(at.wind);
   return (
     <section
       aria-label={station?.name ?? m.map_spot()}
@@ -56,7 +50,7 @@ export function SpotCard({ pick, station, pair, model, unit, onClose, className 
 
       <div className="flex flex-col gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className="truncate text-muted-foreground">{model}</span>
+          <span className="truncate text-muted-foreground">{at ? modelName(at.model) : m.map_model()}</span>
           {wind ? (
             <span className="flex shrink-0 items-center gap-1.5 font-semibold">
               <WindArrow deg={wind.from} className="size-4" />

@@ -4,38 +4,64 @@
  * positions in two bytes per axis.
  */
 
-/** The wind at a Mercator position, two hours blended: (u, v) in kn and how much of the spot
- * lies inside the model's domain. Textures hold texel edges in `bounds` (west, south, east,
- * north) and value ranges in `range` (uMin, uMax, vMin, vMax). The colour field samples with
- * mipmaps; the particles read the full texture (`SAMPLE` set per shader). */
+/** The wind at a Mercator position: (u, v) in kn and how much of the spot lies in a model's
+ * domain. Two models, each two hours blended: the base (ECMWF, the whole region) and the detail
+ * (ICON-D2, its domain), which wins inside its domain and fades into the base over the last
+ * 30–60 km to its edge (the edge read from a coarse mip level). Textures hold texel edges in
+ * `bounds` (west, south, east, north) and value ranges in `range` (uMin, uMax, vMin, vMax).
+ * The colour field samples with mipmaps; the particles read the full texture (`SAMPLE`). */
 const WIND = `
-uniform sampler2D u_wind0;
-uniform sampler2D u_wind1;
-uniform vec4 u_bounds0;
-uniform vec4 u_bounds1;
-uniform vec4 u_range0;
-uniform vec4 u_range1;
-uniform float u_mix;
+uniform sampler2D u_base0;
+uniform sampler2D u_base1;
+uniform sampler2D u_detail0;
+uniform sampler2D u_detail1;
+uniform vec4 u_base_bounds0;
+uniform vec4 u_base_bounds1;
+uniform vec4 u_base_range0;
+uniform vec4 u_base_range1;
+uniform vec4 u_detail_bounds0;
+uniform vec4 u_detail_bounds1;
+uniform vec4 u_detail_range0;
+uniform vec4 u_detail_range1;
+uniform vec2 u_mix;   // how far between the two hours: base, detail
+uniform vec2 u_has;   // 1 where a model is shown: base, detail
 
 const float PI = 3.141592653589793;
+const float EDGE_LOD = 4.0;
 
 vec2 lonLat(vec2 merc) {
   return vec2(merc.x * 360.0 - 180.0, degrees(atan(sinh(PI * (1.0 - 2.0 * merc.y)))));
 }
 
+vec2 uvOf(vec4 b, vec2 ll) {
+  return vec2((ll.x - b.x) / (b.z - b.x), (b.w - ll.y) / (b.w - b.y));
+}
+
+float insideOf(vec2 uv) {
+  return step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+}
+
 vec3 windOf(sampler2D tex, vec4 b, vec4 r, vec2 ll) {
-  vec2 uv = vec2((ll.x - b.x) / (b.z - b.x), (b.w - ll.y) / (b.w - b.y));
+  vec2 uv = uvOf(b, ll);
   // Sampled before any branch, so the field's mipmaps see smooth derivatives
   vec4 c = SAMPLE(tex, clamp(uv, 0.0, 1.0));
-  float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
   // Texels outside the domain are (0, 0, 0, 0): dividing by alpha leaves the valid ones.
   vec2 n = c.rg / max(c.a, 0.004);
-  return vec3(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), c.a * inside);
+  return vec3(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), c.a * insideOf(uv));
 }
 
 vec3 wind(vec2 merc) {
   vec2 ll = lonLat(merc);
-  return mix(windOf(u_wind0, u_bounds0, u_range0, ll), windOf(u_wind1, u_bounds1, u_range1, ll), u_mix);
+  vec3 base = u_has.x * mix(
+    windOf(u_base0, u_base_bounds0, u_base_range0, ll),
+    windOf(u_base1, u_base_bounds1, u_base_range1, ll), u_mix.x);
+  vec3 detail = u_has.y * mix(
+    windOf(u_detail0, u_detail_bounds0, u_detail_range0, ll),
+    windOf(u_detail1, u_detail_bounds1, u_detail_range1, ll), u_mix.y);
+  vec2 duv = uvOf(u_detail_bounds0, ll);
+  float edge = textureLod(u_detail0, clamp(duv, 0.0, 1.0), EDGE_LOD).a * insideOf(duv);
+  float w = step(0.5, detail.z) * (base.z < 0.5 ? 1.0 : smoothstep(0.6, 0.98, edge));
+  return vec3(mix(base.xy, detail.xy, w), max(base.z, detail.z));
 }
 `;
 

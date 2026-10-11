@@ -43,6 +43,11 @@ export function useWindPair(frames: readonly MapFrame[], time: number | null, pl
   const fb = (b && loaded.current.get(b.path)) ?? fa;
   const t = fa && fb && fb !== fa ? (pos?.t ?? 0) : 0;
   const pair = useMemo(() => (fa && fb ? { a: fa, b: fb, t } : null), [fa, fb, t]);
+  if (!pos) {
+    // Nothing to show at this time (or no frames): nothing stays from before either.
+    last.current = null;
+    return null;
+  }
   if (pair) last.current = pair;
   return pair ?? last.current;
 }

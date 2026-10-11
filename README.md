@@ -54,7 +54,7 @@ build the image yourself: `docker compose up --build` in a checkout.
 | `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
-| `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD every 10 minutes, see below; `false` turns it off |
+| `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -128,11 +128,17 @@ Windfenster looks for the newest ICON-D2 run on [DWD Open Data](https://opendata
 10 m (U and V, GRIB2) for the hours that are out and not on disk yet. Each hour becomes a PNG
 texture in kn (red U, green V, as in [mapbox/webgl-wind](https://github.com/mapbox/webgl-wind))
 with a JSON file for its extent, value range and the model's domain, under
-`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. The newest run and the one before are kept: about
-100 MB of downloads per run and 90 MB on disk. `GET /api/map` lists the hours, each from the
-newest run that has it.
+`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. Under it, for all of Europe and beyond ICON-D2's 48
+hours, lies ECMWF's IFS from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
+(0.25°, a run every 6 hours): Windfenster reads each step's index and fetches only the wind at
+10 m by byte range (1.5 MB per step), for 0 to 120 hours every 3 hours, and cuts it to the map's
+region (25° W to 45° E, 27° N to 72° N). The newest run and the one before are kept per model:
+for ICON-D2 about 100 MB of downloads per run and 90 MB on disk, for ECMWF about 60 MB per run
+and 7 MB on disk. `GET /api/map` lists the hours, each from the newest run that has it.
 
-The map page (`/map`) draws the field as a colour layer under coastlines and labels and the
+The map page (`/map`) draws ICON-D2 over ECMWF, blended over the last 30 to 60 km to its
+domain's edge, and ECMWF alone where and when ICON-D2 has nothing; the other model can be picked
+instead. It draws the field as a colour layer under coastlines and labels and the
 particles on a canvas of their own, after mapbox/webgl-wind: a shader moves them along the wind
 of the hour shown, blended between two model hours while the timeline plays. Tap a spot for the
 model's wind there, tap a station for its last measurement too; stations show their measured
@@ -175,7 +181,7 @@ crates/
                  verification and the mix, database
   wf-ingest/     Open-Meteo, station lists, measurements (METAR, TAF, DWD, PEGELONLINE),
                  geocoding, scheduler
-  wf-map/        wind map: GRIB2 (ICON-D2) to PNG textures, runs on disk
+  wf-map/        wind map: GRIB2 (ICON-D2, ECMWF) to PNG textures, runs on disk
   wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
   windfenster/   the binary: serve | migrate | import-stations | probe
 migrations/      sqlx migrations (SQLite)
@@ -222,8 +228,9 @@ their 10-minute values, and the ICON-D2 fields of the wind map, come from
 Bundes), credited on every page that shows them. The map's land, borders and places come from
 [Natural Earth](https://www.naturalearthdata.com/) (public domain), its labels are set in Noto
 Sans ([OFL](web/public/glyphs/OFL.txt), glyphs from
-[protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). Further sources
-(ECMWF open data for the map) come with the phases that use them and are listed on an
+[protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). The map's
+global wind comes from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
+(CC BY 4.0). Further sources come with the phases that use them and are listed on an
 attribution page.
 
 ---

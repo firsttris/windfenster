@@ -59,8 +59,8 @@ export function framePixels(frame: WindFrame): Uint8ClampedArray {
   if (!ctx) throw new Error('no 2d context');
   ctx.drawImage(frame.image, 0, 0);
   const data = ctx.getImageData(0, 0, width, height, { colorSpace: 'srgb' }).data;
-  // The two hours being blended
-  if (pixelCache.size >= 2) pixelCache.delete(pixelCache.keys().next().value as string);
+  // The two hours of the two models being blended
+  if (pixelCache.size >= 4) pixelCache.delete(pixelCache.keys().next().value as string);
   pixelCache.set(frame.path, data);
   return data;
 }

@@ -58,6 +58,43 @@ impl LatLonGrid {
         west
     }
 
+    /// The points within west…east and south…north (degrees, inclusive); None when the box
+    /// leaves the grid. A global field cut down to the map's region.
+    pub fn crop(&self, west: f64, south: f64, east: f64, north: f64) -> Option<LatLonGrid> {
+        const EPS: f64 = 1e-6;
+        let ix0 = ((west - self.lon0) / self.dlon - EPS).ceil();
+        let ix1 = ((east - self.lon0) / self.dlon + EPS).floor();
+        let iy0 = ((south - self.lat0) / self.dlat - EPS).ceil();
+        let iy1 = ((north - self.lat0) / self.dlat + EPS).floor();
+        if ix0 < 0.0
+            || iy0 < 0.0
+            || ix1 >= self.nx as f64
+            || iy1 >= self.ny as f64
+            || ix1 < ix0
+            || iy1 < iy0
+        {
+            return None;
+        }
+        let (ix0, ix1, iy0, iy1) = (ix0 as usize, ix1 as usize, iy0 as usize, iy1 as usize);
+        let nx = ix1 - ix0 + 1;
+        let values = (iy0..=iy1)
+            .flat_map(|iy| {
+                self.values[iy * self.nx + ix0..=iy * self.nx + ix1]
+                    .iter()
+                    .copied()
+            })
+            .collect();
+        Some(LatLonGrid {
+            lon0: self.lon0 + ix0 as f64 * self.dlon,
+            lat0: self.lat0 + iy0 as f64 * self.dlat,
+            dlon: self.dlon,
+            dlat: self.dlat,
+            nx,
+            ny: iy1 - iy0 + 1,
+            values,
+        })
+    }
+
     /// Whether two grids lie on the same points.
     pub fn same_points(&self, other: &Self) -> bool {
         (self.nx, self.ny) == (other.nx, other.ny)
@@ -177,6 +214,25 @@ mod tests {
         let g = decode(&down).unwrap();
         assert_eq!((g.lon0, g.lat0), (-1.0, 50.0));
         assert_eq!((g.get(0, 1), g.get(0, 0)), (1.0, 4.0));
+    }
+
+    #[test]
+    fn crops_to_a_box() {
+        // 4 × 3 points, 1° apart, from 10°E 50°N; values = 10 × row + column
+        let g = LatLonGrid {
+            lon0: 10.0,
+            lat0: 50.0,
+            dlon: 1.0,
+            dlat: 1.0,
+            nx: 4,
+            ny: 3,
+            values: (0..12).map(|k| (k / 4 * 10 + k % 4) as f32).collect(),
+        };
+        let c = g.crop(10.5, 51.0, 12.0, 52.0).unwrap();
+        assert_eq!((c.lon0, c.lat0, c.nx, c.ny), (11.0, 51.0, 2, 2));
+        assert_eq!(c.values, [11.0, 12.0, 21.0, 22.0]);
+        assert!(g.crop(9.0, 50.0, 12.0, 52.0).is_none());
+        assert!(g.crop(10.0, 50.0, 14.0, 52.0).is_none());
     }
 
     #[test]

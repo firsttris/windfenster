@@ -94,7 +94,10 @@ async fn fetches_new_hours_and_fills_in_from_the_run_before() {
     let map = MapData::new(
         dir.path().to_path_buf(),
         reqwest::Client::new(),
-        Urls { icon_d2: base },
+        Urls {
+            icon_d2: base,
+            ..Urls::default()
+        },
     );
 
     // 08 UTC: the 06 UTC run has two hours out, U and V each.

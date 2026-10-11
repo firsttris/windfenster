@@ -117,9 +117,12 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
     let body: Value = serde_json::from_slice(&body)?;
     assert_eq!(
         body,
-        json!({"layers": [{"model": "icon_d2", "frames": [
-            {"validAt": R06 + 3 * 3_600, "runAt": R06, "path": "icon_d2/2026101106/003"}
-        ]}]})
+        json!({"layers": [
+            {"model": "icon_d2", "frames": [
+                {"validAt": R06 + 3 * 3_600, "runAt": R06, "path": "icon_d2/2026101106/003"}
+            ]},
+            {"model": "ecmwf_ifs025", "frames": []}
+        ]})
     );
 
     // Without map data: no layers.

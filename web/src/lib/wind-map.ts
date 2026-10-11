@@ -3,6 +3,7 @@
  * ramp of the field and reading a texture on the CPU, as the shaders do on the GPU.
  */
 import type { MapFrame } from '@/bindings/MapFrame';
+import type { MapLayer } from '@/bindings/MapLayer';
 import type { TextureMeta } from '@/bindings/TextureMeta';
 import { WIND_SCALE } from '@/ui/wind-scale';
 
@@ -144,4 +145,40 @@ export function speedAndDirection({ u, v }: Wind): { kn: number; from: number } 
 export function blend(a: Wind | null, b: Wind | null, t: number): Wind | null {
   if (!a || !b) return a ?? b;
   return { u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t };
+}
+
+/** Models that cover the whole map region: the base under a finer model */
+export const BASE_MODELS: readonly string[] = ['ecmwf_ifs025'];
+
+export interface MapChoice {
+  /** The model picked (or the finest with hours) */
+  selected: MapLayer | null;
+  /** Drawn everywhere */
+  base: MapLayer | null;
+  /** Drawn over the base inside its domain, while its hours last */
+  detail: MapLayer | null;
+  /** The hours of both, for the timeline */
+  frames: MapFrame[];
+}
+
+/** What the map draws for the model picked: a finer model over the base, the base alone, or
+ * whichever has hours. */
+export function chooseLayers(layers: readonly MapLayer[], chosen: string | null): MapChoice {
+  const ready = layers.filter((l) => l.frames.length > 0);
+  const selected = ready.find((l) => l.model === chosen) ?? ready[0] ?? null;
+  const base = ready.find((l) => BASE_MODELS.includes(l.model)) ?? null;
+  const detail = selected && selected !== base ? selected : null;
+  const seen = new Set<number>();
+  const frames = [...(detail?.frames ?? []), ...(base?.frames ?? [])]
+    .filter((f) => !seen.has(f.validAt) && seen.add(f.validAt))
+    .sort((a, b) => a.validAt - b.validAt);
+  return { selected, base, detail, frames };
+}
+
+/** A model's hours if `time` lies within them, else none: a finer model ends where its forecast
+ * does instead of standing still at its last hour. */
+export function hoursAt(frames: readonly MapFrame[], time: number | null): readonly MapFrame[] {
+  const first = frames[0]?.validAt;
+  const last = frames.at(-1)?.validAt;
+  return time !== null && first !== undefined && last !== undefined && time >= first && time <= last ? frames : [];
 }

@@ -1,9 +1,9 @@
 /** For "reduce motion": a calm grid of arrows instead of the moving particles, read from the
  * same two hours on the CPU and drawn again when the view or the hour changes. */
-import { blend, latOf, type MercatorView, sampleWind, speedAndDirection } from '@/lib/wind-map';
-import { framePixels } from './frames';
+import { latOf, type MercatorView, speedAndDirection } from '@/lib/wind-map';
 import type { Particles } from './particles';
-import type { WindPair } from './wind-gl';
+import { windAt } from './wind-at';
+import { hasWind, NO_WIND, type WindLayers } from './wind-gl';
 
 /** CSS pixels between arrows */
 const SPACING = 44;
@@ -11,7 +11,7 @@ const SPACING = 44;
 export function arrowField(canvas: HTMLCanvasElement): Particles | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  let pair: WindPair | null = null;
+  let shown: WindLayers = NO_WIND;
   let view: MercatorView = { x: 0, y: 0, w: 1, h: 1 };
   let size = { w: 1, h: 1, ratio: 1 };
   let frame = 0;
@@ -21,9 +21,7 @@ export function arrowField(canvas: HTMLCanvasElement): Particles | null {
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!pair) return;
-    const p = pair;
-    const [pa, pb] = [framePixels(p.a), p.t > 0 ? framePixels(p.b) : null];
+    if (!hasWind(shown)) return;
     ctx.setTransform(size.ratio, 0, 0, size.ratio, 0, 0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -31,10 +29,9 @@ export function arrowField(canvas: HTMLCanvasElement): Particles | null {
       const lat = latOf(view.y + (y / size.h) * view.h);
       for (let x = SPACING / 2; x < size.w; x += SPACING) {
         const lon = (view.x + (x / size.w) * view.w) * 360 - 180;
-        const a = sampleWind(p.a.meta, pa, lon, lat);
-        const w = pb ? blend(a, sampleWind(p.b.meta, pb, lon, lat), p.t) : a;
-        if (!w) continue;
-        const { kn, from } = speedAndDirection(w);
+        const at = windAt(shown, lon, lat);
+        if (!at) continue;
+        const { kn, from } = speedAndDirection(at.wind);
         if (kn < 1) continue;
         // Pointing where the wind blows, longer the stronger it is
         const len = Math.min(18, 7 + kn * 0.45);
@@ -67,8 +64,8 @@ export function arrowField(canvas: HTMLCanvasElement): Particles | null {
   };
 
   return {
-    show(p) {
-      pair = p;
+    show(layers) {
+      shown = layers;
       later();
     },
     setView(next, cssWidth, cssHeight, pixelRatio) {

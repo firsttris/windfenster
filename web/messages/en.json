@@ -280,14 +280,14 @@
   "title_map": "Wind map | Windfenster",
   "nav_map": "Map",
   "map_eyebrow": "Wind map",
-  "map_title": "Wind over Central Europe",
+  "map_title": "Wind over Europe",
   "map_model": "Model",
   "map_domainNote": "dashed = model domain",
   "map_run": "Run {run} · {provider}",
   "map_speed": "Wind speed at 10 m",
   "map_legend": "Colour scale of the wind speed in {unit}",
   "map_hint": "Tap the map or a station to see the wind there at the hour shown.",
-  "map_empty": "No wind data for the map yet. The server fetches ICON-D2 every 10 minutes; the first run arrives a few minutes after it starts.",
+  "map_empty": "No wind data for the map yet. The server fetches ICON-D2 and ECMWF every 10 minutes; the first hours arrive a few minutes after it starts.",
   "map_play": "Play",
   "map_pause": "Pause",
   "map_time": "Hour",
@@ -305,5 +305,6 @@
   "map_openStation": "Open station",
   "map_forecastHere": "Forecast for this place",
   "map_attribution": "Data:",
-  "history_hint": "Point or tap for the values at any time"
+  "history_hint": "Point or tap for the values at any time",
+  "map_layered": "{fine} within its domain, {base} elsewhere"
 }
