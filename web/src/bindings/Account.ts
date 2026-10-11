@@ -5,6 +5,10 @@
  */
 export type Account = { id: number, name: string, 
 /**
+ * For signing in with a password; null when the account has none
+ */
+email: string | null, 
+/**
  * Passkeys registered (on how many devices or managers one can sign in)
  */
 passkeys: number, };

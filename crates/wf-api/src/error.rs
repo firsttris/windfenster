@@ -24,6 +24,16 @@ pub enum ErrorCode {
     /// Wind directions outside 0–359
     InvalidFavorite,
     TooManyFavorites,
+    /// An address that does not look like one
+    InvalidEmail,
+    /// Another account signs in with this address
+    EmailTaken,
+    /// Shorter than 10 or longer than 200 characters
+    WeakPassword,
+    /// Address or password wrong (which one is not told)
+    WrongPassword,
+    /// Too many failed attempts for the address; wait 15 minutes
+    TooManyAttempts,
     Internal,
 }
 
@@ -45,6 +55,11 @@ pub enum ApiError {
     InvalidName,
     InvalidFavorite,
     TooManyFavorites,
+    InvalidEmail,
+    EmailTaken,
+    WeakPassword,
+    WrongPassword,
+    TooManyAttempts,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -81,6 +96,13 @@ impl IntoResponse for ApiError {
             ApiError::InvalidName => (StatusCode::BAD_REQUEST, ErrorCode::InvalidName),
             ApiError::InvalidFavorite => (StatusCode::BAD_REQUEST, ErrorCode::InvalidFavorite),
             ApiError::TooManyFavorites => (StatusCode::CONFLICT, ErrorCode::TooManyFavorites),
+            ApiError::InvalidEmail => (StatusCode::BAD_REQUEST, ErrorCode::InvalidEmail),
+            ApiError::EmailTaken => (StatusCode::CONFLICT, ErrorCode::EmailTaken),
+            ApiError::WeakPassword => (StatusCode::BAD_REQUEST, ErrorCode::WeakPassword),
+            ApiError::WrongPassword => (StatusCode::UNAUTHORIZED, ErrorCode::WrongPassword),
+            ApiError::TooManyAttempts => {
+                (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
+            }
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");
                 (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)

@@ -13,6 +13,7 @@ wf-core.workspace = true
 wf-ingest.workspace = true
 wf-map.workspace = true
 anyhow.workspace = true
+argon2.workspace = true
 axum.workspace = true
 hex.workspace = true
 mime_guess.workspace = true

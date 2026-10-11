@@ -17,6 +17,8 @@ wf-ingest = { path = "crates/wf-ingest" }
 wf-map = { path = "crates/wf-map" }
 
 anyhow = "1"
+# Passwords, Argon2id
+argon2 = "0.5"
 axum = "0.8"
 bzip2 = "0.6"
 clap = { version = "4", features = ["derive", "env"] }
@@ -50,6 +52,10 @@ unicode-normalization = "0.1"
 # Passkeys; conditional-ui for the sign-in offered by the browser's autofill
 webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
 tempfile = "3"
+
+# Argon2 is slow without optimisation; tests and `pnpm dev` hash passwords too.
+[profile.dev.package.argon2]
+opt-level = 3
 
 [profile.release]
 lto = "thin"

@@ -127,6 +127,7 @@ pub async fn finish_sign_up(
         Json(Account {
             id,
             name: name.clone(),
+            email: None,
             passkeys: 1,
         }),
     ))

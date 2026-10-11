@@ -1,8 +1,9 @@
-import type { QueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Map as MapIcon, Search } from 'lucide-react';
+import { LogIn, Map as MapIcon, Search, UserRound } from 'lucide-react';
 import { useEffect } from 'react';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
+import { meQuery } from '@/lib/api';
 import { watchTheme } from '@/lib/prefs';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
@@ -79,7 +80,7 @@ function Header() {
   const openSearch = useOpenSearch();
   return (
     <header className="border-line border-b">
-      <div className="mx-auto flex max-w-[1360px] items-center gap-4 px-4 py-3 sm:gap-7 sm:px-6">
+      <div className="mx-auto flex max-w-[1360px] items-center gap-3 px-4 py-3 sm:gap-7 sm:px-6">
         <Link to="/" aria-label={m.nav_home()} className="text-foreground no-underline">
           <Logo />
         </Link>
@@ -99,7 +100,7 @@ function Header() {
             {m.nav_map()}
           </Link>
         </nav>
-        <div className="flex flex-1 items-center justify-end gap-2.5">
+        <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2.5">
           <SearchButton className="hidden max-w-xs sm:flex" />
           <Button
             variant="outline"
@@ -116,9 +117,34 @@ function Header() {
             </Link>
           </Button>
           <ThemeToggle />
+          <AccountButton />
         </div>
       </div>
     </header>
+  );
+}
+
+/** Signed in: the account, by name on wider screens; else the way to sign in. */
+function AccountButton() {
+  const me = useQuery(meQuery);
+  if (me.isPending) return null;
+  if (!me.data) {
+    return (
+      <Button variant="outline" className="max-md:size-10 max-md:px-0" asChild>
+        <Link to="/login" aria-label={m.nav_signIn()}>
+          <LogIn aria-hidden="true" />
+          <span className="hidden md:inline">{m.nav_signIn()}</span>
+        </Link>
+      </Button>
+    );
+  }
+  return (
+    <Button variant="outline" className="max-md:size-10 max-md:px-0" asChild>
+      <Link to="/account" aria-label={m.nav_account({ name: me.data.name })}>
+        <UserRound aria-hidden="true" />
+        <span className="hidden max-w-32 truncate md:inline">{me.data.name}</span>
+      </Link>
+    </Button>
   );
 }
 

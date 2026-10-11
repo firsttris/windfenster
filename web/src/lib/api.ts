@@ -1,6 +1,8 @@
 import { queryOptions } from '@tanstack/react-query';
+import type { Account } from '@/bindings/Account';
 import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
+import type { Favorite } from '@/bindings/Favorite';
 import type { Health } from '@/bindings/Health';
 import type { MapIndex } from '@/bindings/MapIndex';
 import type { MapSeries } from '@/bindings/MapSeries';
@@ -29,7 +31,8 @@ export function isApiError(e: unknown): e is ApiError {
   return e instanceof Error && e.name === 'ApiError';
 }
 
-/** GET on the Windfenster API; non-2xx answers throw an ApiError with the server's code. */
+/** A request to the Windfenster API; non-2xx answers throw an ApiError with the server's code,
+ * an answer without content (204) is undefined. */
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, { ...init, headers: { accept: 'application/json', ...init?.headers } });
   if (!res.ok) {
@@ -41,8 +44,31 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw apiError(res.status, code);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/** POST, PUT, PATCH or DELETE with a JSON body. */
+export function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  return api<T>(path, {
+    method,
+    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+/** The signed-in account, or null */
+export const meQuery = queryOptions({
+  queryKey: ['me'],
+  queryFn: () => api<Account | null>('/me'),
+  staleTime: 5 * 60_000,
+});
+
+export const favoritesQuery = queryOptions({
+  queryKey: ['favorites'],
+  queryFn: () => api<Favorite[]>('/favorites'),
+  staleTime: 5 * 60_000,
+});
 
 export const healthQuery = queryOptions({
   queryKey: ['health'],

@@ -150,7 +150,10 @@ async fn the_signed_in_user_and_signing_out() -> Result<()> {
     assert_eq!((status, body), (StatusCode::OK, Value::Null));
     let id = signed_in(&dir).await?;
     let (_, me) = call(&app, "GET", "/api/me", None, true).await?;
-    assert_eq!(me, json!({"id": id, "name": "Tristan", "passkeys": 1}));
+    assert_eq!(
+        me,
+        json!({"id": id, "name": "Tristan", "email": null, "passkeys": 1})
+    );
 
     let (status, me) = call(&app, "PATCH", "/api/me", Some(json!({"name": "T."})), true).await?;
     assert_eq!((status, me["name"].clone()), (StatusCode::OK, json!("T.")));
@@ -228,5 +231,123 @@ async fn favourites_of_stations_and_points() -> Result<()> {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = call(&app, "GET", "/api/favorites", None, true).await?;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[tokio::test]
+async fn sign_up_and_in_with_e_mail_and_password() -> Result<()> {
+    let (_dir, app, _) = common::app().await?;
+    let new = json!({"name": "Tris", "email": " Tris@Example.org", "password": "long enough!"});
+    let (status, me) = call(
+        &app,
+        "POST",
+        "/api/auth/signup/password",
+        Some(new.clone()),
+        false,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (me["email"].clone(), me["passkeys"].clone()),
+        (json!("tris@example.org"), json!(0))
+    );
+    let (status, body) = call(&app, "POST", "/api/auth/signup/password", Some(new), false).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::CONFLICT, json!({"code": "email_taken"}))
+    );
+    let short = json!({"name": "X", "email": "x@y.de", "password": "short"});
+    let (_, body) = call(
+        &app,
+        "POST",
+        "/api/auth/signup/password",
+        Some(short),
+        false,
+    )
+    .await?;
+    assert_eq!(body, json!({"code": "weak_password"}));
+
+    let right = json!({"email": "tris@example.org", "password": "long enough!"});
+    let (status, me) = call(
+        &app,
+        "POST",
+        "/api/auth/signin/password",
+        Some(right.clone()),
+        false,
+    )
+    .await?;
+    assert_eq!(
+        (status, me["name"].clone()),
+        (StatusCode::OK, json!("Tris"))
+    );
+    // A wrong password and an unknown address answer alike.
+    let wrong = json!({"email": "tris@example.org", "password": "not the one"});
+    let unknown = json!({"email": "nobody@example.org", "password": "long enough!"});
+    for req in [wrong.clone(), unknown] {
+        let (status, body) =
+            call(&app, "POST", "/api/auth/signin/password", Some(req), false).await?;
+        assert_eq!(
+            (status, body),
+            (StatusCode::UNAUTHORIZED, json!({"code": "wrong_password"}))
+        );
+    }
+    // Ten failures for an address and it waits, even for the right password.
+    for _ in 0..9 {
+        call(
+            &app,
+            "POST",
+            "/api/auth/signin/password",
+            Some(wrong.clone()),
+            false,
+        )
+        .await?;
+    }
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/auth/signin/password",
+        Some(right),
+        false,
+    )
+    .await?;
+    assert_eq!(
+        (status, body),
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            json!({"code": "too_many_attempts"})
+        )
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_passkey_account_adds_a_password() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    signed_in(&dir).await?;
+    let set = json!({"email": "t@x.de", "password": "long enough!", "current": null});
+    let (status, me) = call(&app, "PUT", "/api/me/password", Some(set), true).await?;
+    assert_eq!(
+        (status, me["email"].clone()),
+        (StatusCode::OK, json!("t@x.de"))
+    );
+    // Changing it asks for the one it has.
+    let change =
+        json!({"email": "t@x.de", "password": "another long one", "current": "wrong one!"});
+    let (status, _) = call(&app, "PUT", "/api/me/password", Some(change), true).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let change =
+        json!({"email": "t@x.de", "password": "another long one", "current": "long enough!"});
+    let (status, _) = call(&app, "PUT", "/api/me/password", Some(change), true).await?;
+    assert_eq!(status, StatusCode::OK);
+    let signin = json!({"email": "t@x.de", "password": "another long one"});
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/auth/signin/password",
+        Some(signin),
+        false,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
     Ok(())
 }

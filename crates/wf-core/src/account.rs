@@ -21,6 +21,8 @@ pub struct Account {
     #[ts(type = "number")]
     pub id: i64,
     pub name: String,
+    /// For signing in with a password; null when the account has none
+    pub email: Option<String>,
     /// Passkeys registered (on how many devices or managers one can sign in)
     #[ts(type = "number")]
     pub passkeys: i64,
@@ -134,14 +136,97 @@ pub async fn used_passkey(
 
 /// An account as the app shows it.
 pub async fn get(db: &SqlitePool, account_id: i64) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, i64)> = sqlx::query_as(
-        "SELECT a.id, a.name, (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) \
-         FROM account a WHERE a.id = ?",
+    let row: Option<(i64, String, Option<String>, i64)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.email, \
+         (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) FROM account a WHERE a.id = ?",
     )
     .bind(account_id)
     .fetch_optional(db)
     .await?;
-    Ok(row.map(|(id, name, passkeys)| Account { id, name, passkeys }))
+    Ok(row.map(|(id, name, email, passkeys)| Account {
+        id,
+        name,
+        email,
+        passkeys,
+    }))
+}
+
+/// An e-mail address as stored: trimmed and lower-case; None when it does not look like one.
+pub fn clean_email(email: &str) -> Option<String> {
+    let e = email.trim().to_lowercase();
+    let (local, domain) = e.split_once('@')?;
+    let ok = !local.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && e.len() <= 254
+        && !e.chars().any(|c| c.is_whitespace() || c == ',');
+    ok.then_some(e)
+}
+
+/// A new account that signs in with e-mail and password (Argon2 hash); returns its id.
+pub async fn create_with_password(
+    db: &SqlitePool,
+    handle: &str,
+    name: &str,
+    email: &str,
+    password_hash: &str,
+    now: i64,
+) -> sqlx::Result<i64> {
+    sqlx::query_scalar(
+        "INSERT INTO account (handle, name, email, password_hash, created_at) \
+         VALUES (?, ?, ?, ?, ?) RETURNING id",
+    )
+    .bind(handle)
+    .bind(name)
+    .bind(email)
+    .bind(password_hash)
+    .bind(now)
+    .fetch_one(db)
+    .await
+}
+
+/// Whether another account than `except` uses the address.
+pub async fn email_taken(db: &SqlitePool, email: &str, except: Option<i64>) -> sqlx::Result<bool> {
+    sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM account WHERE email = ? AND id IS NOT ?)")
+        .bind(email)
+        .bind(except)
+        .fetch_one(db)
+        .await
+}
+
+/// The account with this address and its password hash, if it has one.
+pub async fn by_email(db: &SqlitePool, email: &str) -> sqlx::Result<Option<(i64, Option<String>)>> {
+    sqlx::query_as("SELECT id, password_hash FROM account WHERE email = ?")
+        .bind(email)
+        .fetch_optional(db)
+        .await
+}
+
+pub async fn password_hash(db: &SqlitePool, account_id: i64) -> sqlx::Result<Option<String>> {
+    Ok(
+        sqlx::query_scalar("SELECT password_hash FROM account WHERE id = ?")
+            .bind(account_id)
+            .fetch_optional(db)
+            .await?
+            .flatten(),
+    )
+}
+
+/// Sets the address and password an account signs in with.
+pub async fn set_password(
+    db: &SqlitePool,
+    account_id: i64,
+    email: &str,
+    password_hash: &str,
+) -> sqlx::Result<()> {
+    sqlx::query("UPDATE account SET email = ?, password_hash = ? WHERE id = ?")
+        .bind(email)
+        .bind(password_hash)
+        .bind(account_id)
+        .execute(db)
+        .await?;
+    Ok(())
 }
 
 /// A new session for the account, by the hash of its token.
@@ -169,8 +254,8 @@ pub async fn of_session(
     token_hash: &[u8],
     now: i64,
 ) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, i64, i64)> = sqlx::query_as(
-        "SELECT a.id, a.name, s.expires_at, \
+    let row: Option<(i64, String, Option<String>, i64, i64)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.email, s.expires_at, \
          (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) \
          FROM session s JOIN account a ON a.id = s.account_id \
          WHERE s.token_hash = ? AND s.expires_at > ?",
@@ -179,7 +264,7 @@ pub async fn of_session(
     .bind(now)
     .fetch_optional(db)
     .await?;
-    let Some((id, name, expires_at, passkeys)) = row else {
+    let Some((id, name, email, expires_at, passkeys)) = row else {
         return Ok(None);
     };
     if expires_at - now < SESSION_S - RENEW_S {
@@ -189,7 +274,12 @@ pub async fn of_session(
             .execute(db)
             .await?;
     }
-    Ok(Some(Account { id, name, passkeys }))
+    Ok(Some(Account {
+        id,
+        name,
+        email,
+        passkeys,
+    }))
 }
 
 pub async fn end_session(db: &SqlitePool, token_hash: &[u8]) -> sqlx::Result<()> {
@@ -246,6 +336,45 @@ mod tests {
         assert_eq!(clean_name(&"ä".repeat(60)), Some("ä".repeat(60)));
     }
 
+    #[test]
+    fn cleans_addresses() {
+        assert_eq!(
+            clean_email(" Tristan@Example.org "),
+            Some("tristan@example.org".into())
+        );
+        for bad in ["", "a@b", "@x.de", "a@.de", "a@x.", "a b@x.de", "nope"] {
+            assert_eq!(clean_email(bad), None, "{bad}");
+        }
+    }
+
+    #[tokio::test]
+    async fn signs_in_with_a_password_too() -> anyhow::Result<()> {
+        let (_dir, db) = db().await?;
+        let id = create_with_password(&db, "u1", "A", "a@x.de", "hash", 0).await?;
+        assert_eq!(
+            by_email(&db, "a@x.de").await?,
+            Some((id, Some("hash".into())))
+        );
+        assert!(email_taken(&db, "a@x.de", None).await?);
+        assert!(!email_taken(&db, "a@x.de", Some(id)).await?);
+        // Two accounts cannot share an address.
+        assert!(
+            create_with_password(&db, "u2", "B", "a@x.de", "h", 0)
+                .await
+                .is_err()
+        );
+        // A passkey account adds one later.
+        let other = create(&db, "u3", "C", "c1", "{}", 0).await?;
+        assert_eq!(password_hash(&db, other).await?, None);
+        set_password(&db, other, "c@x.de", "h2").await?;
+        assert_eq!(
+            get(&db, other).await?.unwrap().email.as_deref(),
+            Some("c@x.de")
+        );
+        assert_eq!(password_hash(&db, other).await?.as_deref(), Some("h2"));
+        Ok(())
+    }
+
     #[tokio::test]
     async fn keeps_accounts_passkeys_and_sessions() -> anyhow::Result<()> {
         let (_dir, db) = db().await?;
@@ -266,6 +395,7 @@ mod tests {
             Account {
                 id,
                 name: "Tristan".into(),
+                email: None,
                 passkeys: 2
             }
         );

@@ -54,6 +54,8 @@ pub struct AppState {
     pub dev_ui: Option<String>,
     /// Signing in with passkeys; off without an address they could belong to.
     passkeys: Option<Arc<auth::Passkeys>>,
+    /// Failed password sign-ins per address
+    password_failures: auth::password::Failures,
     cache: forecast::ForecastCache,
     places: search::PlaceCache,
     /// Places whose request time was written within the last hour.
@@ -85,6 +87,7 @@ impl AppState {
             measurements,
             map: None,
             passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
+            password_failures: auth::password::new_failures(),
             public_url,
             dev_ui,
             cache,
@@ -151,6 +154,9 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/auth/signup", post(auth::sign_up))
         .route("/auth/signup/finish", post(auth::finish_sign_up))
+        .route("/auth/signup/password", post(auth::password::sign_up))
+        .route("/auth/signin/password", post(auth::password::sign_in))
+        .route("/me/password", put(auth::password::change))
         .route("/auth/signin", post(auth::sign_in))
         .route("/auth/signin/finish", post(auth::finish_sign_in))
         .route("/auth/passkeys", post(auth::add_passkey))

@@ -227,16 +227,19 @@ the TAF counts as a model of its own, from its issue time.
 
 ### Accounts and favourites
 
-Signing in uses passkeys only (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
-on the server, OpenSSL built into the binary): an account is a name and one or more passkeys,
-no e-mail and no password. Passkeys are made discoverable, so the browser offers them in the
-sign-in field by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain
-later makes them useless, so set it before the first sign-up. A session is a random token in an
-HTTP-only cookie (half a year, renewed while used; only its SHA-256 is stored). Signed in, a
-user keeps up to 100 favourites: stations or points, each with an own name and optionally the
-wind directions that work there.
+Signing in works with a passkey (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
+on the server, OpenSSL built into the binary) or with e-mail and password (Argon2id, at most
+ten failed attempts per address in 15 minutes). Sign-up asks for a name and then either a
+passkey or an address and a password (at least 10 characters); either can be added later on the
+account page. Passkeys are made discoverable, so the browser offers them in the sign-in field
+by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain later makes them
+useless, so set it before the first sign-up. A session is a random token in an HTTP-only cookie
+(half a year, renewed while used; only its SHA-256 is stored). Signed in, a user keeps up to 100
+favourites: stations or points, each with an own name and optionally the wind directions that
+work there.
 
-API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signin` and
+API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signup/password`,
+`POST /api/auth/signin/password`, `PUT /api/me/password`, `POST /api/auth/signin` and
 `/signin/finish`, `POST /api/auth/passkeys` (another passkey) and `/passkeys/finish`,
 `POST /api/auth/signout`; `GET`, `PATCH`, `DELETE /api/me`; `GET`, `POST /api/favorites`,
 `PUT`, `DELETE /api/favorites/{id}`, `PUT /api/favorites/order`.

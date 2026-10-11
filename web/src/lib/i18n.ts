@@ -32,6 +32,11 @@ export const errorText: Record<ErrorCode, () => string> = {
   invalid_name: m.error_invalidName,
   invalid_favorite: m.error_invalidFavorite,
   too_many_favorites: m.error_tooManyFavorites,
+  invalid_email: m.error_invalidEmail,
+  email_taken: m.error_emailTaken,
+  weak_password: m.error_weakPassword,
+  wrong_password: m.error_wrongPassword,
+  too_many_attempts: m.error_tooManyAttempts,
   internal: m.error_internal,
 };
 
