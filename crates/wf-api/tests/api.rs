@@ -26,6 +26,7 @@ struct Calls {
     metar: AtomicUsize,
     taf: AtomicUsize,
     gauge: AtomicUsize,
+    metar_history: AtomicUsize,
 }
 
 async fn fake_forecast(
@@ -59,22 +60,34 @@ async fn fake_geocode(Query(q): Query<HashMap<String, String>>) -> String {
     }
 }
 
-/// The METAR API with two reports of the last hour, in its JSON shape.
+/// The METAR API in its JSON shape: two reports of the last hour for `hours=24`; for the
+/// ten days (`hours=240`) also every half hour of the UTC day three days back.
 async fn fake_metar(
     State(calls): State<Arc<Calls>>,
     Query(q): Query<HashMap<String, String>>,
 ) -> String {
-    calls.metar.fetch_add(1, Ordering::SeqCst);
-    assert_eq!((q["ids"].as_str(), q["hours"].as_str()), ("EDSB", "24"));
+    assert_eq!(q["ids"], "EDSB");
     let now = wf_core::time::now();
     let half_hour = now - now % 1_800;
-    json!([
-        {"icaoId": "EDSB", "obsTime": half_hour, "temp": 13, "wdir": 210, "wspd": 9,
-         "rawOb": "METAR EDSB 110850Z AUTO 21009KT CAVOK 13/10 Q1015"},
-        {"icaoId": "EDSB", "obsTime": half_hour - 1_800, "temp": 12, "wdir": "VRB", "wspd": 3,
-         "wgst": null, "rawOb": "METAR EDSB 110820Z AUTO VRB03KT CAVOK 12/10 Q1015"}
-    ])
-    .to_string()
+    let mut reports = vec![
+        json!({"icaoId": "EDSB", "obsTime": half_hour, "temp": 13, "wdir": 210, "wspd": 9,
+         "rawOb": "METAR EDSB 110850Z AUTO 21009KT CAVOK 13/10 Q1015"}),
+        json!({"icaoId": "EDSB", "obsTime": half_hour - 1_800, "temp": 12, "wdir": "VRB", "wspd": 3,
+         "wgst": null, "rawOb": "METAR EDSB 110820Z AUTO VRB03KT CAVOK 12/10 Q1015"}),
+    ];
+    match q["hours"].as_str() {
+        "24" => calls.metar.fetch_add(1, Ordering::SeqCst),
+        "240" => {
+            let day = now - now % 86_400 - 3 * 86_400;
+            reports.extend((0..48).map(|i| {
+                json!({"icaoId": "EDSB", "obsTime": day + i * 1_800, "wdir": 230, "wspd": 12,
+                    "wgst": 20, "rawOb": "METAR EDSB 080850Z 23012G20KT 9999 FEW030 14/08 Q1012"})
+            }));
+            calls.metar_history.fetch_add(1, Ordering::SeqCst)
+        }
+        other => panic!("hours={other}"),
+    };
+    json!(reports).to_string()
 }
 
 /// The TAF API, valid from the last full hour for 24 hours, in its JSON shape.
@@ -370,6 +383,53 @@ async fn live_fetches_a_new_station_once() -> Result<()> {
     assert_eq!(calls.taf.load(Ordering::SeqCst), 1);
 
     let (status, _) = get_json(&app, "/api/stations/xxxx/live").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    Ok(())
+}
+
+#[tokio::test]
+async fn history_fills_in_past_days() -> Result<()> {
+    let (_dir, app, calls) = app().await?;
+    let now = wf_core::time::now();
+    let day = now - now % 86_400 - 3 * 86_400;
+    let uri = format!("/api/stations/edsb/history?from={day}&to={}", day + 86_400);
+    let (status, body) = get_json(&app, &uri).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let obs = body["observations"].as_array().unwrap();
+    assert_eq!(obs.len(), 48);
+    assert_eq!(
+        (obs[0]["wind"].as_f64(), obs[0]["gust"].as_f64()),
+        (Some(12.0), Some(20.0))
+    );
+    assert_eq!(body["oldest"].as_i64(), Some(day));
+    assert_eq!(calls.metar_history.load(Ordering::SeqCst), 1);
+    // A day without reports even after the backfill is not asked again within hours.
+    let empty = day - 86_400;
+    let (_, body) = get_json(
+        &app,
+        &format!("/api/stations/edsb/history?from={empty}&to={day}"),
+    )
+    .await?;
+    assert_eq!(body["observations"], json!([]));
+    assert_eq!(calls.metar_history.load(Ordering::SeqCst), 1);
+
+    for bad in [
+        format!("/api/stations/edsb/history?from={day}&to={day}"),
+        format!(
+            "/api/stations/edsb/history?from={day}&to={}",
+            day + 3 * 86_400
+        ),
+        "/api/stations/edsb/history".to_owned(),
+    ] {
+        let (status, body) = get_json(&app, &bad).await?;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+        assert_eq!(body, json!({"code": "invalid_range"}));
+    }
+    let (status, _) = get_json(
+        &app,
+        &format!("/api/stations/xxxx/history?from={day}&to={}", day + 1),
+    )
+    .await?;
     assert_eq!(status, StatusCode::NOT_FOUND);
     Ok(())
 }

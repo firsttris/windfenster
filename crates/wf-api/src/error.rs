@@ -11,6 +11,8 @@ use ts_rs::TS;
 pub enum ErrorCode {
     NotFound,
     InvalidCoordinates,
+    /// A time span that is reversed or too long
+    InvalidRange,
     Internal,
 }
 
@@ -25,6 +27,7 @@ pub struct ErrorBody {
 pub enum ApiError {
     NotFound,
     InvalidCoordinates,
+    InvalidRange,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -54,6 +57,7 @@ impl IntoResponse for ApiError {
             ApiError::InvalidCoordinates => {
                 (StatusCode::BAD_REQUEST, ErrorCode::InvalidCoordinates)
             }
+            ApiError::InvalidRange => (StatusCode::BAD_REQUEST, ErrorCode::InvalidRange),
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");
                 (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)

@@ -7,6 +7,7 @@ import type { NearGauge } from '@/bindings/NearGauge';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { SearchResults } from '@/bindings/SearchResults';
 import type { StationForecast } from '@/bindings/StationForecast';
+import type { StationHistory } from '@/bindings/StationHistory';
 import type { StationLive } from '@/bindings/StationLive';
 
 /** A failed API request: the HTTP status and the server's code (`null` when the answer came
@@ -90,4 +91,12 @@ export const gaugeQuery = (lat: number, lon: number) =>
     queryFn: () => api<NearGauge | null>(`/gauges/near?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
     // PEGELONLINE publishes every 15 minutes.
     refetchInterval: 15 * 60_000,
+  });
+
+export const historyQuery = (slug: string, from: number, to: number, live: boolean) =>
+  queryOptions({
+    queryKey: ['history', slug, from, to],
+    queryFn: () => api<StationHistory>(`/stations/${encodeURIComponent(slug)}/history?from=${from}&to=${to}`),
+    // Past days only change by a late backfill.
+    staleTime: live ? 60_000 : 60 * 60_000,
   });

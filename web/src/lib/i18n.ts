@@ -25,6 +25,7 @@ export function intlLocale(locale: Locale = getLocale()): string {
 export const errorText: Record<ErrorCode, () => string> = {
   not_found: m.error_notFound,
   invalid_coordinates: m.error_invalidCoordinates,
+  invalid_range: m.error_invalidRange,
   internal: m.error_internal,
 };
 

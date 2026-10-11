@@ -3,4 +3,4 @@
 /**
  * What went wrong, as a code: the SPA shows the text for it in the viewer's language.
  */
-export type ErrorCode = "not_found" | "invalid_coordinates" | "internal";
+export type ErrorCode = "not_found" | "invalid_coordinates" | "invalid_range" | "internal";

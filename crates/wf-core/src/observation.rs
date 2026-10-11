@@ -83,6 +83,33 @@ pub async fn since(db: &SqlitePool, station_id: i64, since: i64) -> sqlx::Result
     Ok(rows.into_iter().map(Observation::from).collect())
 }
 
+/// Measurements of a station in [from, to), oldest first.
+pub async fn between(
+    db: &SqlitePool,
+    station_id: i64,
+    from: i64,
+    to: i64,
+) -> sqlx::Result<Vec<Observation>> {
+    let rows: Vec<Row> = sqlx::query_as(
+        "SELECT observed_at, wind_kn, gust_kn, dir_deg, temp_c, raw FROM observation \
+         WHERE station_id = ? AND observed_at >= ? AND observed_at < ? ORDER BY observed_at",
+    )
+    .bind(station_id)
+    .bind(from)
+    .bind(to)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(Observation::from).collect())
+}
+
+/// The time of a station's oldest stored measurement.
+pub async fn oldest(db: &SqlitePool, station_id: i64) -> sqlx::Result<Option<i64>> {
+    sqlx::query_scalar("SELECT MIN(observed_at) FROM observation WHERE station_id = ?")
+        .bind(station_id)
+        .fetch_one(db)
+        .await
+}
+
 /// A measurement counts for a forecast hour this close to it (METARs come at :20 and :50).
 pub const MATCH_S: i64 = 20 * 60;
 
@@ -160,6 +187,8 @@ mod tests {
         let got = since(&db, id, 150).await?;
         assert_eq!(got, [o(200, 11.0)]);
         assert_eq!(nearest(&got, 2_000, MATCH_S), None);
+        assert_eq!(between(&db, id, 100, 200).await?, [o(100, 9.0)]);
+        assert_eq!(oldest(&db, id).await?, Some(100));
         assert_eq!(nearest(&got, 210, MATCH_S), Some(&o(200, 11.0)));
         assert_eq!(purge(&db, 150).await?, 1);
         assert_eq!(since(&db, id, 0).await?.len(), 1);

@@ -15,8 +15,8 @@ was closest to the measurements there recently.
 
 > **Status:** early development. Station and point pages with forecasts from five models work
 > (Phase 1). Phase 2 adds live measurements from METAR and DWD stations, airport forecasts
-> (TAF), water gauges, the model ranking per station, the Windfenster mix and the comparison
-> chart.
+> (TAF), water gauges, the measurements of the last ten days, the model ranking per station,
+> the Windfenster mix and the comparison chart.
 
 ## What v1 will do
 
@@ -82,6 +82,11 @@ TAFs (airport forecasts) of the same stations come from aviationweather.gov's TA
 minutes, with the change groups already decoded; Windfenster turns them into an hourly
 series with the span that TEMPO, PROB and a change in progress allow. Measurements and TAFs
 are kept for 13 months, for the verification of the models.
+
+Each station page shows its measurements over a day, as Windfinder does: the last 24 hours
+and the ten days before, with mean wind, gusts and direction. When a station's past days
+are thin, the server fills them in once: the METAR API keeps about eight days, the DWD's
+archive of 10-minute values about a year and a half (kept here for 13 months).
 
 Water gauges come from PEGELONLINE: one request every 10 minutes brings all of them (about 730
 with coordinates) with level, flow, water temperature and the official flood states. A

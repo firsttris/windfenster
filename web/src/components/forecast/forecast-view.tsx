@@ -31,12 +31,14 @@ interface Props {
   taf?: Taf | null;
   /** "Who hits here?": the station's, or for a point the nearest station's within 5 km */
   ranking?: Ranking | null;
+  /** The station's measurements over the day, below the table */
+  history?: ReactNode;
   /** The station the ranking belongs to: its code, and for points how far away it is */
   rankingStation?: { code: string; source: string; from?: string };
 }
 
 /** Everything below a place's title: mode and unit, the models, tiles, the ten days. */
-export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation }: Props) {
+export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation, history }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
   const superModel = autoModel(fc, ranking, 'super');
@@ -136,6 +138,8 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
           </p>
         )
       )}
+
+      {history}
 
       {fc.series.length > 0 && (
         <div className="flex flex-wrap items-start gap-4">

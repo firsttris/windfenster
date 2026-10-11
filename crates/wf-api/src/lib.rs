@@ -3,6 +3,7 @@
 
 mod error;
 pub mod forecast;
+pub mod history;
 pub mod live;
 mod meta;
 pub mod ranking;
@@ -53,6 +54,8 @@ pub struct AppState {
     fetched: moka::future::Cache<i64, ()>,
     gauge_history: water::HistoryCache,
     rankings: ranking::RankingCache,
+    /// Stations (row ids) whose past days were filled in within six hours.
+    backfilled: moka::future::Cache<i64, ()>,
 }
 
 impl AppState {
@@ -85,6 +88,10 @@ impl AppState {
                 .build(),
             gauge_history: water::new_cache(),
             rankings: ranking::new_cache(),
+            backfilled: moka::future::Cache::builder()
+                .max_capacity(10_000)
+                .time_to_live(Duration::from_secs(6 * 3_600))
+                .build(),
         }
     }
 
@@ -108,6 +115,7 @@ pub fn router(state: AppState) -> Router {
         .route("/stations", get(search::search))
         .route("/stations/{slug}", get(forecast::station))
         .route("/stations/{slug}/live", get(live::live))
+        .route("/stations/{slug}/history", get(history::history))
         .route("/point", get(forecast::point))
         .route("/gauges/near", get(water::near))
         .fallback(|| async { ApiError::NotFound });

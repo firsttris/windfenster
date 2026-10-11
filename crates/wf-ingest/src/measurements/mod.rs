@@ -48,6 +48,10 @@ fn json(what: &'static str) -> impl FnOnce(serde_json::Error) -> Error {
 
 pub const AWC_BASE: &str = "https://aviationweather.gov";
 
+/// Ten days back, as Windfinder offers; the METAR API answers with at most 400 reports,
+/// about eight days of half-hourly ones.
+const METAR_HISTORY_H: u32 = 240;
+
 /// TAFs asked for in one request.
 const TAF_BATCH: usize = 40;
 
@@ -120,7 +124,7 @@ impl Measurements {
     pub async fn import_dwd(&self, since: i64) -> Result<usize> {
         let mut n = 0;
         for (id, st) in station::watched(&self.db, StationSource::Dwd, since).await? {
-            match self.fetch_dwd(&st.code).await {
+            match self.fetch_dwd(&st.code, Period::Now).await {
                 Ok(rows) => n += self.store(id, rows).await?,
                 Err(e) => tracing::warn!("DWD {}: {e:#}", st.code),
             }
@@ -183,25 +187,46 @@ impl Measurements {
             wf_core::taf::store(&self.db, &rows).await?;
         }
         let rows = match st.source {
-            StationSource::Metar => {
-                let body = self
-                    .get(&format!(
-                        "{}/api/data/metar?ids={}&format=json&hours=24",
-                        self.urls.awc_base, st.code
-                    ))
-                    .await?;
-                parse_metar_json(&body)
-                    .map_err(json("METAR JSON"))?
-                    .into_iter()
-                    .filter(|(icao, _)| *icao == st.code)
-                    .map(|(_, o)| o)
-                    .collect()
-            }
-            StationSource::Dwd => self.fetch_dwd(&st.code).await?,
+            StationSource::Metar => self.fetch_metars(&st.code, 24).await?,
+            StationSource::Dwd => self.fetch_dwd(&st.code, Period::Now).await?,
             // OpenWindMap is not connected yet.
             StationSource::Owm => return Ok(0),
         };
         self.store(id, rows).await
+    }
+
+    /// Fills in a station's past days: what the METAR API still has (about eight days), or the
+    /// DWD's archive
+    /// of the 10-minute values up to yesterday (about 1.5 years; values before `since` are left
+    /// out). Returns how many measurements were stored.
+    pub async fn backfill(&self, id: i64, st: &Station, since: i64) -> Result<usize> {
+        let rows = match st.source {
+            StationSource::Metar => self.fetch_metars(&st.code, METAR_HISTORY_H).await?,
+            StationSource::Dwd => self
+                .fetch_dwd(&st.code, Period::Recent)
+                .await?
+                .into_iter()
+                .filter(|o| o.at >= since)
+                .collect(),
+            StationSource::Owm => return Ok(0),
+        };
+        self.store(id, rows).await
+    }
+
+    /// One station's METARs of the last `hours` from the API.
+    async fn fetch_metars(&self, code: &str, hours: u32) -> Result<Vec<Observation>> {
+        let body = self
+            .get(&format!(
+                "{}/api/data/metar?ids={code}&format=json&hours={hours}",
+                self.urls.awc_base
+            ))
+            .await?;
+        Ok(parse_metar_json(&body)
+            .map_err(json("METAR JSON"))?
+            .into_iter()
+            .filter(|(icao, _)| icao == code)
+            .map(|(_, o)| o)
+            .collect())
     }
 
     /// Fetches every gauge with its latest level, flow and water temperature (one request of
@@ -243,20 +268,25 @@ impl Measurements {
         Ok(res.bytes().await?.to_vec())
     }
 
-    /// Today's 10-minute mean wind, direction and gusts of one DWD station.
-    async fn fetch_dwd(&self, code: &str) -> Result<Vec<Observation>> {
+    /// 10-minute mean wind, direction and gusts of one DWD station: today's (`now`) or those
+    /// up to yesterday (`recent`).
+    async fn fetch_dwd(&self, code: &str, period: Period) -> Result<Vec<Observation>> {
         let base = &self.urls.dwd_base;
+        let (dir, suffix) = match period {
+            Period::Now => ("now", "now"),
+            Period::Recent => ("recent", "akt"),
+        };
         let wind = dwd::unzip_first(
             &self
                 .get(&format!(
-                    "{base}/wind/now/10minutenwerte_wind_{code}_now.zip"
+                    "{base}/wind/{dir}/10minutenwerte_wind_{code}_{suffix}.zip"
                 ))
                 .await?,
         )?;
         // Gusts are a separate product; without them the mean still counts.
         let gusts = match self
             .get(&format!(
-                "{base}/extreme_wind/now/10minutenwerte_extrema_wind_{code}_now.zip"
+                "{base}/extreme_wind/{dir}/10minutenwerte_extrema_wind_{code}_{suffix}.zip"
             ))
             .await
         {
@@ -265,4 +295,11 @@ impl Measurements {
         };
         Ok(merge_dwd(&wind, &gusts))
     }
+}
+
+/// Which DWD file: today's or the archive up to yesterday.
+#[derive(Clone, Copy)]
+enum Period {
+    Now,
+    Recent,
 }

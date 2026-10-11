@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { ForecastView } from '@/components/forecast/forecast-view';
-import { LiveTile } from '@/components/live-tile';
+import { HistoryCard } from '@/components/live/history-card';
+import { LiveTile } from '@/components/live/live-tile';
 import { Failed, Loading, Page } from '@/components/page';
 import { WaterTile } from '@/components/water-tile';
 import { liveQuery, stationQuery } from '@/lib/api';
@@ -68,6 +69,7 @@ function StationPage() {
           }
         }
         taf={live.data?.taf}
+        history={<HistoryCard station={st} timeZone={forecast.timezone ?? 'UTC'} />}
         ranking={q.data.ranking}
         rankingStation={{ code: st.code, source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}` }}
       />
