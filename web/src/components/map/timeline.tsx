@@ -1,6 +1,8 @@
-import { Pause, Play } from 'lucide-react';
+import { Pause, Play, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
 import { intlLocale } from '@/lib/i18n';
+import { clamp, daySegments, hourAt, onDay } from '@/lib/timeline';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
@@ -29,25 +31,22 @@ export function frameTime(unix: number): string {
   }).format(new Date(unix * 1000));
 }
 
-/** Local midnights within the span, for the day marks under the slider */
-function days(from: number, to: number): { at: number; label: string }[] {
-  const fmt = new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', day: 'numeric' });
-  const d = new Date(from * 1000);
-  d.setHours(24, 0, 0, 0);
-  const out: { at: number; label: string }[] = [];
-  while (d.getTime() / 1000 < to) {
-    out.push({ at: d.getTime() / 1000, label: fmt.format(d) });
-    d.setDate(d.getDate() + 1);
-  }
-  return out;
-}
-
-/** Play and the hours of the model on a slider, with the days marked. */
+/** Play, the hours on a slider and the days as segments to jump to. The slider steps an hour
+ * with the arrow keys and a day with Page up/down; "now" is marked and one tap away. */
 export function Timeline({ frames, time, now, playing, onTime, onPlay, band, className }: Props) {
   const from = frames[0]?.validAt ?? 0;
   const to = frames.at(-1)?.validAt ?? 0;
   const span = Math.max(1, to - from);
+  const pct = (t: number) => `${((clamp(t, from, to) - from) / span) * 100}%`;
   const hours = Math.round((time - now) / 3600);
+  const [hover, setHover] = useState<{ x: number; t: number } | null>(null);
+  const dayFmt = new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', day: 'numeric' });
+  const go = (t: number) => {
+    onPlay(false);
+    onTime(clamp(t, from, to));
+  };
+  const nowInRange = now >= from && now <= to;
+
   return (
     <div className={cn('flex items-center gap-3 rounded-xl border bg-card/95 p-3 backdrop-blur', className)}>
       <Button
@@ -61,37 +60,91 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, band, cla
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
           <span className="truncate font-semibold text-sm">{frameTime(time)}</span>
-          <span className="shrink-0 font-mono text-muted-foreground text-xs">
-            {hours === 0 ? m.map_now() : m.map_hours({ hours: hours > 0 ? `+${hours}` : `−${-hours}` })}
-          </span>
-        </div>
-        {band && band !== 'transparent' && (
-          <div aria-hidden="true" className="h-1.5 rounded-full" style={{ background: band }} />
-        )}
-        <input
-          type="range"
-          aria-label={m.map_time()}
-          aria-valuetext={frameTime(time)}
-          min={from}
-          max={to}
-          step={3600}
-          value={Math.round(time / 3600) * 3600}
-          onChange={(e) => {
-            onPlay(false);
-            onTime(Number(e.target.value));
-          }}
-          className="w-full accent-foreground"
-        />
-        <div className="relative h-4 font-mono text-[11px] text-muted-foreground" aria-hidden="true">
-          {days(from, to).map((d) => (
-            <span
-              key={d.at}
-              className="absolute -translate-x-1/2 whitespace-nowrap"
-              style={{ left: `${((d.at - from) / span) * 100}%` }}
-            >
-              {d.label}
+          {hours === 0 || !nowInRange ? (
+            <span className="shrink-0 font-mono text-muted-foreground text-xs">
+              {hours === 0 ? m.map_now() : m.map_hours({ hours: hours > 0 ? `+${hours}` : `−${-hours}` })}
             </span>
-          ))}
+          ) : (
+            <button
+              type="button"
+              onClick={() => go(Math.round(now / 3600) * 3600)}
+              className="-my-1 inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 font-mono text-muted-foreground text-xs outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+              aria-label={m.map_backToNow()}
+            >
+              {m.map_hours({ hours: hours > 0 ? `+${hours}` : `−${-hours}` })}
+              <RotateCcw aria-hidden="true" className="size-3" />
+            </button>
+          )}
+        </div>
+        {/* The track: the wind at the spot, "now", and the hour under the pointer */}
+        <div
+          className="relative"
+          onPointerMove={(e) => {
+            if (e.pointerType !== 'mouse') return;
+            const r = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            setHover({ x, t: hourAt(x / r.width, from, to) });
+          }}
+          onPointerLeave={() => setHover(null)}
+        >
+          {band && band !== 'transparent' && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-1.5 rounded-full"
+              style={{ background: band }}
+            />
+          )}
+          {nowInRange && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 h-5 w-px bg-foreground/50"
+              style={{ left: pct(now) }}
+            />
+          )}
+          <input
+            type="range"
+            aria-label={m.map_time()}
+            aria-valuetext={frameTime(time)}
+            min={from}
+            max={to}
+            step={3600}
+            value={Math.round(time / 3600) * 3600}
+            onChange={(e) => go(Number(e.target.value))}
+            onKeyDown={(e) => {
+              if (e.key !== 'PageUp' && e.key !== 'PageDown') return;
+              e.preventDefault();
+              go(time + (e.key === 'PageUp' ? 86_400 : -86_400));
+            }}
+            className={cn('relative w-full accent-foreground', band && band !== 'transparent' ? 'mt-2.5' : 'mt-1')}
+          />
+          {hover && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-full mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-1.5 py-0.5 font-mono text-[11px] text-popover-foreground shadow-sm"
+              style={{ left: hover.x }}
+            >
+              {frameTime(hover.t)}
+            </span>
+          )}
+        </div>
+        <div className="relative h-5">
+          {daySegments(from, to).map((d) => {
+            const active = time >= d.from && (time < d.to || d.to === to);
+            return (
+              <button
+                key={d.day}
+                type="button"
+                onClick={() => go(onDay(time, d.day, from, to))}
+                className={cn(
+                  'absolute top-0 h-5 cursor-pointer truncate rounded border-line border-l px-1 text-left font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+                style={{ left: pct(d.from), width: `calc(${pct(d.to)} - ${pct(d.from)})` }}
+              >
+                {dayFmt.format(new Date(d.day * 1000))}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

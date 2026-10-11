@@ -157,7 +157,12 @@ wind at that spot; tap a station for its last measurement too;
 stations show their measured wind as a dot in the wind scale's colour, from closer up as an
 arrow with the value; from afar they are bundled, each bundle showing the strongest wind
 measured in it in that colour (tap it to zoom in). Lakes and rivers lie dark over the field. The line under the models names the model and run drawing at the spot
-picked or the middle of the view. The view stays in the address (`/map#zoom/lat/lon`). With
+picked or the middle of the view. The view stays in the address (`/map#zoom/lat/lon`), the
+hour, layer and model in its query (`?t=…&layer=gusts&model=…`), so the share button (or a
+copied link) opens the same picture; layer and model are also remembered in the browser. With a
+mouse the wind and gusts under the pointer show without a click. The timeline jumps by day
+(tap a day, or Page up/down), marks now and goes back to it in one tap. Keys: ←/→ an hour (with
+Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. With
 "reduce motion" set in the system, arrows that stand still take the particles' place. The land, water, borders and places under it come from
 the detailed basemap if one is installed, else from
 [Natural Earth](https://www.naturalearthdata.com/) (`web/scripts/natural-earth.mjs` builds that).

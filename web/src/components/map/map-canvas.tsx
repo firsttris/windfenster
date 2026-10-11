@@ -14,6 +14,7 @@ import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
 import { applyTheme, type Basemap, setDomain } from './basemap';
+import { HoverReadout } from './hover-readout';
 import { type Particles, particles } from './particles';
 import { openCluster, PIN_LAYERS, pinTheme, setPins } from './pins';
 import { type WindField, windField } from './wind-field';
@@ -236,6 +237,7 @@ export function MapCanvas({ basemap, layers, gusts, domain, pins, unit, picked, 
     <div className="relative h-full w-full">
       {/* MapLibre makes it position: relative, so it is sized, not inset */}
       <div ref={container} className="h-full w-full" />
+      {ready && map.current && <HoverReadout map={map.current} layers={layers} unit={unit} gusts={gusts} />}
       <div className="absolute top-3 right-3 flex flex-col gap-2">
         <Button variant="outline" size="icon" aria-label={m.map_zoomIn()} onClick={() => map.current?.zoomIn()}>
           <Plus aria-hidden="true" />

@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { basemapFor } from '@/components/map/basemap';
 import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
+import { ShareButton } from '@/components/map/share-button';
 import { SpotCard } from '@/components/map/spot-card';
 import { frameTime, Timeline } from '@/components/map/timeline';
+import { useMapKeys } from '@/components/map/use-map-keys';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
 import { mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
 import { formatNumber, runHour } from '@/lib/format';
-import { useUnit } from '@/lib/prefs';
+import { mapQuery, parseMapState } from '@/lib/map-url';
+import { usePref, useUnit } from '@/lib/prefs';
 import { spotHours, windGradient } from '@/lib/spot-series';
 import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
@@ -39,10 +42,18 @@ function MapPage() {
   const basemapKey = JSON.stringify(index.data?.basemap ?? null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the basemap's header
   const basemap = useMemo(() => basemapFor(index.data?.basemap ?? null), [basemapKey]);
-  const [chosen, setChosen] = useState<string | null>(null);
+  // The address wins over what this browser remembers (lib/map-url.ts).
+  const [initial] = useState(() => parseMapState(window.location.search));
+  const [layerPref, setLayerPref] = usePref('wf.mapLayer');
+  const [modelPref, setModelPref] = usePref('wf.mapModel');
+  const [chosen, setChosenState] = useState<string | null>(initial.model ?? modelPref);
+  const setChosen = (model: string) => {
+    setChosenState(model);
+    setModelPref(model);
+  };
   const choice = chooseLayers(index.data?.layers ?? [], chosen);
   const frames = choice.frames;
-  const [picked, setTime] = useState<number | null>(null);
+  const [picked, setTime] = useState<number | null>(initial.time ?? null);
   const time = picked ?? startTime(frames, now);
   const [playing, setPlaying] = useState(false);
   usePlayback(playing, frames, time, setTime);
@@ -51,8 +62,33 @@ function MapPage() {
   const layers = useMemo(() => ({ base, detail }), [base, detail]);
   const [pick, setPick] = useState<Pick | null>(null);
   const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
-  const [field, setField] = useState<FieldLayer>('wind');
+  const [field, setFieldState] = useState<FieldLayer>((initial.gusts ?? layerPref === 'gusts') ? 'gusts' : 'wind');
+  const setField = (f: FieldLayer) => {
+    setFieldState(f);
+    setLayerPref(f);
+  };
   const gusts = field === 'gusts';
+  // Hour, layer and model in the address, for sharing; the hour once per hour while playing
+  const urlHour = picked === null ? null : Math.round(picked / 3600) * 3600;
+  useEffect(() => {
+    const { pathname, search, hash } = window.location;
+    const query = mapQuery(search, { time: urlHour, gusts, model: chosen });
+    if (query !== search) window.history.replaceState(window.history.state, '', pathname + query + hash);
+  }, [urlHour, gusts, chosen]);
+  useMapKeys({
+    togglePlay: () => setPlaying((p) => !p),
+    step: (h) => {
+      setPlaying(false);
+      if (time === null || frames.length === 0) return;
+      setTime(Math.min(frames[frames.length - 1].validAt, Math.max(frames[0].validAt, time + h * 3600)));
+    },
+    toggleGusts: () => setField(gusts ? 'wind' : 'gusts'),
+    toNow: () => {
+      setPlaying(false);
+      setTime(null);
+    },
+    close: () => setPick(null),
+  });
   // The place picked over the coming hours, from the map's own fields
   const series = useQuery({ ...mapSeriesQuery(pick?.lat ?? 0, pick?.lon ?? 0), enabled: pick !== null });
   const hours = series.data
@@ -152,7 +188,12 @@ function MapPage() {
       {desktop && (
         <aside className="flex min-h-0 flex-col gap-6 overflow-y-auto border-line border-r p-5">
           <div className="flex flex-col gap-1">
-            <p className="m-0 font-mono text-muted-foreground text-xs uppercase tracking-[0.08em]">{m.map_eyebrow()}</p>
+            <div className="-my-2 flex items-center justify-between gap-2">
+              <p className="m-0 font-mono text-muted-foreground text-xs uppercase tracking-[0.08em]">
+                {m.map_eyebrow()}
+              </p>
+              <ShareButton className="-mr-2 size-8 shrink-0" />
+            </div>
             <h1 className="m-0 font-bold text-[32px] leading-tight tracking-[-0.04em]">{m.map_title()}</h1>
             {timeLabel && <p className="m-0 font-mono text-muted-foreground text-sm">{timeLabel}</p>}
           </div>
@@ -168,7 +209,8 @@ function MapPage() {
             )}
           </div>
           {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
-          <Attribution osm={!!index.data?.basemap} className="mt-auto" />
+          <p className="m-0 mt-auto text-[11px] text-muted-foreground leading-snug">{m.map_keys()}</p>
+          <Attribution osm={!!index.data?.basemap} />
         </aside>
       )}
       <div className="relative min-h-[420px]">
@@ -189,7 +231,8 @@ function MapPage() {
         )}
         {!desktop && (
           <div className="absolute top-3 left-3 flex w-[min(260px,calc(100%-76px))] flex-col gap-2 rounded-xl border bg-card/95 p-3 backdrop-blur">
-            <div className="flex flex-col">
+            <div className="relative flex flex-col pr-8">
+              <ShareButton className="absolute -top-1.5 -right-1.5 size-8" />
               <h1 className="m-0 truncate font-semibold text-sm">{m.map_title()}</h1>
               {runLine && <p className="m-0 truncate font-mono text-muted-foreground text-xs">{runLine}</p>}
             </div>

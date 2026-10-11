@@ -1,6 +1,7 @@
 /**
- * Viewer preferences kept in this browser (localStorage): wind unit and theme. Storage can be
- * blocked (private windows); then the defaults apply and choices last until the page reloads.
+ * Viewer preferences kept in this browser (localStorage): wind unit, theme, the map's layer and
+ * model. Storage can be blocked (private windows); then the defaults apply and choices last until
+ * the page reloads.
  */
 import { useSyncExternalStore } from 'react';
 import type { WindUnit } from '@/bindings/WindUnit';
@@ -31,6 +32,30 @@ function write(key: string, value: string) {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+/** A preference kept as text in this browser; null removes it. */
+export function usePref(key: string): [string | null, (v: string | null) => void] {
+  const value = useSyncExternalStore(
+    subscribe,
+    () => read(key),
+    () => null,
+  );
+  return [
+    value,
+    (v) => {
+      if (v === null) {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          memory.delete(key);
+        }
+        for (const l of listeners) l();
+      } else {
+        write(key, v);
+      }
+    },
+  ];
 }
 
 const UNIT_KEY = 'wf.unit';
