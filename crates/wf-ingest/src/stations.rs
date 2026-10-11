@@ -294,26 +294,27 @@ mod tests {
 
     #[test]
     fn dwd() {
-        // Layout of the DWD description file (fixed columns, Latin-1 in older files).
-        let text = "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\n\
------------ --------- --------- ------------- --------- --------- ----------------------------------------- ---------- ------\n\
-04177 19970101 20261010            116     48.9726    8.3301 Rheinstetten                             Baden-Württemberg                        Frei\n\
-01975 19930101 20261010             14     53.6332    9.9881 Hamburg-Fuhlsbüttel                      Hamburg                                  Frei\n\
-05100 20000101 20261010            151     49.7477    6.6582 Trier-Petrisberg                         Rheinland-Pfalz                          Frei\n\
-00044 20070209 20120101             44     52.9336    8.2370 Großenkneten                             Niedersachsen                            Frei\n\
-03987 19920101 20261010             81     52.3813   13.0622 Potsdam Telegrafenberg                   Brandenburg\n";
+        // Lines from the real file (2026-10-11; trailing spaces cut, Latin-1 decoded), plus one
+        // station that stopped reporting.
+        let text = "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\r\n\
+----------- --------- --------- ------------- --------- --------- ----------------------------------------- ---------- ------\r\n\
+00011 19920917 20261011            680     47.9736    8.5205 Donaueschingen (Landeplatz)              Baden-Württemberg                        Frei\r\n\
+00183 19911101 20261011             42     54.6791   13.4344 Arkona                                   Mecklenburg-Vorpommern                   Frei\r\n\
+01550 19910101 20261011            719     47.4830   11.0621 Garmisch-Partenkirchen                   Bayern                                   Frei\r\n\
+04177 20081028 20261011            116     48.9726    8.3301 Rheinstetten                             Baden-Württemberg                        Frei\r\n\
+00044 20070209 20120101             44     52.9336    8.2370 Großenkneten                             Niedersachsen                            Frei\r\n";
         let list = parse_dwd(text, 20260901);
         let names: Vec<&str> = list.iter().map(|s| s.station.name.as_str()).collect();
         assert_eq!(
             names,
             [
-                "Rheinstetten",
-                "Hamburg-Fuhlsbüttel",
-                "Trier-Petrisberg",
-                "Potsdam Telegrafenberg"
+                "Donaueschingen (Landeplatz)",
+                "Arkona",
+                "Garmisch-Partenkirchen",
+                "Rheinstetten"
             ]
         );
-        let r = &list[0].station;
+        let r = &list[3].station;
         assert_eq!((r.slug.as_str(), r.code.as_str()), ("dwd-04177", "04177"));
         assert_eq!(r.region.as_deref(), Some("Baden-Württemberg"));
         assert_eq!(

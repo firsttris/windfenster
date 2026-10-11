@@ -175,7 +175,7 @@ async fn refresh_fetches_new_runs_for_hot_places() -> anyhow::Result<()> {
     assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
 
     // A newer ECMWF run: one request for the hot place, with that model only.
-    wf_core::forecast::add_run(&db, "ecmwf_ifs025", 1_791_655_200).await?;
+    wf_core::forecast::add_run(&db, "ecmwf_ifs025", 1_791_655_200, false).await?;
     f.refresh(now).await?;
     assert_eq!(fake.calls.load(Ordering::SeqCst), 2);
     let fc = f.load(p, None).await?;
@@ -184,5 +184,28 @@ async fn refresh_fetches_new_runs_for_hot_places() -> anyhow::Result<()> {
     // Done: the run is complete and not fetched again.
     f.refresh(now).await?;
     assert_eq!(fake.calls.load(Ordering::SeqCst), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_estimated_run_takes_the_reported_time() -> anyhow::Result<()> {
+    let (_dir, _fake, f, db) = setup().await?;
+    // A page before the scheduler looked: the run comes from the schedule.
+    let p = GridPoint::new(48.78, 8.08).unwrap();
+    f.ensure(p, true).await?;
+    let guess = wf_core::forecast::latest_run(&db, "icon_d2")
+        .await?
+        .unwrap();
+    assert!(guess.estimated);
+    // The metadata reports an older run: the guess takes its time, nothing is new.
+    assert_eq!(f.detect_runs(wf_core::time::now()).await?, 0);
+    let run = wf_core::forecast::latest_run(&db, "icon_d2")
+        .await?
+        .unwrap();
+    assert_eq!(
+        (run.id, run.run_at, run.estimated),
+        (guess.id, 1_791_633_600, false)
+    );
+    assert_eq!(f.load(p, None).await?.series[0].run_at, 1_791_633_600);
     Ok(())
 }

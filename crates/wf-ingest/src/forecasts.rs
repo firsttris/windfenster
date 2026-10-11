@@ -52,17 +52,16 @@ impl Forecasts {
             .collect()
     }
 
-    /// Initialisation time of the newest run Open-Meteo has out for a model: from its
-    /// `meta.json`, else from the model's schedule.
-    async fn newest_run_at(&self, m: &Model, now: i64) -> i64 {
-        if let Some(meta) = &m.meta_id {
-            match self.om.latest_run(meta).await {
-                Ok(Some(t)) => return t,
-                Ok(None) => {}
-                Err(e) => tracing::debug!("{}: no run metadata ({e})", m.id),
+    /// Initialisation time of the newest run Open-Meteo reports for a model in its `meta.json`.
+    async fn reported_run(&self, m: &Model) -> Option<i64> {
+        let meta = m.meta_id.as_ref()?;
+        match self.om.latest_run(meta).await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::debug!("{}: no run metadata ({e})", m.id);
+                None
             }
         }
-        openmeteo::scheduled_run(now, m.runs_per_day, availability_delay(m))
     }
 
     /// The newest known run; before the scheduler has looked, the one the model's schedule
@@ -72,18 +71,36 @@ impl Forecasts {
             return Ok(run);
         }
         let at = openmeteo::scheduled_run(now, m.runs_per_day, availability_delay(m));
-        Ok(forecast::add_run(&self.db, &m.id, at).await?.0)
+        Ok(forecast::add_run(&self.db, &m.id, at, true).await?.0)
     }
 
-    /// Records new runs; returns how many models have one.
+    /// Records new runs; returns how many models have one. Without run metadata the run
+    /// is estimated from the schedule and corrected once the metadata answers.
     pub async fn detect_runs(&self, now: i64) -> sqlx::Result<usize> {
         let mut new = 0;
         for m in &self.models {
-            let at = self.newest_run_at(m, now).await;
-            let known = forecast::latest_run(&self.db, &m.id).await?;
+            let reported = self.reported_run(m).await;
+            let mut known = forecast::latest_run(&self.db, &m.id).await?;
+            if let (Some(at), Some(run)) = (reported, known)
+                && run.estimated
+                && at <= run.run_at
+            {
+                known = Some(forecast::confirm_run(&self.db, &m.id, run, at).await?);
+            }
+            let (at, estimated) = match reported {
+                Some(at) => (at, false),
+                None => (
+                    openmeteo::scheduled_run(now, m.runs_per_day, availability_delay(m)),
+                    true,
+                ),
+            };
             if known.is_none_or(|r| at > r.run_at) {
-                forecast::add_run(&self.db, &m.id, at).await?;
-                tracing::info!("{}: new run {at}", m.id);
+                forecast::add_run(&self.db, &m.id, at, estimated).await?;
+                tracing::info!(
+                    "{}: new run {at}{}",
+                    m.id,
+                    if estimated { " (estimated)" } else { "" }
+                );
                 new += 1;
             }
         }
@@ -241,11 +258,12 @@ impl Forecasts {
     }
 }
 
-/// About how long after its start a run is out on Open-Meteo.
+/// About how long after its start a run is out on Open-Meteo (meta.json, October 2026:
+/// ICON-D2 1.5 h, AROME and HARMONIE 3 h, GFS 5.5 h, ECMWF 8.5 h).
 fn availability_delay(m: &Model) -> i64 {
     match m.class {
-        ModelClass::Super => 2 * 3_600,
-        ModelClass::Global => 7 * 3_600,
+        ModelClass::Super => 3 * 3_600,
+        ModelClass::Global => 9 * 3_600,
     }
 }
 

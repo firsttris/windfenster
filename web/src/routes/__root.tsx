@@ -34,6 +34,10 @@ function RootLayout() {
               <a href="https://ourairports.com/data/" className="text-subtle hover:text-foreground">
                 OurAirports
               </a>
+              ,{' '}
+              <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
+                DWD
+              </a>
             </span>
             <span className="flex flex-wrap items-center gap-3">
               <span>

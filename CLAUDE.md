@@ -89,6 +89,8 @@ split it past ~400 lines, a function past ~80. A refactor changes no behaviour.
 
 ## Project specifics
 
+- **Migrations:** never change one that is pushed, not even a comment: sqlx checks their
+  checksums and an existing database would refuse to start. Correct with a new migration.
 - **Units:** the server stores and sends wind in knots; the SPA converts (kn, m/s, km/h).
 - **Places:** forecasts are stored per point on the 0.01° grid; stations use the grid point of
   their coordinates (`wf_core::geo::GridPoint`).

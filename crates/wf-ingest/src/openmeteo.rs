@@ -159,7 +159,7 @@ impl OpenMeteo {
     /// `meta.json`; `None` if the instance does not publish one.
     pub async fn latest_run(&self, meta_id: &str) -> Result<Option<i64>, Error> {
         let url = format!("{}/data/{meta_id}/static/meta.json", self.base);
-        let body = self.get(&url, Patience::ONCE).await?;
+        let body = self.get(&url, Patience::META).await?;
         let meta: Value =
             serde_json::from_str(&body).map_err(|e| Error::Format(format!("meta.json: {e}")))?;
         Ok(meta["last_run_initialisation_time"].as_i64())
@@ -246,10 +246,11 @@ impl Patience {
         timeout: Duration::from_secs(60),
         backoff: Duration::from_secs(5),
     };
-    const ONCE: Self = Self {
-        attempts: 1,
+    /// Run metadata: small, asked every five minutes, so two short tries.
+    const META: Self = Self {
+        attempts: 2,
         timeout: Duration::from_secs(5),
-        backoff: Duration::ZERO,
+        backoff: Duration::from_secs(1),
     };
 }
 
