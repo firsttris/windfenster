@@ -6,6 +6,9 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './styles.css';
 import { routeTree } from './routeTree.gen';
+import { getLocale } from './paraglide/runtime';
+
+document.documentElement.lang = getLocale();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },

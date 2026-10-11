@@ -4,3 +4,4 @@ web/src/bindings
 web/src/routeTree.gen.ts
 pnpm-lock.yaml
 *.md
+web/src/paraglide

@@ -10,6 +10,8 @@ import { Card, CardHeader, CardMeta, CardTitle } from '@/ui/card';
 import { Segmented } from '@/ui/segmented';
 import { WindCell } from '@/ui/wind-cell';
 import { WIND_SCALE } from '@/ui/wind-scale';
+import { describeError, intlLocale } from '@/lib/i18n';
+import { m } from '@/paraglide/messages';
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => {
@@ -27,15 +29,12 @@ function Home() {
     <main className="mx-auto flex w-full max-w-[1360px] flex-col gap-5 px-4 pt-8 pb-12 sm:px-6">
       <section className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>Open Source</Badge>
-          <Badge>Self-Hosting</Badge>
-          <Badge variant="secondary">Phase 0 · Fundament</Badge>
+          <Badge>{m.home_badgeOpenSource()}</Badge>
+          <Badge>{m.home_badgeSelfHosting()}</Badge>
+          <Badge variant="secondary">{m.home_badgePhase()}</Badge>
         </div>
         <h1 className="m-0 text-5xl leading-none font-bold tracking-[-0.05em] sm:text-6xl">Windfenster</h1>
-        <p className="m-0 max-w-2xl text-[15px] leading-relaxed text-subtle">
-          Windvorhersage für Wassersport: was an der Station gerade gemessen wird, was die Modelle vorhersagen und
-          welches Modell dort zuletzt am besten traf.
-        </p>
+        <p className="m-0 max-w-2xl text-[15px] leading-relaxed text-subtle">{m.home_lead()}</p>
       </section>
 
       <section className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
@@ -52,11 +51,11 @@ function ServerCard() {
   const up = health.isSuccess;
   const rows = health.data
     ? [
-        ['Version', health.data.version],
-        ['Datenbank-Schema', String(health.data.schemaVersion)],
-        ['Stationen', String(health.data.stations)],
-        ['Modelle', String(health.data.models)],
-        ['Modellläufe', String(health.data.modelRuns)],
+        [m.status_version(), health.data.version],
+        [m.status_schema(), String(health.data.schemaVersion)],
+        [m.status_stations(), String(health.data.stations)],
+        [m.status_models(), String(health.data.models)],
+        [m.status_runs(), String(health.data.modelRuns)],
       ]
     : [];
   return (
@@ -69,14 +68,14 @@ function ServerCard() {
               up ? 'bg-success shadow-[0_0_0_4px_var(--success-ring)]' : health.isError ? 'bg-destructive' : 'bg-dim',
             )}
           />
-          Server
+          {m.status_title()}
         </CardTitle>
         <CardMeta>/api/health</CardMeta>
       </CardHeader>
       <div className="text-[42px] leading-none font-bold tracking-[-0.045em]">
-        {up ? 'läuft' : health.isError ? 'nicht erreichbar' : '…'}
+        {up ? m.status_up() : health.isError ? m.status_down() : m.status_loading()}
       </div>
-      {health.isError && <p className="m-0 text-sm text-muted-foreground">{health.error.message}</p>}
+      {health.isError && <p className="m-0 text-sm text-muted-foreground">{describeError(health.error)}</p>}
       {rows.length > 0 && (
         <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 border-t pt-3.5 text-sm">
           {rows.map(([k, v]) => (
@@ -98,14 +97,10 @@ function ScaleCard({ unit, onUnit }: { unit: WindUnit; onUnit: (u: WindUnit) => 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Windskala</CardTitle>
-        <CardMeta>Grenzen in kn</CardMeta>
+        <CardTitle>{m.scale_title()}</CardTitle>
+        <CardMeta>{m.scale_edges()}</CardMeta>
       </CardHeader>
-      <div
-        className="flex overflow-hidden rounded-[7px]"
-        role="img"
-        aria-label="Farbskala für Wind von 0 bis über 30 Knoten"
-      >
+      <div className="flex overflow-hidden rounded-[7px]" role="img" aria-label={m.scale_label()}>
         {WIND_SCALE.map((b, i) => (
           <span
             key={b.from}
@@ -117,7 +112,7 @@ function ScaleCard({ unit, onUnit }: { unit: WindUnit; onUnit: (u: WindUnit) => 
         ))}
       </div>
       <Segmented
-        label="Einheit"
+        label={m.scale_unit()}
         value={unit}
         options={WIND_UNITS.map((u) => ({ value: u, label: UNIT_LABEL[u] }))}
         onChange={onUnit}
@@ -141,17 +136,18 @@ function ModelsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Wettermodelle</CardTitle>
+        <CardTitle>{m.models_title()}</CardTitle>
         <CardMeta>/api/models</CardMeta>
       </CardHeader>
       {models.data && models.data.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {models.data.map((m, i) => (
-            <li key={m.id} className="flex items-center gap-2.5 text-sm">
+          {models.data.map((model, i) => (
+            <li key={model.id} className="flex items-center gap-2.5 text-sm">
               <span className="size-2 shrink-0 rounded-full" style={{ background: `var(--chart-${(i % 5) + 1})` }} />
-              <span className="font-semibold">{m.name}</span>
+              <span className="font-semibold">{model.name}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {m.resolutionKm.toLocaleString('de-DE')} km · {m.class === 'super' ? 'Superforecast' : 'Forecast'}
+                {model.resolutionKm.toLocaleString(intlLocale())} km ·{' '}
+                {model.class === 'super' ? m.class_super() : m.class_global()}
               </span>
             </li>
           ))}
@@ -159,14 +155,14 @@ function ModelsCard() {
       ) : (
         <p className="m-0 text-sm leading-relaxed text-subtle">
           {models.isError
-            ? `Modelle nicht ladbar: ${models.error.message}`
+            ? m.models_failed({ error: describeError(models.error) })
             : models.isPending
-              ? 'Lädt …'
-              : 'Noch keine Modelle eingetragen. Sie kommen mit dem Open-Meteo-Adapter in Phase 1.'}
+              ? m.models_loading()
+              : m.models_none()}
         </p>
       )}
       <div className="flex flex-wrap gap-1.5 border-t pt-3.5">
-        {(['Superforecast · ≤ 3 km', 'Forecast · global'] as const).map((t) => (
+        {[m.models_superHint(), m.models_globalHint()].map((t) => (
           <Badge key={t} variant="secondary">
             {t}
           </Badge>
