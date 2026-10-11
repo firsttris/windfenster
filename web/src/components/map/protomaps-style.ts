@@ -13,7 +13,8 @@ import type { Palette, ThemePaint } from './palette';
 /** The colour field goes under this layer: lakes, rivers, roads, borders and places lie above. */
 export const PROTOMAPS_ABOVE_FIELD = 'water-inland';
 
-const SOURCE = 'pm';
+export const PROTOMAPS_SOURCE = 'pm';
+const SOURCE = PROTOMAPS_SOURCE;
 
 /** The name in the viewer's language, else the local one */
 function name(lang: string): ExpressionSpecification {
@@ -277,11 +278,19 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
 export const PROTOMAPS_ATTRIBUTION =
   '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a> · <a href="https://protomaps.com">Protomaps</a>';
 
-export function protomapsSources(): StyleSpecification['sources'] {
+/** The basemap's source: tiles from the server at any zoom up to `maxzoom` (where its files
+ * stop it cuts them from the deepest tile above), within `bounds` */
+export function protomapsSources(
+  maxzoom: number,
+  bounds: [number, number, number, number],
+): StyleSpecification['sources'] {
   return {
     [SOURCE]: {
       type: 'vector',
-      url: `pmtiles://${location.origin}/api/map/basemap.pmtiles`,
+      tiles: [`${location.origin}/api/map/basemap/{z}/{x}/{y}`],
+      minzoom: 0,
+      maxzoom,
+      bounds,
       attribution: PROTOMAPS_ATTRIBUTION,
     },
   };

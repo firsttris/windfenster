@@ -91,8 +91,9 @@ pub const PMTILES: &str = "application/vnd.pmtiles";
 /// A single vector tile, sent compressed as stored
 pub const MVT: &str = "application/vnd.mapbox-vector-tile";
 
-/// `GET /api/map/basemap/{z}/{x}/{y}`: a detail tile of the basemap from the spot that holds
-/// it; 404 where nobody looked yet (the map then enlarges the region's tile).
+/// `GET /api/map/basemap/{z}/{x}/{y}`: a tile of the basemap at any zoom, from the spot or the
+/// main file that holds it, or cut from the deepest tile above; 404 where nothing covers the
+/// place.
 pub async fn basemap_tile(
     State(s): State<AppState>,
     Path((z, x, y)): Path<(u8, u32, u32)>,
@@ -102,10 +103,15 @@ pub async fn basemap_tile(
     let mut res = Response::new(Body::from(tile.data));
     let h = res.headers_mut();
     h.insert(header::CONTENT_TYPE, HeaderValue::from_static(MVT));
-    // New detail can come for a spot; a day is short enough.
+    // A stored tile stays until the basemap is renewed, a day is short enough; one cut from
+    // above may give way to a spot's within minutes.
     h.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=86400"),
+        HeaderValue::from_static(if tile.exact {
+            "public, max-age=86400"
+        } else {
+            "public, max-age=600"
+        }),
     );
     if let Some(e) = tile.encoding {
         h.insert(header::CONTENT_ENCODING, HeaderValue::from_static(e));

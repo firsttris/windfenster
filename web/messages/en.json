@@ -280,7 +280,7 @@
   "title_map": "Wind map | Windfenster",
   "nav_map": "Map",
   "map_eyebrow": "Wind map",
-  "map_title": "Wind over Europe",
+  "map_title": "Wind worldwide",
   "map_model": "Model",
   "map_domainNote": "dashed = model domain",
   "map_run": "Run {run} · {provider}",

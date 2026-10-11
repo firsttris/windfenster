@@ -1,6 +1,8 @@
-//! Detail tiles for the map (`/api/map/basemap/{z}/{x}/{y}`): from the spot archive that holds
-//! the tile, else from the main archive (files made before the spots had their own hold them
-//! too). The tiles go out as stored, compressed as the archive says.
+//! The basemap's tiles for the map (`/api/map/basemap/{z}/{x}/{y}`), any zoom anywhere: from
+//! the spot archive that holds the tile, else from the main archive (the world, the region
+//! deeper; files made before the spots had their own hold them too). Those go out as stored,
+//! compressed as the archive says. Where neither goes that deep, the deepest tile above it is
+//! cut down to it (`mvt::overzoom`), so the map never shows a hole and needs one source only.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -29,10 +31,16 @@ impl AsyncBackend for File {
 
 type Reader = AsyncPmTilesReader<File>;
 
-/// A tile as stored and its HTTP Content-Encoding (gzip for Protomaps builds).
+/// Deepest tile served; the map enlarges it from there (as it does past a source's maxzoom).
+const MAX_ZOOM: u8 = 16;
+
+/// A tile and its HTTP Content-Encoding (gzip for Protomaps builds, none when cut from an
+/// ancestor).
 pub struct Tile {
     pub data: Vec<u8>,
     pub encoding: Option<&'static str>,
+    /// Stored as it is; false when cut from an ancestor (a spot may bring the real one).
+    pub exact: bool,
 }
 
 fn encoding(c: Compression) -> Option<&'static str> {
@@ -68,26 +76,49 @@ impl Readers {
         Some(reader)
     }
 
-    /// The tile from the spot that holds it, else from the main archive; None where neither has
-    /// it (the map then shows the enlarged tile of the region).
+    /// The tile from the spot that holds it, else from the main archive; past what they hold,
+    /// the deepest tile above it cut down. None where nothing covers the place (an operator's
+    /// file of one region), or for a tile that is not a vector tile.
     pub async fn tile(&self, root: &Path, z: u8, x: u32, y: u32) -> Option<Tile> {
-        let coord = TileCoord::new(z, x, y).ok()?;
-        let mut files: Vec<PathBuf> = spots::on_disk(root)
-            .await
-            .into_iter()
-            .filter(|(s, _)| super::tiles::holds(&s.area(0), z, x, y))
-            .map(|(s, _): (Spot, _)| spots::path(root, s))
-            .collect();
-        files.push(super::path(root));
-        for file in files {
-            let Some(reader) = self.get(&file).await else {
-                continue;
-            };
-            if let Ok(Some(data)) = reader.get_tile(coord).await {
-                return Some(Tile {
-                    data: data.to_vec(),
-                    encoding: encoding(reader.get_header().tile_compression),
-                });
+        if z > MAX_ZOOM {
+            return None;
+        }
+        TileCoord::new(z, x, y).ok()?;
+        let spots = spots::on_disk(root).await;
+        for dz in 0..=z {
+            let (az, ax, ay) = (z - dz, x >> dz, y >> dz);
+            let coord = TileCoord::new(az, ax, ay).ok()?;
+            let files = spots
+                .iter()
+                .filter(|(s, _)| super::tiles::holds(&s.area(0), az, ax, ay))
+                .map(|(s, _): &(Spot, _)| spots::path(root, *s))
+                .chain(std::iter::once(super::path(root)));
+            for file in files {
+                let Some(reader) = self.get(&file).await else {
+                    continue;
+                };
+                if dz == 0 {
+                    if let Ok(Some(data)) = reader.get_tile(coord).await {
+                        return Some(Tile {
+                            data: data.to_vec(),
+                            encoding: encoding(reader.get_header().tile_compression),
+                            exact: true,
+                        });
+                    }
+                } else if let Ok(Some(data)) = reader.get_tile_decompressed(coord).await {
+                    let (cx, cy) = (x - (ax << dz), y - (ay << dz));
+                    let cut = tokio::task::spawn_blocking(move || {
+                        super::mvt::overzoom(&data, dz, cx, cy)
+                    })
+                    .await
+                    .ok()?
+                    .ok()?;
+                    return Some(Tile {
+                        data: cut,
+                        encoding: None,
+                        exact: false,
+                    });
+                }
             }
         }
         None

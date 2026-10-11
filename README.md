@@ -73,12 +73,15 @@ Volume=%h/windfenster/data:/data:Z
 
 # The public address: canonical links and meta tags of the station pages
 Environment=WF_PUBLIC_URL=https://windfenster.example
-# Basemap: the whole region to zoom 12, every town's streets (about 7 GB, an hour or so the first time)
+# Basemap: the world to zoom 7, Europe to zoom 12 with every town's streets (about 7 GB, an
+# hour or so the first time)
+Environment=WF_BASEMAP_WORLD_ZOOM=7
 Environment=WF_BASEMAP_ZOOM=12
 # Full detail (zoom 14) kept for up to 500 spots where people look (2 to 17 MB each)
 Environment=WF_BASEMAP_SPOTS=500
-# Relief to zoom 10 (estimated 6 GB; each level is about four times the one before)
-Environment=WF_TERRAIN_ZOOM=10
+# Relief, the whole world, to zoom 8 (estimated 4 GB; each level is about four times the one
+# before, so 10 would be some 60 GB and hours to fetch)
+Environment=WF_TERRAIN_ZOOM=8
 # Stations kept current and verified even when nobody opens them: add your own spots' stations
 Environment=WF_TRACKED_STATIONS=edsb,lgrp
 Environment=RUST_LOG=info
@@ -121,8 +124,8 @@ What follows:
   are downloaded (about 150 and 115 MB per run). A minute after the start it cuts the basemap
   and then the relief; at the zoom levels above that takes a while, and the map shows Natural
   Earth and coarser tiles until then. Detail spots come a minute or two after a place is opened.
-- **Disk:** with the settings above roughly 15 to 20 GB at most: the basemap (7 GB), relief
-  (about 6 GB), spots (a few GB once many are used), the map's runs (two per model, about
+- **Disk:** with the settings above roughly 15 GB at most: the basemap (7 GB and the world),
+  relief (about 4 GB), spots (a few GB once many are used), the map's runs (two per model, about
   230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
   about 2 GB.
 - **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
@@ -151,9 +154,11 @@ What follows:
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
 | `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
-| `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the whole region (6 to 15): 8 is about 190 MB, every level roughly four times more (12 about 7 GB); from 14 on every place has full detail and no spots are made |
+| `WF_BASEMAP_WORLD_ZOOM` | `6` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, every level roughly three to four times more |
+| `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
+| `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
 | `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
-| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes (1 to 12): 7 is about 90 MB, every level roughly four times more; `0` turns it off |
+| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes, the whole world (1 to 12): 6 is 278 MB, 7 about 1 GB, every level roughly four times more; `0` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -228,7 +233,7 @@ Windfenster looks for the newest ICON-D2 run on [DWD Open Data](https://opendata
 Each hour becomes a PNG texture in kn (red U, green V, as in
 [mapbox/webgl-wind](https://github.com/mapbox/webgl-wind), blue the gusts) with a JSON file for
 its extent, value ranges and the model's domain, under
-`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. Under it, for all of Europe and beyond ICON-D2's 48
+`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. Under it, for the whole world and beyond ICON-D2's 48
 hours, lies ECMWF's IFS from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
 (0.25°, a run every 6 hours): Windfenster reads each step's index and fetches only the wind at
 10 m and the gusts (`10fg`) by byte range (2.8 MB per step), for 0 to 120 hours every 3 hours,
@@ -273,30 +278,35 @@ the detailed basemap if one is installed, else from
 ### The detailed basemap
 
 Towns, roads and lakes from close up come from [Protomaps](https://protomaps.com/), vector
-tiles of OpenStreetMap in one file, `{WF_DATA_DIR}/map/basemap.pmtiles`, drawn in Windfenster's
-own style, light and dark, with names in the viewer's language. Without it the map shows
-Natural Earth.
+tiles of OpenStreetMap, drawn in Windfenster's own style, light and dark, with names in the
+viewer's language. Without them the map shows the world from
+[Natural Earth](https://www.naturalearthdata.com/) (Europe finer).
 
-By default (`WF_BASEMAP=auto`) the server makes the file itself, a minute after the start and
-then checked daily: from Protomaps' newest daily build it takes the map's region up to zoom 8
-(coasts, towns, main roads; about 190 MB), by byte range, into one file. A note next to it
-(`basemap.json`) says what it was made from; it is made again after 120 days.
+By default (`WF_BASEMAP=auto`) the server makes the basemap itself, a minute after the start and
+then checked daily: from Protomaps' newest daily build it takes, by byte range, the whole world
+up to zoom 6 (coasts, countries, bigger towns; 45 MB, about two minutes) and a region deeper, Europe up to
+zoom 8 by default (towns and main roads; about 190 MB more), into one file,
+`{WF_DATA_DIR}/map/basemap.pmtiles`. A note next to it (`basemap.json`) says what it was made
+from; it is made again after 120 days, or when the settings change.
 
-Detail (streets, lakes, beaches, up to zoom 14) comes where people look: around each tracked
-station (`WF_TRACKED_STATIONS`), each place opened in the last week and each spot tapped on the
-map, the server cuts 20 km from the newest build into a file of its own,
+Detail (streets, lakes, beaches, up to zoom 14) comes where people look, anywhere in the world:
+around each tracked station (`WF_TRACKED_STATIONS`), each place opened in the last week and each
+spot tapped on the map, the server cuts 20 km from the newest build into a file of its own,
 `{WF_DATA_DIR}/map/basemap-spots/{lat}_{lon}.pmtiles` (2 to 17 MB; spots are snapped to a 0.2°
 grid, so places close together share one). It checks every minute and makes two at a time, so a
 tapped spot has its detail within a minute or two, and the open map shows it without reloading.
-At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go. The server sends
-their tiles at `/api/map/basemap/{z}/{x}/{y}`. Elsewhere the map enlarges the zoom-8 tiles from
-closer up (coarser, but never blank). With room to spare, set `WF_BASEMAP_ZOOM` higher: the
-region is cut again to that zoom (12 gives every town's streets, about 7 GB and an hour or so
-to fetch; 14 and more makes the spots unneeded), and `WF_TERRAIN_ZOOM` for finer relief.
+At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go.
+
+The map gets every tile from the server, at `/api/map/basemap/{z}/{x}/{y}`: from the spot that
+holds it, else from the main file, and where neither goes that deep, cut out of the deepest tile
+above it (scaled and clipped, as MapLibre does past a source's last zoom). So the map is one
+source with no seams and never blank; it is only coarser where nobody looked yet. With room to
+spare, set `WF_BASEMAP_WORLD_ZOOM` and `WF_BASEMAP_ZOOM` higher (the region with
+`WF_BASEMAP_REGION`), and `WF_TERRAIN_ZOOM` for finer relief.
 
 Relief comes from [Mapterhorn](https://mapterhorn.com/) (elevation from national surveys and
-other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the region to
-zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (about 90 MB, renewed
+other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the whole world
+to zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (zoom 6 was 278 MB, so about 1 GB; renewed
 yearly, served at `/api/map/terrain.pmtiles`), and the map draws it as hillshade over the colour
 field and under water, roads and labels, softer from town zoom on.
 
@@ -310,7 +320,7 @@ pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pm
 ```
 
 Europe to zoom 12 is about 7 GB; the Upper Rhine to zoom 15 about 210 MB. `WF_BASEMAP=off`
-leaves the file to you. The server sends it in byte ranges (`/api/map/basemap.pmtiles`);
+leaves the file to you; the server cuts its tiles the same way where it stops.
 OpenStreetMap is credited on the map.
 
 ## Development

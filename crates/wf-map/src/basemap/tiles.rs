@@ -1,4 +1,5 @@
-//! Which tiles the basemap keeps: the map's region from afar, the spots from close up.
+//! Which tiles the basemap keeps: the whole world from afar, a region deeper, the spots from
+//! close up.
 
 use pmtiles::{TileCoord, TileId};
 
@@ -13,17 +14,38 @@ pub struct Area {
     pub max_zoom: u8,
 }
 
-/// The map's region (as the wind layers', `crate::REGION`) up to zoom 8 by default: coasts,
-/// towns and main roads, about 190 MB (`WF_BASEMAP_ZOOM`).
+impl Area {
+    pub fn bounds(&self) -> [f64; 4] {
+        [self.west, self.south, self.east, self.north]
+    }
+}
+
+/// The world up to zoom 6 by default: coasts, countries, big towns (`WF_BASEMAP_WORLD_ZOOM`)
+pub const WORLD_ZOOM: u8 = 6;
+/// The region (Europe by default, `WF_BASEMAP_REGION`) up to zoom 8 by default: coasts, towns
+/// and main roads, about 190 MB (`WF_BASEMAP_ZOOM`)
 pub const REGION_ZOOM: u8 = 8;
 /// Around a spot, up to zoom 14: streets, lakes, the beach
 pub const SPOT_ZOOM: u8 = 14;
 /// How far around a spot the detail reaches
 pub const SPOT_KM: f64 = 20.0;
+/// Web Mercator's edge, degrees north and south
+pub const MAX_LAT: f64 = 85.051_129;
 
-/// The map's region up to `zoom`.
-pub fn region(zoom: u8) -> Area {
-    let [west, south, east, north] = crate::REGION;
+/// The whole world up to `zoom`.
+pub fn world(zoom: u8) -> Area {
+    Area {
+        west: -180.0,
+        south: -MAX_LAT,
+        east: 180.0,
+        north: MAX_LAT,
+        min_zoom: 0,
+        max_zoom: zoom,
+    }
+}
+
+/// A box (west, south, east, north) up to `zoom`.
+pub fn region([west, south, east, north]: [f64; 4], zoom: u8) -> Area {
     Area {
         west,
         south,
@@ -34,7 +56,7 @@ pub fn region(zoom: u8) -> Area {
     }
 }
 
-/// The box `SPOT_KM` around a place, from `from_zoom` (just past the region's) to `SPOT_ZOOM`.
+/// The box `SPOT_KM` around a place, from `from_zoom` (just past the world's) to `SPOT_ZOOM`.
 pub fn spot(lat: f64, lon: f64, from_zoom: u8) -> Area {
     let dlat = SPOT_KM / 111.32;
     let dlon = dlat / lat.to_radians().cos().max(0.1);

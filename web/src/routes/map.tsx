@@ -45,7 +45,7 @@ function MapPage() {
   const now = useNow();
   const desktop = useMedia('(min-width: 768px)', true);
   // Made once per basemap file, not per refetch: a new one would make a new map. New detail
-  // boxes only change filters (MapCanvas `detail`).
+  // boxes only load the tiles again (MapCanvas `detail`).
   const info = index.data?.basemap ?? null;
   const relief = index.data?.terrain != null;
   const basemapKey = JSON.stringify([info && { ...info, detail: [] }, relief]);

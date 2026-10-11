@@ -9,12 +9,16 @@ export type BasemapInfo = { minZoom: number, maxZoom: number,
  */
 bounds: [number, number, number, number], 
 /**
- * The file holds all of `bounds` up to this zoom; deeper only the `detail` boxes. The map
- * enlarges the tiles of this zoom elsewhere instead of showing nothing.
+ * The file holds all of `bounds` up to this zoom; deeper only the region and the `detail`
+ * boxes. Past them the server cuts a tile from the deepest one above.
  */
 fullZoom: number, 
 /**
- * west, south, east, north of the boxes held up to `detail_zoom`, served by tile at
+ * west, south, east, north of a region held deeper, to `region_zoom`, served by tile at
  * `/api/map/basemap/{z}/{x}/{y}`
+ */
+region: [number, number, number, number] | null, regionZoom: number, 
+/**
+ * west, south, east, north of the boxes held up to `detail_zoom`, served by tile there too
  */
 detail: Array<[number, number, number, number]>, detailZoom: number, };

@@ -1,6 +1,6 @@
 //! Puts a basemap in place without the operator doing anything: from the newest Protomaps daily
-//! build, the map's region from afar, read by byte range (pmtiles crate) and written to one
-//! archive. The spots people look at get archives of their own (`spots.rs`). A file the
+//! build, the whole world from afar and a region deeper, read by byte range (pmtiles crate) and
+//! written to one archive. The spots people look at get archives of their own (`spots.rs`). A file the
 //! operator put there is never touched; ours carries a note next to it (`basemap.json`) and is
 //! renewed when it grows old.
 
@@ -39,6 +39,37 @@ pub enum Error {
     NoBuild,
 }
 
+/// What our basemap holds: the world to `world_zoom` and a region (west, south, east, north)
+/// deeper, to its zoom.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cut {
+    pub world_zoom: u8,
+    pub region: Option<([f64; 4], u8)>,
+}
+
+impl Cut {
+    /// The world, and a region only where it goes deeper.
+    pub fn new(world_zoom: u8, region: Option<[f64; 4]>, region_zoom: u8) -> Self {
+        Cut {
+            world_zoom,
+            region: region
+                .filter(|_| region_zoom > world_zoom)
+                .map(|b| (b, region_zoom)),
+        }
+    }
+
+    pub fn areas(&self) -> Vec<Area> {
+        std::iter::once(tiles::world(self.world_zoom))
+            .chain(self.region.map(|(b, z)| tiles::region(b, z)))
+            .collect()
+    }
+
+    /// The deepest zoom held everywhere in the region (or the world)
+    pub fn region_zoom(&self) -> u8 {
+        self.region.map_or(self.world_zoom, |(_, z)| z)
+    }
+}
+
 /// What our basemap was made from.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Note {
@@ -51,10 +82,26 @@ pub struct Note {
     /// The zoom the region was cut to (8 in files made before it was a setting)
     #[serde(default = "region_zoom")]
     pub zoom: u8,
+    /// The world's zoom; none in files of Europe alone, made before the map went worldwide
+    #[serde(default)]
+    pub world_zoom: Option<u8>,
+    /// The region held deeper than the world
+    #[serde(default)]
+    pub region: Option<[f64; 4]>,
 }
 
 fn region_zoom() -> u8 {
     tiles::REGION_ZOOM
+}
+
+impl Note {
+    /// What the file holds; None for a file of Europe alone.
+    pub fn cut(&self) -> Option<Cut> {
+        Some(Cut {
+            world_zoom: self.world_zoom?,
+            region: self.region.map(|b| (b, self.zoom)),
+        })
+    }
 }
 
 /// The note next to our basemap; None for an operator's file or none at all.
@@ -63,14 +110,16 @@ pub async fn read_note(root: &Path) -> Option<Note> {
     serde_json::from_slice(&bytes).ok()
 }
 
-/// Whether to make our basemap now: none there, ours grown old, cut to another zoom than asked
-/// for, or from before the spots had their own files. A file without our note is the
-/// operator's.
-pub fn due(file_exists: bool, note: Option<&Note>, zoom: u8, now: i64) -> bool {
+/// Whether to make our basemap now: none there, ours grown old, cut otherwise than asked for
+/// (zooms, region, or Europe alone from before the world), or from before the spots had their
+/// own files. A file without our note is the operator's.
+pub fn due(file_exists: bool, note: Option<&Note>, cut: &Cut, now: i64) -> bool {
     match (file_exists, note) {
         (false, _) => true,
         (true, None) => false,
-        (true, Some(n)) => !n.spots.is_empty() || n.zoom != zoom || now - n.made_at > RENEW_S,
+        (true, Some(n)) => {
+            !n.spots.is_empty() || n.cut().as_ref() != Some(cut) || now - n.made_at > RENEW_S
+        }
     }
 }
 
@@ -133,7 +182,16 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
     );
     let metadata = reader.get_metadata().await?;
     let max_zoom = areas.iter().map(|a| a.max_zoom).max().unwrap_or(0);
-    let [west, south, east, north] = crate::REGION;
+    let west = areas.iter().map(|a| a.west).fold(f64::INFINITY, f64::min);
+    let south = areas.iter().map(|a| a.south).fold(f64::INFINITY, f64::min);
+    let east = areas
+        .iter()
+        .map(|a| a.east)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let north = areas
+        .iter()
+        .map(|a| a.north)
+        .fold(f64::NEG_INFINITY, f64::max);
     let target = target.to_path_buf();
     // Tiles go to a writing thread in id order, a batch fetched at a time. The writer is made
     // there: it may not cross threads.
@@ -179,31 +237,33 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
     write.await?
 }
 
-/// Makes our basemap if it is due: the newest build, cut to the region up to `zoom`. Returns
+/// Makes our basemap if it is due: the newest build, cut to the world and the region. Returns
 /// the build used, or None when nothing was due.
 pub async fn keep_current(
     root: &Path,
     http: &reqwest::Client,
     base: &str,
-    zoom: u8,
+    cut: &Cut,
     now: i64,
 ) -> Result<Option<String>, Error> {
     let file = super::path(root);
     let note = read_note(root).await;
     let exists = tokio::fs::try_exists(&file).await.unwrap_or(false);
-    if !due(exists, note.as_ref(), zoom, now) {
+    if !due(exists, note.as_ref(), cut, now) {
         return Ok(None);
     }
     let (build, reader) = newest_build(http, base, now).await?;
     tokio::fs::create_dir_all(root).await?;
     let partial = root.join("basemap.pmtiles.part");
-    let n = copy(reader, &[tiles::region(zoom)], &partial).await?;
+    let n = copy(reader, &cut.areas(), &partial).await?;
     tokio::fs::rename(&partial, &file).await?;
     let note = Note {
         build: build.clone(),
         spots: Vec::new(),
         made_at: now,
-        zoom,
+        zoom: cut.region_zoom(),
+        world_zoom: Some(cut.world_zoom),
+        region: cut.region.map(|(b, _)| b),
     };
     tokio::fs::write(
         root.join(NOTE),
@@ -220,27 +280,54 @@ mod tests {
 
     #[test]
     fn leaves_the_operators_file_alone() {
+        let europe = [-25.0, 27.0, 45.0, 72.0];
+        let cut = Cut::new(6, Some(europe), 8);
         let ours = Note {
             build: "20261010".into(),
             spots: vec![],
             made_at: 0,
             zoom: 8,
+            world_zoom: Some(6),
+            region: Some(europe),
         };
-        assert!(due(false, None, 8, 0));
+        assert_eq!(ours.cut(), Some(cut));
+        assert!(due(false, None, &cut, 0));
         // Someone else's file
-        assert!(!due(true, None, 8, 0));
-        assert!(!due(true, Some(&ours), 8, 86_400));
-        // Old, another zoom asked for, or from before the spots had files of their own
-        assert!(due(true, Some(&ours), 8, RENEW_S + 1));
-        assert!(due(true, Some(&ours), 12, 86_400));
+        assert!(!due(true, None, &cut, 0));
+        assert!(!due(true, Some(&ours), &cut, 86_400));
+        // Old, another zoom or region asked for, or from before the spots had files of their own
+        assert!(due(true, Some(&ours), &cut, RENEW_S + 1));
+        assert!(due(
+            true,
+            Some(&ours),
+            &Cut::new(6, Some(europe), 12),
+            86_400
+        ));
+        assert!(due(
+            true,
+            Some(&ours),
+            &Cut::new(7, Some(europe), 8),
+            86_400
+        ));
+        assert!(due(true, Some(&ours), &Cut::new(6, None, 8), 86_400));
         let older = Note {
             spots: vec![[48.78, 8.08]],
             ..ours.clone()
         };
-        assert!(due(true, Some(&older), 8, 86_400));
-        // A note from before the zoom was a setting reads as zoom 8.
+        assert!(due(true, Some(&older), &cut, 86_400));
+        // A note from before the world (and the zoom setting): Europe alone at zoom 8, cut anew
         let read: Note =
             serde_json::from_str(r#"{"build":"20261011","spots":[],"made_at":1}"#).unwrap();
-        assert_eq!(read.zoom, 8);
+        assert_eq!((read.zoom, read.cut()), (8, None));
+        assert!(due(true, Some(&read), &cut, 86_400));
+    }
+
+    #[test]
+    fn holds_a_region_only_deeper_than_the_world() {
+        let europe = [-25.0, 27.0, 45.0, 72.0];
+        assert_eq!(Cut::new(6, Some(europe), 8).areas().len(), 2);
+        assert_eq!(Cut::new(8, Some(europe), 8), Cut::new(8, None, 0));
+        assert_eq!(Cut::new(8, Some(europe), 6).region_zoom(), 8);
+        assert_eq!(Cut::new(6, Some(europe), 12).region_zoom(), 12);
     }
 }

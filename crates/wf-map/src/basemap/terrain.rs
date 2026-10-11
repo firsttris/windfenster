@@ -1,7 +1,7 @@
 //! Relief under the wind: elevation tiles from Mapterhorn (terrain RGB in Terrarium encoding as
 //! 512 px WebP, open data from many national surveys; credited as "© Mapterhorn" with its list
-//! of sources), cut to the map's region up to `ZOOM` by byte range from its planet archive into
-//! `{root}/terrain.pmtiles` and renewed yearly. The map draws it as hillshade.
+//! of sources), the whole world up to `ZOOM` by byte range from its planet archive into
+//! `{root}/terrain.pmtiles`, renewed yearly. The map draws it as hillshade.
 
 use std::path::{Path, PathBuf};
 
@@ -26,6 +26,9 @@ struct Note {
     made_at: i64,
     #[serde(default = "default_zoom")]
     zoom: u8,
+    /// The whole world; false in files of Europe alone, from before the map went worldwide
+    #[serde(default)]
+    world: bool,
 }
 
 fn default_zoom() -> u8 {
@@ -36,7 +39,8 @@ pub fn path(root: &Path) -> PathBuf {
     root.join(FILE)
 }
 
-/// Makes the relief up to `zoom` if there is none, it is a year old or cut to another zoom;
+/// Makes the relief up to `zoom` if there is none, it is a year old, cut to another zoom or
+/// Europe alone;
 /// returns how many tiles it holds, or None when nothing was due. Zoom 0 removes ours (no
 /// relief). A file without our note is the operator's and stays.
 pub async fn keep_current(
@@ -61,19 +65,24 @@ pub async fn keep_current(
     let due = match (exists, &note) {
         (false, _) => true,
         (true, None) => false,
-        (true, Some(n)) => n.zoom != zoom || now - n.made_at > RENEW_S,
+        (true, Some(n)) => !n.world || n.zoom != zoom || now - n.made_at > RENEW_S,
     };
     if !due {
         return Ok(None);
     }
     let url = format!("{}/planet.pmtiles", base.trim_end_matches('/'));
     let reader = fetch::open(http, url).await?;
-    let region: Area = tiles::region(zoom.min(MAX_ZOOM));
+    let world: Area = tiles::world(zoom.min(MAX_ZOOM));
     tokio::fs::create_dir_all(root).await?;
     let partial = root.join("terrain.pmtiles.part");
-    let n = fetch::copy(reader, &[region], &partial).await?;
+    let n = fetch::copy(reader, &[world], &partial).await?;
     tokio::fs::rename(&partial, path(root)).await?;
-    let note = serde_json::to_vec(&Note { made_at: now, zoom }).map_err(std::io::Error::other)?;
+    let note = serde_json::to_vec(&Note {
+        made_at: now,
+        zoom,
+        world: true,
+    })
+    .map_err(std::io::Error::other)?;
     tokio::fs::write(root.join(NOTE), note).await?;
     tracing::info!("terrain: {n} relief tiles from Mapterhorn");
     Ok(Some(n))

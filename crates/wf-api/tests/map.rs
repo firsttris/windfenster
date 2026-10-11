@@ -215,7 +215,7 @@ async fn basemap_goes_out_in_ranges() -> Result<()> {
     let (_, _, body) = get(&app, "/api/map").await?;
     assert_eq!(
         serde_json::from_slice::<Value>(&body)?["basemap"],
-        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0], "fullZoom": 8, "detail": [], "detailZoom": 8})
+        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0], "fullZoom": 8, "region": null, "regionZoom": 8, "detail": [], "detailZoom": 8})
     );
     let res = app
         .clone()
@@ -266,12 +266,13 @@ async fn series_reads_a_place_over_the_hours() -> Result<()> {
 }
 
 #[tokio::test]
-async fn detail_tiles_come_from_the_spots() -> Result<()> {
+async fn basemap_tiles_come_from_the_spots_or_from_above() -> Result<()> {
     let (dir, app) = app(true).await?;
     let map = dir.path().join("map");
+    let world = wf_map::testing::vector_tile(&[(0, 0)]);
     std::fs::write(
         map.join("basemap.pmtiles"),
-        wf_map::testing::archive(&[(0, 0, 0, b"world"), (8, 133, 88, b"rhine")]),
+        wf_map::testing::archive(&[(0, 0, 0, &world), (8, 133, 88, b"rhine")]),
     )?;
     std::fs::create_dir_all(map.join("basemap-spots"))?;
     std::fs::write(
@@ -284,8 +285,12 @@ async fn detail_tiles_come_from_the_spots() -> Result<()> {
     assert_eq!(body, b"runway");
     let (_, _, body) = get(&app, "/api/map/basemap/8/133/88").await?;
     assert_eq!(body, b"rhine");
-    // Where nobody looked: none, the map enlarges the region's tile.
-    let (status, _, _) = get(&app, "/api/map/basemap/14/0/0").await?;
+    // Where nobody looked: the world's tile cut down, for a short while
+    let (status, cache, body) = get(&app, "/api/map/basemap/14/0/0").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cache.as_deref(), Some("public, max-age=600"));
+    assert_eq!(wf_map::testing::points_in(&body), Some(vec![(0.0, 0.0)]));
+    let (status, _, _) = get(&app, "/api/map/basemap/17/0/0").await?;
     assert_eq!(status, StatusCode::NOT_FOUND);
     Ok(())
 }

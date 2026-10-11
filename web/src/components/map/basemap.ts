@@ -1,18 +1,11 @@
 /**
- * The map under the wind: the operator's detailed basemap (Protomaps PMTiles) when there is
- * one, else Europe from Natural Earth. Both with labels in Noto Sans, recoloured for the theme
+ * The map under the wind: the detailed basemap (Protomaps, served by tile) when there is one,
+ * else the world from Natural Earth. Both with labels in Noto Sans, recoloured for the theme
  * without touching the wind layers on top.
  */
-import type {
-  FilterSpecification,
-  GeoJSONSource,
-  LayerSpecification,
-  Map as MapLibreMap,
-  StyleSpecification,
-} from 'maplibre-gl';
+import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import type { BasemapInfo } from '@/bindings/BasemapInfo';
 import type { Theme } from '@/lib/prefs';
-import { hasDetail, splitFilters, splitLayers, splitPaint, splitSources } from './basemap-detail';
 import {
   NATURAL_EARTH_ABOVE_FIELD,
   naturalEarthLayers,
@@ -22,14 +15,16 @@ import {
 import { PALETTES, type PaintProperty, type ThemePaint } from './palette';
 import {
   PROTOMAPS_ABOVE_FIELD,
-  PROTOMAPS_ATTRIBUTION,
+  PROTOMAPS_SOURCE,
   protomapsLayers,
   protomapsPaint,
   protomapsSources,
 } from './protomaps-style';
 
-/** Where the Natural Earth basemap has data */
-export const BASEMAP_BOUNDS: [number, number, number, number] = [-25, 27, 45, 72];
+/** The whole world, as far as Web Mercator goes */
+export const WORLD_BOUNDS: [number, number, number, number] = [-180, -85.051129, 180, 85.051129];
+/** Deepest zoom the server sends basemap tiles for: the spots' (cut from above elsewhere) */
+const TILE_ZOOM = 14;
 
 /** One of the two basemaps */
 export interface Basemap {
@@ -40,8 +35,13 @@ export interface Basemap {
   bounds: [number, number, number, number];
   /** Closest zoom worth showing: vector tiles stay sharp a few levels past their data */
   maxZoom: number;
-  /** Filters for new detail boxes, set on the map as they come (basemap-detail.ts) */
-  detailFilters?: (detail: readonly (readonly [number, number, number, number])[]) => [string, FilterSpecification][];
+  /** The vector source to load again when the server has new detail */
+  tileSource?: string;
+}
+
+/** Whether the basemap goes once around the world, so the map shows its copies side by side */
+export function isWorld(b: Pick<Basemap, 'bounds'>): boolean {
+  return b.bounds[2] - b.bounds[0] >= 359;
 }
 
 const DOMAIN: LayerSpecification = {
@@ -74,26 +74,17 @@ function style(
 /** The basemap to draw: the detailed one if the server has it. */
 export function basemapFor(info: BasemapInfo | null): Basemap {
   if (info) {
-    // Our own file: the region whole, the spots deeper (basemap-detail.ts)
-    const split = hasDetail(info);
-    const paint = (theme: Theme) => {
-      const p = withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line);
-      return split ? splitPaint(p) : p;
-    };
+    // Tiles of any zoom from the server: the world, the region deeper, the spots deeper still
+    const zoom = Math.max(info.maxZoom, info.detailZoom, TILE_ZOOM);
+    const bounds = info.bounds as [number, number, number, number];
+    const paint = (theme: Theme) => withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line);
     return {
-      style: (theme, lang) =>
-        split
-          ? style(
-              splitSources(info, PROTOMAPS_ATTRIBUTION),
-              splitLayers(protomapsLayers(lang), info.detail),
-              paint(theme),
-            )
-          : style(protomapsSources(), protomapsLayers(lang), paint(theme)),
+      style: (theme, lang) => style(protomapsSources(zoom, bounds), protomapsLayers(lang), paint(theme)),
       aboveField: PROTOMAPS_ABOVE_FIELD,
       paint,
-      bounds: info.bounds as [number, number, number, number],
-      maxZoom: Math.min(16, Math.max(info.maxZoom, info.detailZoom) + 3),
-      detailFilters: split ? (detail) => splitFilters(protomapsLayers('en'), detail) : undefined,
+      bounds,
+      maxZoom: Math.min(16, zoom + 3),
+      tileSource: PROTOMAPS_SOURCE,
     };
   }
   return {
@@ -105,7 +96,7 @@ export function basemapFor(info: BasemapInfo | null): Basemap {
       ),
     aboveField: NATURAL_EARTH_ABOVE_FIELD,
     paint: (theme) => withDomain(naturalEarthPaint(PALETTES[theme]), PALETTES[theme].line),
-    bounds: BASEMAP_BOUNDS,
+    bounds: WORLD_BOUNDS,
     maxZoom: 11,
   };
 }

@@ -13,7 +13,7 @@ import { viewOf } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
-import { applyTheme, type Basemap, setDomain } from './basemap';
+import { applyTheme, type Basemap, isWorld, setDomain } from './basemap';
 import { HoverReadout } from './hover-readout';
 import { type Particles, particles } from './particles';
 import { openCluster, PIN_LAYERS, pinTheme, setPins } from './pins';
@@ -86,22 +86,27 @@ export function MapCanvas({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the map is made once; theme and layer follow below
   useEffect(() => {
     if (!container.current) return;
+    const world = isWorld(basemap);
     const mp = new MapLibreMap({
       container: container.current,
       style: basemap.style(theme, getLocale()),
       bounds: START,
       // The view in the address (#zoom/lat/lon), to share or come back to
       hash: true,
-      maxBounds: [
-        [basemap.bounds[0], basemap.bounds[1]],
-        [basemap.bounds[2], basemap.bounds[3]],
-      ],
-      minZoom: 2.5,
+      // Around the world the map pans on past 180° (its copies side by side); a basemap of one
+      // region keeps the view on it.
+      maxBounds: world
+        ? undefined
+        : [
+            [basemap.bounds[0], basemap.bounds[1]],
+            [basemap.bounds[2], basemap.bounds[3]],
+          ],
+      minZoom: world ? 1.5 : 2.5,
       maxZoom: basemap.maxZoom,
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
-      renderWorldCopies: false,
+      renderWorldCopies: world,
       attributionControl: false,
       locale: { 'Map.Title': m.map_title() },
     });
@@ -212,17 +217,16 @@ export function MapCanvas({
 
   const detailKey = JSON.stringify(detail);
   const detailShown = useRef(detailKey);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for `detail`
+  const detailRound = useRef(0);
   useEffect(() => {
     const mp = map.current;
-    if (!ready || !mp || !basemap.detailFilters || detailShown.current === detailKey) return;
+    if (!ready || !mp || !basemap.tileSource || detailShown.current === detailKey) return;
     detailShown.current = detailKey;
-    for (const [id, filter] of basemap.detailFilters(detail)) {
-      if (mp.getLayer(id)) mp.setFilter(id, filter);
-    }
-    // Tiles asked for before the detail was there came back empty: ask again.
-    const near = mp.getSource<VectorTileSource>('pm-near');
-    if (near?.tiles) near.setTiles(near.tiles);
+    // Tiles asked for before the detail was there were cut from coarser ones: ask again, past
+    // the browser's cache.
+    const source = mp.getSource<VectorTileSource>(basemap.tileSource);
+    detailRound.current += 1;
+    if (source?.tiles) source.setTiles(source.tiles.map((t) => `${t.split('?')[0]}?d=${detailRound.current}`));
   }, [ready, basemap, detailKey]);
 
   useEffect(() => {

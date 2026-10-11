@@ -89,3 +89,13 @@ pub fn message(
     out.extend(b"7777");
     out
 }
+
+/// A vector tile of one layer, "places", with a point at each of `points` (tile units of 4096).
+pub fn vector_tile(points: &[(u32, u32)]) -> Vec<u8> {
+    crate::basemap::mvt::places(points)
+}
+
+/// The points of such a tile; None when it is no vector tile.
+pub fn points_in(tile: &[u8]) -> Option<Vec<(f64, f64)>> {
+    crate::basemap::mvt::places_in(tile)
+}

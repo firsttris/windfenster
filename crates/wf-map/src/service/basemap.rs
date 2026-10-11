@@ -1,7 +1,7 @@
-//! The basemap's background work: the region and its relief renewed when they grow old, and
-//! detail fetched for
-//! the spots people look at (tracked stations, places opened in the last week, spots tapped on
-//! the map), a few per round so Protomaps is not asked for much at once.
+//! The basemap's background work: the world, the region and the relief renewed when they grow
+//! old, and detail fetched for the spots people look at anywhere (tracked stations, places
+//! opened in the last week, spots tapped on the map), a few per round so Protomaps is not asked
+//! for much at once.
 
 use std::time::{Duration, SystemTime};
 
@@ -21,8 +21,8 @@ const WANTED_S: i64 = 7 * 86_400;
 impl MapData {
     /// A spot tapped on the map: its detail comes within a minute or two.
     pub fn want(&self, lat: f64, lon: f64) {
-        let [west, south, east, north] = super::REGION;
-        if !(south..=north).contains(&lat) || !(west..=east).contains(&lon) {
+        let max = crate::basemap::tiles::MAX_LAT;
+        if !(-max..=max).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
             return;
         }
         let spot = Spot::of(lat, lon);
@@ -53,7 +53,7 @@ impl MapData {
                     &self.root,
                     &self.http,
                     &self.urls.protomaps,
-                    self.depth.region_zoom,
+                    &self.depth.cut(),
                     now,
                 )
                 .await
@@ -89,9 +89,8 @@ impl MapData {
         db: &wf_core::db::Db,
         now: i64,
     ) -> Result<(), crate::basemap::fetch::Error> {
-        // An operator's file, or a region as deep as the spots: nothing to add
-        let deep = self.depth.region_zoom >= crate::basemap::tiles::SPOT_ZOOM;
-        if deep || crate::basemap::fetch::read_note(&self.root).await.is_none() {
+        // An operator's file: nothing to add
+        if crate::basemap::fetch::read_note(&self.root).await.is_none() {
             return Ok(());
         }
         let places = wf_core::forecast::hot_places(db, now - WANTED_S)
@@ -104,7 +103,20 @@ impl MapData {
                 .map(|(s, _)| (s.lat, s.lon))
                 .collect()
         };
-        let wanted = spots::spots_of(places.iter().map(|p| (p.lat(), p.lon())).chain(tapped));
+        // Not in a region as deep as the spots themselves
+        let cut = self.depth.cut();
+        let deep = |s: &Spot| {
+            cut.region.is_some_and(|([w, south, e, n], z)| {
+                z >= crate::basemap::tiles::SPOT_ZOOM
+                    && (south..=n).contains(&s.lat)
+                    && (w..=e).contains(&s.lon)
+            })
+        };
+        let wanted: Vec<Spot> =
+            spots::spots_of(places.iter().map(|p| (p.lat(), p.lon())).chain(tapped))
+                .into_iter()
+                .filter(|s| !deep(s))
+                .collect();
         let have = spots::on_disk(&self.root).await;
         let (missing, touch, remove) = spots::plan(
             &wanted,
@@ -113,7 +125,9 @@ impl MapData {
             PER_ROUND.min(self.depth.max_spots),
             self.depth.max_spots,
         );
-        let from_zoom = self.depth.region_zoom + 1;
+        // Just past the world's zoom: in the region the main file has those too, elsewhere only
+        // the spot
+        let from_zoom = cut.world_zoom + 1;
         for spot in missing {
             let n = spots::make(
                 &self.root,

@@ -39,6 +39,33 @@ enum Command {
     Probe(ProbeArgs),
 }
 
+/// `WF_BASEMAP_REGION`: a box, or none
+#[derive(Debug, Clone, Copy)]
+struct Region(Option<[f64; 4]>);
+
+fn parse_region(s: &str) -> Result<Region, String> {
+    if s.eq_ignore_ascii_case("none") {
+        return Ok(Region(None));
+    }
+    let v: Vec<f64> = s
+        .split(',')
+        .map(|p| p.trim().parse::<f64>().map_err(|e| e.to_string()))
+        .collect::<Result<_, _>>()?;
+    match v[..] {
+        [w, south, e, n]
+            if (-180.0..=180.0).contains(&w)
+                && (-180.0..=180.0).contains(&e)
+                && (-90.0..=90.0).contains(&south)
+                && (-90.0..=90.0).contains(&n)
+                && w < e
+                && south < n =>
+        {
+            Ok(Region(Some([w, south, e, n])))
+        }
+        _ => Err("expected west,south,east,north in degrees, or none".into()),
+    }
+}
+
 #[derive(Args)]
 struct DataArgs {
     /// Directory for the database and the map textures.
@@ -104,12 +131,20 @@ struct ServeArgs {
     #[arg(long, env = "WF_MAP", default_value_t = true, action = clap::ArgAction::Set)]
     map: bool,
     /// The map's detailed basemap and relief: `auto` cuts them from Protomaps' daily build and
-    /// Mapterhorn's elevation (the region to `WF_BASEMAP_ZOOM`, 20 km around places people look
-    /// at to zoom 14) unless the operator put one in place; `off` leaves it to the operator.
+    /// Mapterhorn's elevation (the world to `WF_BASEMAP_WORLD_ZOOM`, the region to
+    /// `WF_BASEMAP_ZOOM`, 20 km around places people look at to zoom 14) unless the operator
+    /// put one in place; `off` leaves it to the operator.
     #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
     basemap: String,
-    /// How deep the basemap covers the whole region: 8 is about 190 MB, every level about four
-    /// times more (12 about 7 GB); from 14 on no spots are needed.
+    /// How deep the basemap covers the whole world; every level about four times more.
+    #[arg(long, env = "WF_BASEMAP_WORLD_ZOOM", default_value_t = 6, value_parser = clap::value_parser!(u8).range(4..=12))]
+    basemap_world_zoom: u8,
+    /// The region the basemap covers deeper, `west,south,east,north` in degrees (Europe by
+    /// default), or `none`.
+    #[arg(long, env = "WF_BASEMAP_REGION", default_value = "-25,27,45,72", value_parser = parse_region)]
+    basemap_region: Region,
+    /// How deep the basemap covers the region: 8 is about 190 MB for Europe, every level about
+    /// four times more (12 about 7 GB); from 14 on no spots are needed there.
     #[arg(long, env = "WF_BASEMAP_ZOOM", default_value_t = 8, value_parser = clap::value_parser!(u8).range(6..=15))]
     basemap_zoom: u8,
     /// Spots with detail to zoom 14 kept at most, about 10 MB each; 0 makes none.
@@ -216,6 +251,8 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 wf_map::Urls::default(),
             )
             .with_depth(wf_map::basemap::Depth {
+                world_zoom: args.basemap_world_zoom,
+                region: args.basemap_region.0,
                 region_zoom: args.basemap_zoom,
                 max_spots: args.basemap_spots,
                 terrain_zoom: args.terrain_zoom,
@@ -336,5 +373,26 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = ctrl_c => {},
         _ = term => {},
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_region() {
+        assert_eq!(
+            parse_region("-25,27,45,72").unwrap().0,
+            Some([-25.0, 27.0, 45.0, 72.0])
+        );
+        assert_eq!(
+            parse_region(" -10, 30 ,5,45").unwrap().0,
+            Some([-10.0, 30.0, 5.0, 45.0])
+        );
+        assert_eq!(parse_region("none").unwrap().0, None);
+        for bad in ["", "1,2,3", "45,27,-25,72", "-25,27,45,95", "a,b,c,d"] {
+            assert!(parse_region(bad).is_err(), "{bad}");
+        }
     }
 }

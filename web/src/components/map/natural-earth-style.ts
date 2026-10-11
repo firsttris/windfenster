@@ -1,6 +1,7 @@
 /**
- * The fallback basemap: Europe from Natural Earth (public domain, scripts/natural-earth.mjs),
- * enough from afar, coarse from close up. Used while no detailed basemap is installed.
+ * The fallback basemap: the world from Natural Earth (public domain, scripts/natural-earth.mjs),
+ * Europe finer, enough from afar, coarse from close up. Used while no detailed basemap is
+ * installed.
  */
 import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl';
 import naturalEarth from '@/assets/natural-earth.json?url';
@@ -66,7 +67,8 @@ export function naturalEarthLayers(lang: string): LayerSpecification[] {
       id: 'coast',
       type: 'line',
       source: 'ne',
-      filter: ['any', kind('land'), kind('lake')],
+      // Land is only filled; coasts are lines of their own, lakes drawn round.
+      filter: ['any', kind('coast'), kind('lake')],
       paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.7, 10, 1.6] },
     },
     {
