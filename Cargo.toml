@@ -28,6 +28,8 @@ dotenvy = "0.15"
 flate2 = "1"
 hex = "0.4"
 mime_guess = "2"
+# Built into the binary (webauthn-rs needs OpenSSL): no system library in the image
+openssl = { version = "0.10", features = ["vendored"] }
 moka = { version = "0.12", features = ["future"] }
 png = "0.18"
 pmtiles = { version = "0.24", default-features = false, features = ["__async", "write"] }
@@ -45,6 +47,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ts-rs = "12"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 unicode-normalization = "0.1"
+# Passkeys; conditional-ui for the sign-in offered by the browser's autofill
+webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
 tempfile = "3"
 
 [profile.release]

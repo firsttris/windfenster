@@ -1,7 +1,9 @@
 //! The HTTP side of Windfenster: JSON API under `/api`, station pages with meta tags,
 //! everything else is the SPA.
 
+pub mod auth;
 mod error;
+pub mod favorites;
 pub mod forecast;
 pub mod history;
 pub mod live;
@@ -16,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::State;
-use axum::routing::get;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Serialize;
 use sqlx::SqlitePool;
@@ -50,6 +52,8 @@ pub struct AppState {
     pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     pub dev_ui: Option<String>,
+    /// Signing in with passkeys; off without an address they could belong to.
+    passkeys: Option<Arc<auth::Passkeys>>,
     cache: forecast::ForecastCache,
     places: search::PlaceCache,
     /// Places whose request time was written within the last hour.
@@ -80,6 +84,7 @@ impl AppState {
             geocoder,
             measurements,
             map: None,
+            passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
             public_url,
             dev_ui,
             cache,
@@ -140,6 +145,23 @@ pub fn router(state: AppState) -> Router {
         .route("/map/terrain.pmtiles", get(map::terrain))
         .route("/map/basemap/{z}/{x}/{y}", get(map::basemap_tile))
         .route("/map/{model}/{run}/{file}", get(map::file))
+        .route(
+            "/me",
+            get(auth::me).patch(auth::rename_me).delete(auth::delete_me),
+        )
+        .route("/auth/signup", post(auth::sign_up))
+        .route("/auth/signup/finish", post(auth::finish_sign_up))
+        .route("/auth/signin", post(auth::sign_in))
+        .route("/auth/signin/finish", post(auth::finish_sign_in))
+        .route("/auth/passkeys", post(auth::add_passkey))
+        .route("/auth/passkeys/finish", post(auth::finish_add_passkey))
+        .route("/auth/signout", post(auth::sign_out))
+        .route("/favorites", get(favorites::list).post(favorites::add))
+        .route("/favorites/order", put(favorites::reorder))
+        .route(
+            "/favorites/{id}",
+            put(favorites::change).delete(favorites::remove),
+        )
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)

@@ -26,6 +26,12 @@ export const errorText: Record<ErrorCode, () => string> = {
   not_found: m.error_notFound,
   invalid_coordinates: m.error_invalidCoordinates,
   invalid_range: m.error_invalidRange,
+  signed_out: m.error_signedOut,
+  passkeys_off: m.error_passkeysOff,
+  passkey_rejected: m.error_passkeyRejected,
+  invalid_name: m.error_invalidName,
+  invalid_favorite: m.error_invalidFavorite,
+  too_many_favorites: m.error_tooManyFavorites,
   internal: m.error_internal,
 };
 

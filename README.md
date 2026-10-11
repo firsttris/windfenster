@@ -144,7 +144,7 @@ What follows:
 |---|---|---|
 | `WF_DATA_DIR` | `/data` | Database and map textures |
 | `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
-| `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages |
+| `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages and the passkeys' domain; without it passkeys work on `http://localhost:8080` only |
 | `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
 | `OPEN_METEO_BASE_URL` | | Own Open-Meteo instance |
 | `OPEN_METEO_GEOCODING_URL` | | Own Open-Meteo geocoding instance (place search) |
@@ -224,6 +224,22 @@ the TAF counts as a model of its own, from its issue time.
 - **Do the models agree?** The spread (highest minus lowest mean wind) of the models at the
   windiest daytime hour of the next two days: up to 4 kn high, up to 8 kn medium, above that
   low. The trend days 8–10 show the same as a dot.
+
+### Accounts and favourites
+
+Signing in uses passkeys only (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
+on the server, OpenSSL built into the binary): an account is a name and one or more passkeys,
+no e-mail and no password. Passkeys are made discoverable, so the browser offers them in the
+sign-in field by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain
+later makes them useless, so set it before the first sign-up. A session is a random token in an
+HTTP-only cookie (half a year, renewed while used; only its SHA-256 is stored). Signed in, a
+user keeps up to 100 favourites: stations or points, each with an own name and optionally the
+wind directions that work there.
+
+API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signin` and
+`/signin/finish`, `POST /api/auth/passkeys` (another passkey) and `/passkeys/finish`,
+`POST /api/auth/signout`; `GET`, `PATCH`, `DELETE /api/me`; `GET`, `POST /api/favorites`,
+`PUT`, `DELETE /api/favorites/{id}`, `PUT /api/favorites/order`.
 
 ### How the wind map is fed
 

@@ -13,6 +13,17 @@ pub enum ErrorCode {
     InvalidCoordinates,
     /// A time span that is reversed or too long
     InvalidRange,
+    /// The request needs a signed-in user
+    SignedOut,
+    /// This server has no public address passkeys could belong to
+    PasskeysOff,
+    /// The passkey's answer did not check out, or the ceremony ran out
+    PasskeyRejected,
+    /// A name that is empty or longer than 60 characters
+    InvalidName,
+    /// Wind directions outside 0–359
+    InvalidFavorite,
+    TooManyFavorites,
     Internal,
 }
 
@@ -28,6 +39,12 @@ pub enum ApiError {
     NotFound,
     InvalidCoordinates,
     InvalidRange,
+    SignedOut,
+    PasskeysOff,
+    PasskeyRejected,
+    InvalidName,
+    InvalidFavorite,
+    TooManyFavorites,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -58,6 +75,12 @@ impl IntoResponse for ApiError {
                 (StatusCode::BAD_REQUEST, ErrorCode::InvalidCoordinates)
             }
             ApiError::InvalidRange => (StatusCode::BAD_REQUEST, ErrorCode::InvalidRange),
+            ApiError::SignedOut => (StatusCode::UNAUTHORIZED, ErrorCode::SignedOut),
+            ApiError::PasskeysOff => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::PasskeysOff),
+            ApiError::PasskeyRejected => (StatusCode::BAD_REQUEST, ErrorCode::PasskeyRejected),
+            ApiError::InvalidName => (StatusCode::BAD_REQUEST, ErrorCode::InvalidName),
+            ApiError::InvalidFavorite => (StatusCode::BAD_REQUEST, ErrorCode::InvalidFavorite),
+            ApiError::TooManyFavorites => (StatusCode::CONFLICT, ErrorCode::TooManyFavorites),
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");
                 (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)

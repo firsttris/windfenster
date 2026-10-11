@@ -17,6 +17,7 @@ axum.workspace = true
 hex.workspace = true
 mime_guess.workspace = true
 moka.workspace = true
+openssl.workspace = true
 rust-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,6 +27,7 @@ tower.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 ts-rs.workspace = true
+webauthn-rs.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true
