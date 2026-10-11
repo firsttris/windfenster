@@ -4,16 +4,20 @@ import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Health } from '@/bindings/Health';
 import type { Model } from '@/bindings/Model';
 
-export class ApiError extends Error {
-  readonly status: number;
-  /** The server's code, or `null` when the answer came from somewhere else (proxy, network). */
-  readonly code: ErrorCode | null;
+/** A failed API request: the HTTP status and the server's code (`null` when the answer came
+ * from somewhere else, e.g. a proxy). Thrown, because TanStack Query expects rejections. */
+export interface ApiError extends Error {
+  name: 'ApiError';
+  status: number;
+  code: ErrorCode | null;
+}
 
-  constructor(status: number, code: ErrorCode | null) {
-    super(code ?? `HTTP ${status}`);
-    this.status = status;
-    this.code = code;
-  }
+export function apiError(status: number, code: ErrorCode | null): ApiError {
+  return Object.assign(new Error(code ?? `HTTP ${status}`), { name: 'ApiError' as const, status, code });
+}
+
+export function isApiError(e: unknown): e is ApiError {
+  return e instanceof Error && e.name === 'ApiError';
 }
 
 /** GET on the Windfenster API; non-2xx answers throw an ApiError with the server's code. */
@@ -26,7 +30,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // not JSON, e.g. a proxy error page
     }
-    throw new ApiError(res.status, code);
+    throw apiError(res.status, code);
   }
   return (await res.json()) as T;
 }

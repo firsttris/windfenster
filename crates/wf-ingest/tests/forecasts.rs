@@ -32,7 +32,7 @@ async fn forecast(
     fake.calls.fetch_add(1, Ordering::SeqCst);
     let lat: f64 = q["latitude"].parse().unwrap();
     let models: Vec<&str> = q["models"].split(',').collect();
-    let start = 1_791_626_400_i64; // 2026-10-10 22:00 UTC = local midnight in Berlin
+    let start = 1_791_669_600_i64; // 2026-10-10 22:00 UTC = local midnight in Berlin
     let times: Vec<i64> = (0..48).map(|h| start + h * 3600).collect();
     let mut hourly = serde_json::Map::new();
     hourly.insert("time".into(), times.into());

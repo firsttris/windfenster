@@ -10,7 +10,7 @@ import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Notice } from '@/bindings/Notice';
 import { m } from '@/paraglide/messages';
 import { getLocale, locales, setLocale, type Locale } from '@/paraglide/runtime';
-import { ApiError } from './api';
+import { isApiError } from './api';
 
 export { getLocale, locales, setLocale, type Locale };
 
@@ -35,6 +35,6 @@ export const noticeText: Record<Notice, () => string> = {
 
 /** A failed request in words: the server's code, or that it could not be reached. */
 export function describeError(error: unknown): string {
-  if (error instanceof ApiError && error.code) return errorText[error.code]();
+  if (isApiError(error) && error.code) return errorText[error.code]();
   return m.error_unreachable();
 }
