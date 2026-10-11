@@ -170,7 +170,8 @@ then checked daily: from Protomaps' newest daily build it takes the map's region
 (coasts, towns, main roads; about 190 MB) and 20 km around each tracked station
 (`WF_TRACKED_STATIONS`) up to zoom 14 (streets, lakes, beaches), by byte range, into one file. A
 note next to it (`basemap.json`) says what it was made from; it is made again when the tracked
-stations change or after 120 days.
+stations change or after 120 days. Away from the stations the map enlarges the zoom-8 tiles from
+closer up (coarser, but never blank); around them it shows every detail.
 
 A file you put there yourself (no note next to it) is never replaced. To cover more, cut one
 with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image

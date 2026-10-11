@@ -7,4 +7,13 @@ export type BasemapInfo = { minZoom: number, maxZoom: number,
 /**
  * west, south, east, north in degrees
  */
-bounds: [number, number, number, number], };
+bounds: [number, number, number, number], 
+/**
+ * The file holds all of `bounds` up to this zoom; deeper only the `detail` boxes. The map
+ * enlarges the tiles of this zoom elsewhere instead of showing nothing.
+ */
+fullZoom: number, 
+/**
+ * west, south, east, north of the boxes held up to `max_zoom`
+ */
+detail: Array<[number, number, number, number]>, };

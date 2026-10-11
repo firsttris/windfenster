@@ -6,6 +6,7 @@
 import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import type { BasemapInfo } from '@/bindings/BasemapInfo';
 import type { Theme } from '@/lib/prefs';
+import { splitLayers, splitPaint, splitSources } from './basemap-detail';
 import {
   NATURAL_EARTH_ABOVE_FIELD,
   naturalEarthLayers,
@@ -13,7 +14,13 @@ import {
   naturalEarthSources,
 } from './natural-earth-style';
 import { PALETTES, type PaintProperty, type ThemePaint } from './palette';
-import { PROTOMAPS_ABOVE_FIELD, protomapsLayers, protomapsPaint, protomapsSources } from './protomaps-style';
+import {
+  PROTOMAPS_ABOVE_FIELD,
+  PROTOMAPS_ATTRIBUTION,
+  protomapsLayers,
+  protomapsPaint,
+  protomapsSources,
+} from './protomaps-style';
 
 /** Where the Natural Earth basemap has data */
 export const BASEMAP_BOUNDS: [number, number, number, number] = [-25, 27, 45, 72];
@@ -59,15 +66,19 @@ function style(
 /** The basemap to draw: the detailed one if the server has it. */
 export function basemapFor(info: BasemapInfo | null): Basemap {
   if (info) {
+    // Our own file: the region whole, the spots deeper (basemap-detail.ts)
+    const split = info.detail.length > 0;
+    const paint = (theme: Theme) => {
+      const p = withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line);
+      return split ? splitPaint(p) : p;
+    };
     return {
       style: (theme, lang) =>
-        style(
-          protomapsSources(),
-          protomapsLayers(lang),
-          withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line),
-        ),
+        split
+          ? style(splitSources(info, PROTOMAPS_ATTRIBUTION), splitLayers(protomapsLayers(lang), info), paint(theme))
+          : style(protomapsSources(), protomapsLayers(lang), paint(theme)),
       aboveField: PROTOMAPS_ABOVE_FIELD,
-      paint: (theme) => withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line),
+      paint,
       bounds: info.bounds as [number, number, number, number],
       maxZoom: Math.min(16, info.maxZoom + 3),
     };

@@ -214,7 +214,7 @@ async fn basemap_goes_out_in_ranges() -> Result<()> {
     let (_, _, body) = get(&app, "/api/map").await?;
     assert_eq!(
         serde_json::from_slice::<Value>(&body)?["basemap"],
-        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0]})
+        json!({"minZoom": 0, "maxZoom": 8, "bounds": [-25.0, 27.0, 45.0, 72.0], "fullZoom": 8, "detail": []})
     );
     let res = app
         .clone()

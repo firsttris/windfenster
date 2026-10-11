@@ -10,8 +10,8 @@ import type { ExpressionSpecification, LayerSpecification, StyleSpecification } 
 import { TOWN_FROM, TOWN_TO } from '@/lib/town-zoom';
 import type { Palette, ThemePaint } from './palette';
 
-/** The colour field goes under this layer: rivers, roads, borders and places lie above. */
-export const PROTOMAPS_ABOVE_FIELD = 'water-lines';
+/** The colour field goes under this layer: lakes, rivers, roads, borders and places lie above. */
+export const PROTOMAPS_ABOVE_FIELD = 'water-inland';
 
 const SOURCE = 'pm';
 
@@ -90,7 +90,8 @@ export function protomapsPaint(p: Palette): ThemePaint {
     landuse: { 'fill-color': landuseColor(p) },
     water: { 'fill-color': near(p.sea, p.near.sea) },
     buildings: { 'fill-color': p.near.buildings },
-    'water-lines': { 'line-color': near(p.river, p.near.river) },
+    'water-inland': { 'fill-color': p.inland },
+    'water-lines': { 'line-color': near(p.inland, p.near.river) },
     coast: { 'line-color': p.coast },
     'roads-minor': { 'line-color': p.minor },
     'roads-major': { 'line-color': p.major },
@@ -148,6 +149,23 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
       paint: { 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14.5, 1] },
     },
     // — the wind field —
+    // Lakes and rivers stand out over the field, as on Windfinder and Windy; the sea stays wind.
+    // From town zoom on the field is gone and the water under it shows.
+    {
+      id: 'water-inland',
+      type: 'fill',
+      source: SOURCE,
+      'source-layer': 'water',
+      minzoom: 5,
+      filter: [
+        'all',
+        ['==', ['geometry-type'], 'Polygon'],
+        ['!', ['in', ['get', 'kind'], ['literal', ['ocean', 'sea']]]],
+      ],
+      paint: {
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0, 7, 1, TOWN_FROM, 1, TOWN_TO, 0],
+      },
+    },
     {
       id: 'water-lines',
       type: 'line',
@@ -159,14 +177,15 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
         ['==', ['geometry-type'], 'LineString'],
         ['in', ['get', 'kind'], ['literal', ['river', 'canal']]],
       ],
-      paint: { 'line-width': width(8, 0.6, 14, 3) },
+      paint: { 'line-width': width(8, 0.9, 14, 3) },
     },
     {
+      // Only the sea's: lakes stand out by their fill
       id: 'coast',
       type: 'line',
       source: SOURCE,
       'source-layer': 'water',
-      filter: ['==', ['geometry-type'], 'Polygon'],
+      filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['in', ['get', 'kind'], ['literal', ['ocean', 'sea']]]],
       paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.6, 12, 1.4] },
     },
     road('roads-minor', ['minor_road'], 11, width(11, 0.4, 16, 3)),
@@ -255,13 +274,15 @@ export function protomapsLayers(lang: string): LayerSpecification[] {
   ];
 }
 
+export const PROTOMAPS_ATTRIBUTION =
+  '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a> · <a href="https://protomaps.com">Protomaps</a>';
+
 export function protomapsSources(): StyleSpecification['sources'] {
   return {
     [SOURCE]: {
       type: 'vector',
       url: `pmtiles://${location.origin}/api/map/basemap.pmtiles`,
-      attribution:
-        '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a> · <a href="https://protomaps.com">Protomaps</a>',
+      attribution: PROTOMAPS_ATTRIBUTION,
     },
   };
 }

@@ -102,6 +102,9 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
     let made = std::fs::read(basemap::path(dir.path())).unwrap();
     let info = basemap::read_header(&made).unwrap();
     assert_eq!((info.min_zoom, info.max_zoom), (0, 14));
+    // All of the region to zoom 8, deeper only around the spot
+    let ours = basemap::info(dir.path()).await.unwrap();
+    assert_eq!((ours.full_zoom, ours.detail.len()), (8, 1));
     let reader = AsyncPmTilesReader::try_from_source(Memory(made))
         .await
         .unwrap();
@@ -139,4 +142,6 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
         .await
         .unwrap();
     assert_eq!(theirs, None);
+    let theirs = basemap::info(dir.path()).await.unwrap();
+    assert_eq!((theirs.full_zoom, theirs.detail.len()), (14, 0));
 }

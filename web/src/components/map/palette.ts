@@ -19,6 +19,8 @@ export interface Palette {
   text: string;
   halo: string;
   water: string;
+  /** Lakes and rivers over the colour field */
+  inland: string;
   near: NearPalette;
 }
 
@@ -52,6 +54,7 @@ export const PALETTES: Record<Theme, Palette> = {
     text: '#f4f4f5',
     halo: 'rgba(9,9,11,0.78)',
     water: '#9db7d8',
+    inland: 'rgba(9,24,42,0.8)',
     near: {
       land: '#1c1e1d',
       sea: '#14263a',
@@ -80,6 +83,7 @@ export const PALETTES: Record<Theme, Palette> = {
     text: '#18181b',
     halo: 'rgba(255,255,255,0.85)',
     water: '#3f6a9a',
+    inland: 'rgba(40,88,140,0.66)',
     near: {
       land: '#f1eee6',
       sea: '#a9cff0',

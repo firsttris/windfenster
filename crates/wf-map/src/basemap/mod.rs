@@ -20,6 +20,11 @@ pub struct BasemapInfo {
     pub max_zoom: u8,
     /// west, south, east, north in degrees
     pub bounds: [f64; 4],
+    /// The file holds all of `bounds` up to this zoom; deeper only the `detail` boxes. The map
+    /// enlarges the tiles of this zoom elsewhere instead of showing nothing.
+    pub full_zoom: u8,
+    /// west, south, east, north of the boxes held up to `max_zoom`
+    pub detail: Vec<[f64; 4]>,
 }
 
 pub const FILE: &str = "basemap.pmtiles";
@@ -43,15 +48,39 @@ pub fn read_header(bytes: &[u8]) -> Option<BasemapInfo> {
         min_zoom: bytes[100],
         max_zoom: bytes[101],
         bounds: [deg(102), deg(106), deg(110), deg(114)],
+        full_zoom: bytes[101],
+        detail: Vec::new(),
     })
 }
 
-/// The file's header, if there is a basemap.
+/// The file's header, if there is a basemap; for one we made, also where it holds more detail
+/// (an operator's file counts as complete).
 pub async fn info(root: &Path) -> Option<BasemapInfo> {
     let mut file = tokio::fs::File::open(path(root)).await.ok()?;
     let mut bytes = [0u8; HEADER];
     file.read_exact(&mut bytes).await.ok()?;
-    read_header(&bytes)
+    let header = read_header(&bytes)?;
+    Some(match fetch::read_note(root).await {
+        Some(note) => with_note(header, &note),
+        None => header,
+    })
+}
+
+/// Our file: the region to `REGION_ZOOM`, the spots deeper.
+fn with_note(header: BasemapInfo, note: &fetch::Note) -> BasemapInfo {
+    let detail = note
+        .spots
+        .iter()
+        .map(|&[lat, lon]| {
+            let a = tiles::spot(lat, lon);
+            [a.west, a.south, a.east, a.north]
+        })
+        .collect();
+    BasemapInfo {
+        full_zoom: header.max_zoom.min(tiles::REGION_ZOOM),
+        detail,
+        ..header
+    }
 }
 
 #[cfg(test)]
@@ -75,9 +104,33 @@ mod tests {
                 min_zoom: 0,
                 max_zoom: 8,
                 bounds: [-25.0, 27.0, 45.0, 72.0],
+                full_zoom: 8,
+                detail: vec![],
             })
         );
         assert_eq!(read_header(&bytes[..100]), None);
         assert_eq!(read_header(b"not a pmtiles file at all"), None);
+    }
+
+    #[test]
+    fn knows_where_our_file_has_detail() {
+        let header = BasemapInfo {
+            min_zoom: 0,
+            max_zoom: 14,
+            bounds: [-25.0, 27.0, 45.0, 72.0],
+            full_zoom: 14,
+            detail: vec![],
+        };
+        let note = fetch::Note {
+            build: "20261011".into(),
+            spots: vec![[48.78, 8.08]],
+            made_at: 0,
+        };
+        let info = with_note(header, &note);
+        assert_eq!(info.full_zoom, tiles::REGION_ZOOM);
+        let [west, south, east, north] = info.detail[0];
+        // 20 km around Baden Airpark
+        assert!((north - south - 2.0 * 20.0 / 111.32).abs() < 1e-9);
+        assert!(west < 8.08 && east > 8.08);
     }
 }

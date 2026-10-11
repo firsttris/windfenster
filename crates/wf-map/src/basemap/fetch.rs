@@ -53,6 +53,12 @@ fn round(spots: &[(f64, f64)]) -> Vec<[f64; 2]> {
     spots.iter().map(|&(lat, lon)| [r(lat), r(lon)]).collect()
 }
 
+/// The note next to our basemap; None for an operator's file or none at all.
+pub async fn read_note(root: &Path) -> Option<Note> {
+    let bytes = tokio::fs::read(root.join(NOTE)).await.ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
 /// Whether to make our basemap now: none there, ours for other spots, or ours grown old. A
 /// file without our note is the operator's.
 pub fn due(file_exists: bool, note: Option<&Note>, spots: &[(f64, f64)], now: i64) -> bool {
@@ -178,10 +184,7 @@ pub async fn keep_current(
     now: i64,
 ) -> Result<Option<String>, Error> {
     let file = super::path(root);
-    let note: Option<Note> = tokio::fs::read(root.join(NOTE))
-        .await
-        .ok()
-        .and_then(|b| serde_json::from_slice(&b).ok());
+    let note = read_note(root).await;
     let exists = tokio::fs::try_exists(&file).await.unwrap_or(false);
     if !due(exists, note.as_ref(), spots, now) {
         return Ok(None);
