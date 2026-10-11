@@ -135,6 +135,7 @@ pub fn router(state: AppState) -> Router {
         .route("/gauges/near", get(water::near))
         .route("/map", get(map::index))
         .route("/map/stations", get(map::stations))
+        .route("/map/series", get(map::series))
         .route("/map/basemap.pmtiles", get(map::basemap))
         .route("/map/{model}/{run}/{file}", get(map::file))
         .fallback(|| async { ApiError::NotFound });

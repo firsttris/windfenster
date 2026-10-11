@@ -158,11 +158,13 @@ impl MapData {
         v: LatLonGrid,
         gust: Option<LatLonGrid>,
     ) -> Result<(), Error> {
-        let (png, meta) = tokio::task::spawn_blocking(move || {
-            texture::encode(&u, &v, gust.as_ref(), model, run_at, step)
+        let (png, rgba, meta) = tokio::task::spawn_blocking(move || {
+            let (rgba, meta) = texture::pixels(&u, &v, gust.as_ref(), model, run_at, step)?;
+            let png = texture::png(&rgba, meta.width, meta.height)?;
+            Ok::<_, texture::TextureError>((png, rgba, meta))
         })
         .await??;
-        Ok(store::write_step(&self.root, model, &png, &meta).await?)
+        Ok(store::write_step(&self.root, model, &png, &rgba, &meta).await?)
     }
 
     /// Hours of a run already on disk.

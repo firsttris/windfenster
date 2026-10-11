@@ -69,8 +69,21 @@ fn round3(x: f64) -> f64 {
     (x * 1e3).round() / 1e3
 }
 
-/// Encodes U and V (m/s, as models deliver them) into the texture and its description.
+/// Encodes U and V (m/s, as models deliver them) into the texture (PNG) and its description.
 pub fn encode(
+    u: &LatLonGrid,
+    v: &LatLonGrid,
+    gust: Option<&LatLonGrid>,
+    model: &str,
+    run_at: i64,
+    step: u32,
+) -> Result<(Vec<u8>, TextureMeta), TextureError> {
+    let (rgba, meta) = pixels(u, v, gust, model, run_at, step)?;
+    Ok((png(&rgba, meta.width, meta.height)?, meta))
+}
+
+/// The texture's RGBA bytes, north row first, and its description.
+pub fn pixels(
     u: &LatLonGrid,
     v: &LatLonGrid,
     gust: Option<&LatLonGrid>,
@@ -106,15 +119,6 @@ pub fn encode(
             }
         }
     }
-    let mut png_bytes = Vec::new();
-    {
-        let mut enc = png::Encoder::new(&mut png_bytes, w as u32, h as u32);
-        enc.set_color(png::ColorType::Rgba);
-        enc.set_depth(png::BitDepth::Eight);
-        // Balanced: 0.3 s and 480 KB for an ICON-D2 hour; High saves 5 % in 2.5 times the time.
-        enc.set_compression(png::Compression::Balanced);
-        enc.write_header()?.write_image_data(&rgba)?;
-    }
     let meta = TextureMeta {
         model: model.to_owned(),
         run_at,
@@ -138,7 +142,19 @@ pub fn encode(
         v_max: vr.1,
         gust_max: gmax,
     };
-    Ok((png_bytes, meta))
+    Ok((rgba, meta))
+}
+
+/// RGBA bytes as a PNG.
+pub fn png(rgba: &[u8], width: u32, height: u32) -> Result<Vec<u8>, TextureError> {
+    let mut out = Vec::new();
+    let mut enc = png::Encoder::new(&mut out, width, height);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    // Balanced: 0.3 s and 480 KB for an ICON-D2 hour; High saves 5 % in 2.5 times the time.
+    enc.set_compression(png::Compression::Balanced);
+    enc.write_header()?.write_image_data(rgba)?;
+    Ok(out)
 }
 
 #[cfg(test)]

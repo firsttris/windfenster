@@ -12,6 +12,8 @@ interface Props {
   playing: boolean;
   onTime: (t: number) => void;
   onPlay: (playing: boolean) => void;
+  /** A CSS background for the track: the wind at the place picked, hour by hour */
+  band?: string;
   className?: string;
 }
 
@@ -41,7 +43,7 @@ function days(from: number, to: number): { at: number; label: string }[] {
 }
 
 /** Play and the hours of the model on a slider, with the days marked. */
-export function Timeline({ frames, time, now, playing, onTime, onPlay, className }: Props) {
+export function Timeline({ frames, time, now, playing, onTime, onPlay, band, className }: Props) {
   const from = frames[0]?.validAt ?? 0;
   const to = frames.at(-1)?.validAt ?? 0;
   const span = Math.max(1, to - from);
@@ -63,6 +65,9 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, className
             {hours === 0 ? m.map_now() : m.map_hours({ hours: hours > 0 ? `+${hours}` : `−${-hours}` })}
           </span>
         </div>
+        {band && band !== 'transparent' && (
+          <div aria-hidden="true" className="h-1.5 rounded-full" style={{ background: band }} />
+        )}
         <input
           type="range"
           aria-label={m.map_time()}

@@ -8,9 +8,10 @@ import { MapCanvas, type Pick } from '@/components/map/map-canvas';
 import { SpotCard } from '@/components/map/spot-card';
 import { frameTime, Timeline } from '@/components/map/timeline';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
-import { mapIndexQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
+import { mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
 import { formatNumber, runHour } from '@/lib/format';
 import { useUnit } from '@/lib/prefs';
+import { spotHours, windGradient } from '@/lib/spot-series';
 import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { useTitle } from '@/lib/use-title';
@@ -52,6 +53,13 @@ function MapPage() {
   const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
   const [field, setField] = useState<FieldLayer>('wind');
   const gusts = field === 'gusts';
+  // The place picked over the coming hours, from the map's own fields
+  const series = useQuery({ ...mapSeriesQuery(pick?.lat ?? 0, pick?.lon ?? 0), enabled: pick !== null });
+  const hours = series.data
+    ? spotHours(series.data, choice.base?.model ?? null, choice.detail?.model ?? null).filter(
+        (h) => h.validAt >= now - 3_600,
+      )
+    : undefined;
   // A model hour without gusts (ECMWF's first, some late ones) shows the wind instead.
   const gustless = gusts
     ? [detail, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
@@ -129,6 +137,12 @@ function MapPage() {
       layers={layers}
       modelName={nameOf}
       unit={unit}
+      hours={hours}
+      time={time}
+      onTime={(t) => {
+        setPlaying(false);
+        setTime(t);
+      }}
       onClose={() => setPick(null)}
     />
   );
@@ -200,7 +214,15 @@ function MapPage() {
         <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-2">
           {!desktop && spot}
           {frames.length > 0 && time !== null && (
-            <Timeline frames={frames} time={time} now={now} playing={playing} onTime={setTime} onPlay={setPlaying} />
+            <Timeline
+              frames={frames}
+              time={time}
+              now={now}
+              playing={playing}
+              onTime={setTime}
+              onPlay={setPlaying}
+              band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
+            />
           )}
           {!desktop && <Attribution osm={!!index.data?.basemap} className="text-right" />}
         </div>

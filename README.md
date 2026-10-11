@@ -136,10 +136,12 @@ hours, lies ECMWF's IFS from [ECMWF open data](https://www.ecmwf.int/en/forecast
 10 m and the gusts (`10fg`) by byte range (2.8 MB per step), for 0 to 120 hours every 3 hours,
 and cuts them to the map's region (25° W to 45° E, 27° N to 72° N). When ECMWF's portal is busy
 (HTTP 429) it waits 20 seconds and asks again, a few times, then leaves the rest to the next
-round. The newest run and the one before are kept per model: for ICON-D2 about 150 MB of
-downloads and 55 MB on disk per run, for ECMWF about 115 MB and 4 MB. Hours without gusts
-(ECMWF's first, and late hours of some runs) show the wind on the gust layer, with a note.
-`GET /api/map` lists the hours, each from the newest run that has it.
+round. Next to each PNG the texels lie uncompressed (`.rgba`), so one place can be read over
+every hour in milliseconds. The newest run and the one before are kept per model: for ICON-D2
+about 150 MB of downloads and 230 MB on disk per run, for ECMWF about 115 MB and 13 MB. Hours
+without gusts (ECMWF's first, and late hours of some runs) show the wind on the gust layer, with
+a note. `GET /api/map` lists the hours, each from the newest run that has it;
+`GET /api/map/series?lat=&lon=` gives a place's wind, gusts and direction over all of them.
 
 The map page (`/map`) draws ICON-D2 over ECMWF, blended over the last 30 to 60 km to its
 domain's edge, and ECMWF alone where and when ICON-D2 has nothing; the other model can be picked
@@ -149,7 +151,9 @@ wind of the hour shown, blended between two model hours while the timeline plays
 when the device cannot keep up. From town zoom on (zoom 9.5 to 11.5) the field fades out and
 the map comes forward, with forests, meadows, water, industry, airfields and buildings; the
 particles then take the field's colours, so the wind's strength stays readable on the map.
-Tap a spot for the model's wind and gusts there, tap a station for its last measurement too;
+Tap a spot for the model's wind and gusts there and its coming hours side by side (the finer
+model while it lasts, then ECMWF; tap an hour to go there), with the timeline coloured by the
+wind at that spot; tap a station for its last measurement too;
 stations show their measured wind as a dot in the wind scale's colour, from closer up as an
 arrow with the value; from afar they are bundled, each bundle showing the strongest wind
 measured in it in that colour (tap it to zoom in). Lakes and rivers lie dark over the field. The line under the models names the model and run drawing at the spot

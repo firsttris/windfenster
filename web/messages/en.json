@@ -303,6 +303,7 @@
   "map_zoomOut": "Zoom out",
   "map_locate": "My location",
   "map_spot": "This place",
+  "map_spotHours": "The coming hours at this place",
   "map_close": "Close",
   "map_outside": "outside the model's domain",
   "map_measured": "Measured {ago}",

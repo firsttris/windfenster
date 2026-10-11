@@ -3,6 +3,7 @@ import { ArrowRight, X } from 'lucide-react';
 import type { StationWind } from '@/bindings/StationWind';
 import type { WindUnit } from '@/bindings/WindUnit';
 import { ago, compass, coordinates } from '@/lib/format';
+import type { SpotHour } from '@/lib/spot-series';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { gustOf, speedAndDirection } from '@/lib/wind-map';
@@ -11,6 +12,7 @@ import { Button } from '@/ui/button';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 import type { Pick } from './map-canvas';
+import { SpotStrip } from './spot-strip';
 import { windAt } from './wind-at';
 import type { WindLayers } from './wind-gl';
 
@@ -21,13 +23,18 @@ interface Props {
   /** Model names by id */
   modelName: (id: string) => string;
   unit: WindUnit;
+  /** The place's coming hours; undefined while they load */
+  hours: readonly SpotHour[] | undefined;
+  /** The hour the map shows */
+  time: number | null;
+  onTime: (t: number) => void;
   onClose: () => void;
   className?: string;
 }
 
 /** What the map knows about a tapped spot: the model's wind there at the hour shown, and for a
  * station its last measurement. */
-export function SpotCard({ pick, station, layers, modelName, unit, onClose, className }: Props) {
+export function SpotCard({ pick, station, layers, modelName, unit, hours, time, onTime, onClose, className }: Props) {
   const at = windAt(layers, pick.lon, pick.lat);
   const wind = at && speedAndDirection(at.wind);
   // The model's gust, when its hour has one
@@ -73,6 +80,11 @@ export function SpotCard({ pick, station, layers, modelName, unit, onClose, clas
             <span className="text-muted-foreground">{m.map_outside()}</span>
           )}
         </div>
+        {hours === undefined ? (
+          <div className="h-[86px] animate-pulse rounded-md bg-muted" />
+        ) : (
+          hours.length > 0 && <SpotStrip hours={hours} time={time} unit={unit} onTime={onTime} />
+        )}
         {station && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">

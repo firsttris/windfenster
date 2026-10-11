@@ -8,6 +8,7 @@ pub mod ecmwf;
 pub mod grid;
 pub mod icon_d2;
 pub mod index;
+pub mod series;
 pub mod service;
 pub mod store;
 #[doc(hidden)]

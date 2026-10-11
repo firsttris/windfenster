@@ -3,6 +3,7 @@ import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Health } from '@/bindings/Health';
 import type { MapIndex } from '@/bindings/MapIndex';
+import type { MapSeries } from '@/bindings/MapSeries';
 import type { Model } from '@/bindings/Model';
 import type { NearGauge } from '@/bindings/NearGauge';
 import type { PointForecast } from '@/bindings/PointForecast';
@@ -109,6 +110,15 @@ export const mapIndexQuery = queryOptions({
   // New hours of a run arrive every few minutes.
   refetchInterval: 5 * 60_000,
 });
+
+/** A place over every hour on the map, read from the model fields (no Open-Meteo call) */
+export const mapSeriesQuery = (lat: number, lon: number) =>
+  queryOptions({
+    // 0.01°: the grid places are stored on
+    queryKey: ['map', 'series', lat.toFixed(2), lon.toFixed(2)],
+    queryFn: () => api<MapSeries>(`/map/series?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`),
+    staleTime: 5 * 60_000,
+  });
 
 export const mapStationsQuery = queryOptions({
   queryKey: ['map', 'stations'],

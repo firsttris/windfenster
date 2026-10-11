@@ -5,14 +5,17 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::body::Body;
-use axum::extract::{Path, Request, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
+use wf_core::geo::GridPoint;
 use wf_core::observation::{self, StationWind};
 use wf_map::MapIndex;
+use wf_map::series::MapSeries;
 
+use crate::forecast::PointQuery;
 use crate::{ApiError, AppState};
 
 /// `GET /api/map`: the hours of every model on the map; empty without map data.
@@ -26,6 +29,27 @@ pub async fn index(State(s): State<AppState>) -> Result<impl IntoResponse, ApiEr
     };
     // New hours arrive every few minutes.
     Ok(([(header::CACHE_CONTROL, "public, max-age=60")], Json(index)))
+}
+
+/// `GET /api/map/series?lat=&lon=`: the place over every hour of every model on the map, read
+/// from the textures (no Open-Meteo call); empty without map data.
+pub async fn series(
+    State(s): State<AppState>,
+    query: Result<Query<PointQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<impl IntoResponse, ApiError> {
+    let Query(q) = query.map_err(|_| ApiError::InvalidCoordinates)?;
+    GridPoint::new(q.lat, q.lon).ok_or(ApiError::InvalidCoordinates)?;
+    let series = match &s.map {
+        Some(map) => {
+            let index = map.index().await.map_err(ApiError::internal)?;
+            wf_map::series::series(map.root(), &index, q.lat, q.lon).await
+        }
+        None => MapSeries { layers: vec![] },
+    };
+    Ok((
+        [(header::CACHE_CONTROL, "public, max-age=60")],
+        Json(series),
+    ))
 }
 
 /// The pins, built at most once a minute.

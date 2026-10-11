@@ -77,7 +77,7 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
         ny: 1,
         values,
     };
-    let (png, meta) = wf_map::texture::encode(
+    let (rgba, meta) = wf_map::texture::pixels(
         &grid(vec![5.0, -5.0]),
         &grid(vec![0.0, 2.0]),
         None,
@@ -85,7 +85,8 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
         R06,
         3,
     )?;
-    wf_map::store::write_step(&root, "icon_d2", &png, &meta).await?;
+    let png = wf_map::texture::png(&rgba, meta.width, meta.height)?;
+    wf_map::store::write_step(&root, "icon_d2", &png, &rgba, &meta).await?;
     let mut state = AppState::new(db, forecasts, None, None, None, None);
     if with_map {
         state = state.with_map(Arc::new(MapData::new(root, http, wf_map::Urls::default())));
@@ -237,5 +238,29 @@ async fn basemap_goes_out_in_ranges() -> Result<()> {
     );
     let body = to_bytes(res.into_body(), 1 << 22).await?;
     assert_eq!(&body[..], &file[100..1100]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn series_reads_a_place_over_the_hours() -> Result<()> {
+    let (_dir, app) = app(true).await?;
+    // The western grid point: 5 m/s towards the east
+    let (status, _, body) = get(&app, "/api/map/series?lat=50&lon=10").await?;
+    assert_eq!(status, StatusCode::OK);
+    let v: Value = serde_json::from_slice(&body)?;
+    let point = &v["layers"][0]["points"][0];
+    assert_eq!(v["layers"][0]["model"], "icon_d2");
+    assert_eq!(point["validAt"], R06 + 3 * 3_600);
+    assert!((point["wind"].as_f64().unwrap() - 5.0 / 0.514_444).abs() < 0.15);
+    assert!((point["dir"].as_f64().unwrap() - 270.0).abs() < 1.0);
+    assert_eq!(point["gust"], Value::Null);
+    // Outside the texture: no hours
+    let (_, _, body) = get(&app, "/api/map/series?lat=40&lon=10").await?;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body)?["layers"][0]["points"],
+        json!([])
+    );
+    let (status, _, _) = get(&app, "/api/map/series?lat=95&lon=10").await?;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     Ok(())
 }
