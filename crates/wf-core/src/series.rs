@@ -64,9 +64,10 @@ pub fn decode(quantity: Quantity, blob: &[u8]) -> Result<Vec<Option<f32>>, Decod
         return Err(DecodeError::OddLength(blob.len()));
     }
     let scale = quantity.scale();
-    Ok(blob
-        .chunks_exact(2)
-        .map(|b| match i16::from_le_bytes([b[0], b[1]]) {
+    let (steps, _) = blob.as_chunks::<2>();
+    Ok(steps
+        .iter()
+        .map(|&b| match i16::from_le_bytes(b) {
             MISSING => None,
             raw => Some(f32::from(raw) / scale),
         })
