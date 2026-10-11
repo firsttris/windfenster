@@ -13,15 +13,16 @@ pub struct Area {
     pub max_zoom: u8,
 }
 
-/// The map's region (as the wind layers', `crate::REGION`) up to zoom 8: coasts, towns and main
-/// roads, about 190 MB.
+/// The map's region (as the wind layers', `crate::REGION`) up to zoom 8 by default: coasts,
+/// towns and main roads, about 190 MB (`WF_BASEMAP_ZOOM`).
 pub const REGION_ZOOM: u8 = 8;
 /// Around a spot, up to zoom 14: streets, lakes, the beach
 pub const SPOT_ZOOM: u8 = 14;
 /// How far around a spot the detail reaches
 pub const SPOT_KM: f64 = 20.0;
 
-pub fn region() -> Area {
+/// The map's region up to `zoom`.
+pub fn region(zoom: u8) -> Area {
     let [west, south, east, north] = crate::REGION;
     Area {
         west,
@@ -29,12 +30,12 @@ pub fn region() -> Area {
         east,
         north,
         min_zoom: 0,
-        max_zoom: REGION_ZOOM,
+        max_zoom: zoom,
     }
 }
 
-/// The box `SPOT_KM` around a place, from just past the region's zoom to `SPOT_ZOOM`.
-pub fn spot(lat: f64, lon: f64) -> Area {
+/// The box `SPOT_KM` around a place, from `from_zoom` (just past the region's) to `SPOT_ZOOM`.
+pub fn spot(lat: f64, lon: f64, from_zoom: u8) -> Area {
     let dlat = SPOT_KM / 111.32;
     let dlon = dlat / lat.to_radians().cos().max(0.1);
     Area {
@@ -42,7 +43,7 @@ pub fn spot(lat: f64, lon: f64) -> Area {
         south: lat - dlat,
         east: lon + dlon,
         north: lat + dlat,
-        min_zoom: REGION_ZOOM + 1,
+        min_zoom: from_zoom,
         max_zoom: SPOT_ZOOM,
     }
 }
@@ -121,10 +122,10 @@ mod tests {
         // A spot is 40 km wide: at zoom 14 (1.6 km a tile there) some 25 × 25 tiles
         let s = wanted(&[Area {
             min_zoom: 14,
-            ..spot(48.78, 8.08)
+            ..spot(48.78, 8.08, REGION_ZOOM + 1)
         }]);
         assert!((500..900).contains(&s.len()), "{}", s.len());
-        let airpark = spot(48.78, 8.08);
+        let airpark = spot(48.78, 8.08, REGION_ZOOM + 1);
         assert!(holds(&airpark, 12, 2139, 1410));
         assert!(!holds(&airpark, 12, 2200, 1410));
         assert!(!holds(&airpark, 8, 133, 88));

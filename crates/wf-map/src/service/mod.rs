@@ -74,6 +74,8 @@ pub struct MapData {
     readers: crate::basemap::serve::Readers,
     /// Spots tapped on the map, with when (service/basemap.rs)
     tapped: std::sync::Mutex<Vec<(crate::basemap::spots::Spot, i64)>>,
+    /// How much basemap and relief to keep
+    depth: crate::basemap::Depth,
 }
 
 /// The map's region (west, south, east, north): global fields are cut to it.
@@ -87,7 +89,13 @@ impl MapData {
             urls,
             readers: Default::default(),
             tapped: Default::default(),
+            depth: Default::default(),
         }
+    }
+
+    /// With another depth of basemap and relief than the default.
+    pub fn with_depth(self, depth: crate::basemap::Depth) -> Self {
+        Self { depth, ..self }
     }
 
     pub fn root(&self) -> &std::path::Path {

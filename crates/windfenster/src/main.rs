@@ -103,11 +103,22 @@ struct ServeArgs {
     /// keep two runs as textures in `{data_dir}/map`; `false` turns the map off.
     #[arg(long, env = "WF_MAP", default_value_t = true, action = clap::ArgAction::Set)]
     map: bool,
-    /// The map's detailed basemap: `auto` cuts one from Protomaps' daily build (the map's region
-    /// to zoom 8, 20 km around each tracked station to zoom 14) unless the operator put one in
-    /// place; `off` leaves it to the operator.
+    /// The map's detailed basemap and relief: `auto` cuts them from Protomaps' daily build and
+    /// Mapterhorn's elevation (the region to `WF_BASEMAP_ZOOM`, 20 km around places people look
+    /// at to zoom 14) unless the operator put one in place; `off` leaves it to the operator.
     #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
     basemap: String,
+    /// How deep the basemap covers the whole region: 8 is about 190 MB, every level about four
+    /// times more (12 about 7 GB); from 14 on no spots are needed.
+    #[arg(long, env = "WF_BASEMAP_ZOOM", default_value_t = 8, value_parser = clap::value_parser!(u8).range(6..=15))]
+    basemap_zoom: u8,
+    /// Spots with detail to zoom 14 kept at most, about 10 MB each; 0 makes none.
+    #[arg(long, env = "WF_BASEMAP_SPOTS", default_value_t = 60)]
+    basemap_spots: usize,
+    /// How deep the relief goes: 7 is about 90 MB, every level about four times more, 12 at
+    /// most; 0 turns it off.
+    #[arg(long, env = "WF_TERRAIN_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(0..=12))]
+    terrain_zoom: u8,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     #[arg(long, env = "WF_DEV_UI")]
     dev_ui: Option<String>,
@@ -198,11 +209,18 @@ async fn serve(args: ServeArgs) -> Result<()> {
     ));
     let measurements = Arc::new(Measurements::new(db.clone(), http.clone(), Urls::default()));
     let map = args.map.then(|| {
-        Arc::new(MapData::new(
-            args.data.data_dir.join("map"),
-            http.clone(),
-            wf_map::Urls::default(),
-        ))
+        Arc::new(
+            MapData::new(
+                args.data.data_dir.join("map"),
+                http.clone(),
+                wf_map::Urls::default(),
+            )
+            .with_depth(wf_map::basemap::Depth {
+                region_zoom: args.basemap_zoom,
+                max_spots: args.basemap_spots,
+                terrain_zoom: args.terrain_zoom,
+            }),
+        )
     });
     let tracked: Vec<String> = args
         .tracked_stations

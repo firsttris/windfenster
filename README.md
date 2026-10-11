@@ -55,7 +55,10 @@ build the image yourself: `docker compose up --build` in a checkout.
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
-| `WF_BASEMAP` | `auto` | The map's detailed basemap: `auto` makes it from Protomaps' daily build for the region and the tracked stations, unless you put one in place; `off` leaves it to you |
+| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
+| `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the whole region (6 to 15): 8 is about 190 MB, every level roughly four times more (12 about 7 GB); from 14 on every place has full detail and no spots are made |
+| `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
+| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes (1 to 12): 7 is about 90 MB, every level roughly four times more; `0` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -190,7 +193,9 @@ grid, so places close together share one). It checks every minute and makes two 
 tapped spot has its detail within a minute or two, and the open map shows it without reloading.
 At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go. The server sends
 their tiles at `/api/map/basemap/{z}/{x}/{y}`. Elsewhere the map enlarges the zoom-8 tiles from
-closer up (coarser, but never blank).
+closer up (coarser, but never blank). With room to spare, set `WF_BASEMAP_ZOOM` higher: the
+region is cut again to that zoom (12 gives every town's streets, about 7 GB and an hour or so
+to fetch; 14 and more makes the spots unneeded), and `WF_TERRAIN_ZOOM` for finer relief.
 
 Relief comes from [Mapterhorn](https://mapterhorn.com/) (elevation from national surveys and
 other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the region to

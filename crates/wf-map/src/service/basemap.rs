@@ -53,6 +53,7 @@ impl MapData {
                     &self.root,
                     &self.http,
                     &self.urls.protomaps,
+                    self.depth.region_zoom,
                     now,
                 )
                 .await
@@ -68,6 +69,7 @@ impl MapData {
                     &self.root,
                     &self.http,
                     &self.urls.mapterhorn,
+                    self.depth.terrain_zoom,
                     now,
                 );
                 if let Err(e) = terrain.await {
@@ -87,7 +89,9 @@ impl MapData {
         db: &wf_core::db::Db,
         now: i64,
     ) -> Result<(), crate::basemap::fetch::Error> {
-        if crate::basemap::fetch::read_note(&self.root).await.is_none() {
+        // An operator's file, or a region as deep as the spots: nothing to add
+        let deep = self.depth.region_zoom >= crate::basemap::tiles::SPOT_ZOOM;
+        if deep || crate::basemap::fetch::read_note(&self.root).await.is_none() {
             return Ok(());
         }
         let places = wf_core::forecast::hot_places(db, now - WANTED_S)
@@ -102,9 +106,24 @@ impl MapData {
         };
         let wanted = spots::spots_of(places.iter().map(|p| (p.lat(), p.lon())).chain(tapped));
         let have = spots::on_disk(&self.root).await;
-        let (missing, touch, remove) = spots::plan(&wanted, &have, SystemTime::now(), PER_ROUND);
+        let (missing, touch, remove) = spots::plan(
+            &wanted,
+            &have,
+            SystemTime::now(),
+            PER_ROUND.min(self.depth.max_spots),
+            self.depth.max_spots,
+        );
+        let from_zoom = self.depth.region_zoom + 1;
         for spot in missing {
-            let n = spots::make(&self.root, &self.http, &self.urls.protomaps, spot, now).await?;
+            let n = spots::make(
+                &self.root,
+                &self.http,
+                &self.urls.protomaps,
+                spot,
+                from_zoom,
+                now,
+            )
+            .await?;
             tracing::info!(
                 "basemap: {n} detail tiles around {:.1}, {:.1}",
                 spot.lat,

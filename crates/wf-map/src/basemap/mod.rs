@@ -32,6 +32,29 @@ pub struct BasemapInfo {
     pub detail_zoom: u8,
 }
 
+/// How much basemap and relief the server keeps: `WF_BASEMAP_ZOOM`, `WF_BASEMAP_SPOTS`,
+/// `WF_TERRAIN_ZOOM`. More zoom, more detail everywhere, about four times the space a level.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Depth {
+    /// The region's zoom, everywhere
+    pub region_zoom: u8,
+    /// Spots with detail to zoom 14 kept at most (0: none); none are made when the region goes
+    /// that deep itself
+    pub max_spots: usize,
+    /// The relief's zoom (0: no relief)
+    pub terrain_zoom: u8,
+}
+
+impl Default for Depth {
+    fn default() -> Self {
+        Depth {
+            region_zoom: tiles::REGION_ZOOM,
+            max_spots: spots::MAX_SPOTS,
+            terrain_zoom: terrain::ZOOM,
+        }
+    }
+}
+
 pub const FILE: &str = "basemap.pmtiles";
 const HEADER: usize = 127;
 
@@ -85,15 +108,15 @@ fn with_detail(
     let boxes = note
         .spots
         .iter()
-        .map(|&[lat, lon]| tiles::spot(lat, lon))
-        .chain(spots.map(spots::Spot::area));
+        .map(|&[lat, lon]| tiles::spot(lat, lon, 0))
+        .chain(spots.map(|s| s.area(0)));
     let detail: Vec<[f64; 4]> = boxes.map(|a| [a.west, a.south, a.east, a.north]).collect();
     BasemapInfo {
-        full_zoom: header.max_zoom.min(tiles::REGION_ZOOM),
+        full_zoom: header.max_zoom.min(note.zoom),
         detail_zoom: if detail.is_empty() {
-            header.max_zoom
+            header.max_zoom.min(note.zoom)
         } else {
-            tiles::SPOT_ZOOM
+            tiles::SPOT_ZOOM.max(note.zoom)
         },
         detail,
         ..header
@@ -144,6 +167,7 @@ mod tests {
             build: "20261011".into(),
             spots: vec![],
             made_at: 0,
+            zoom: 8,
         };
         let spot = spots::Spot::of(48.78, 8.08);
         let info = with_detail(header.clone(), &note, [spot].into_iter());

@@ -2,7 +2,7 @@
 //! `{root}/basemap-spots/{lat}_{lon}.pmtiles`, with 20 km around it from zoom 9 to 14 (about
 //! 10 MB), cut from the newest Protomaps build. Spots are snapped to a 0.2° grid, so places
 //! close together share one. The file's modification time says when the spot was last wanted;
-//! beyond `MAX_SPOTS` the longest unwanted go.
+//! beyond the most kept (`WF_BASEMAP_SPOTS`, 60 by default) the longest unwanted go.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
@@ -11,7 +11,7 @@ use super::fetch::{self, Error};
 use super::tiles::{self, Area};
 
 pub const DIR: &str = "basemap-spots";
-/// Spots kept at most: about 600 MB
+/// Spots kept at most by default: about 600 MB
 pub const MAX_SPOTS: usize = 60;
 /// Grid spots are snapped to, degrees: a place lies at most 13 km from its spot's middle,
 /// well inside the 20 km of detail.
@@ -36,8 +36,9 @@ impl Spot {
         }
     }
 
-    pub fn area(self) -> Area {
-        tiles::spot(self.lat, self.lon)
+    /// The spot's box, from `from_zoom` (0 for just where it lies)
+    pub fn area(self, from_zoom: u8) -> Area {
+        tiles::spot(self.lat, self.lon, from_zoom)
     }
 
     fn file_name(self) -> String {
@@ -96,25 +97,27 @@ pub async fn make(
     http: &reqwest::Client,
     base: &str,
     spot: Spot,
+    from_zoom: u8,
     now: i64,
 ) -> Result<usize, Error> {
     let (_, reader) = fetch::newest_build(http, base, now).await?;
     tokio::fs::create_dir_all(dir(root)).await?;
     let target = path(root, spot);
     let partial = target.with_extension("part");
-    let n = fetch::copy(reader, &[spot.area()], &partial).await?;
+    let n = fetch::copy(reader, &[spot.area(from_zoom)], &partial).await?;
     tokio::fs::rename(&partial, &target).await?;
     Ok(n)
 }
 
 /// What one round does: the wanted spots missing on disk (at most `limit`, in the order wanted),
-/// the wanted ones on disk to mark as wanted now, and those beyond `MAX_SPOTS` to remove
-/// (never one wanted now).
+/// the wanted ones on disk to mark as wanted now, and those beyond `max` to remove (never one
+/// wanted now).
 pub fn plan(
     wanted: &[Spot],
     have: &[(Spot, SystemTime)],
     now: SystemTime,
     limit: usize,
+    max: usize,
 ) -> (Vec<Spot>, Vec<Spot>, Vec<Spot>) {
     let missing: Vec<Spot> = wanted
         .iter()
@@ -130,7 +133,7 @@ pub fn plan(
         })
         .map(|(s, _)| *s)
         .collect();
-    let keep = MAX_SPOTS.saturating_sub(missing.len());
+    let keep = max.saturating_sub(missing.len());
     // `have` is most recently wanted first: what falls past `keep` goes, unless wanted.
     let remove = have
         .iter()
@@ -196,7 +199,7 @@ mod tests {
             lon: 9.4,
         };
         let have = vec![(a, day(9)), (b, day(5))];
-        let (missing, touch, remove) = plan(&[c, a, b], &have, now, 5);
+        let (missing, touch, remove) = plan(&[c, a, b], &have, now, 5, MAX_SPOTS);
         assert_eq!(missing, vec![c]);
         // a was touched yesterday, b five days ago
         assert_eq!(touch, vec![b]);
@@ -213,7 +216,7 @@ mod tests {
                 )
             })
             .collect();
-        let (_, _, remove) = plan(&[c], &many, now, 5);
+        let (_, _, remove) = plan(&[c], &many, now, 5, MAX_SPOTS);
         assert_eq!(remove.len(), 1);
         assert_eq!(remove[0], many[MAX_SPOTS - 1].0);
     }

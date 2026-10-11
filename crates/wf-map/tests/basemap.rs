@@ -95,7 +95,7 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
     let http = reqwest::Client::new();
 
     // Today's build is not out: yesterday's is taken. The main archive holds the region only.
-    let build = basemap::fetch::keep_current(dir.path(), &http, &base, NOW)
+    let build = basemap::fetch::keep_current(dir.path(), &http, &base, 8, NOW)
         .await
         .unwrap();
     assert_eq!(build.as_deref(), Some("20261010"));
@@ -121,7 +121,7 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
 
     // A spot looked at gets an archive of its own, served by tile next to the region's.
     let spot = basemap::spots::Spot::of(SPOT.0, SPOT.1);
-    let n = basemap::spots::make(dir.path(), &http, &base, spot, NOW)
+    let n = basemap::spots::make(dir.path(), &http, &base, spot, 9, NOW)
         .await
         .unwrap();
     assert_eq!(n, 2);
@@ -149,14 +149,14 @@ async fn cuts_the_region_and_the_spots_from_the_newest_build() {
 
     // Made already: nothing to do, nothing fetched.
     let asked = fake.ranges.load(Ordering::SeqCst);
-    let again = basemap::fetch::keep_current(dir.path(), &http, &base, NOW + 86_400)
+    let again = basemap::fetch::keep_current(dir.path(), &http, &base, 8, NOW + 86_400)
         .await
         .unwrap();
     assert_eq!((again, fake.ranges.load(Ordering::SeqCst)), (None, asked));
 
     // A file without our note is the operator's: never replaced, and no spots added.
     std::fs::remove_file(dir.path().join("basemap.json")).unwrap();
-    let theirs = basemap::fetch::keep_current(dir.path(), &http, &base, NOW)
+    let theirs = basemap::fetch::keep_current(dir.path(), &http, &base, 8, NOW)
         .await
         .unwrap();
     assert_eq!(theirs, None);

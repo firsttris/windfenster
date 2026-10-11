@@ -48,6 +48,13 @@ pub struct Note {
     #[serde(default)]
     pub spots: Vec<[f64; 2]>,
     pub made_at: i64,
+    /// The zoom the region was cut to (8 in files made before it was a setting)
+    #[serde(default = "region_zoom")]
+    pub zoom: u8,
+}
+
+fn region_zoom() -> u8 {
+    tiles::REGION_ZOOM
 }
 
 /// The note next to our basemap; None for an operator's file or none at all.
@@ -56,13 +63,14 @@ pub async fn read_note(root: &Path) -> Option<Note> {
     serde_json::from_slice(&bytes).ok()
 }
 
-/// Whether to make our basemap now: none there, ours grown old, or ours from before the spots
-/// had their own files. A file without our note is the operator's.
-pub fn due(file_exists: bool, note: Option<&Note>, now: i64) -> bool {
+/// Whether to make our basemap now: none there, ours grown old, cut to another zoom than asked
+/// for, or from before the spots had their own files. A file without our note is the
+/// operator's.
+pub fn due(file_exists: bool, note: Option<&Note>, zoom: u8, now: i64) -> bool {
     match (file_exists, note) {
         (false, _) => true,
         (true, None) => false,
-        (true, Some(n)) => !n.spots.is_empty() || now - n.made_at > RENEW_S,
+        (true, Some(n)) => !n.spots.is_empty() || n.zoom != zoom || now - n.made_at > RENEW_S,
     }
 }
 
@@ -171,29 +179,31 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
     write.await?
 }
 
-/// Makes our basemap if it is due: the newest build, cut to the region. Returns the build
-/// used, or None when nothing was due.
+/// Makes our basemap if it is due: the newest build, cut to the region up to `zoom`. Returns
+/// the build used, or None when nothing was due.
 pub async fn keep_current(
     root: &Path,
     http: &reqwest::Client,
     base: &str,
+    zoom: u8,
     now: i64,
 ) -> Result<Option<String>, Error> {
     let file = super::path(root);
     let note = read_note(root).await;
     let exists = tokio::fs::try_exists(&file).await.unwrap_or(false);
-    if !due(exists, note.as_ref(), now) {
+    if !due(exists, note.as_ref(), zoom, now) {
         return Ok(None);
     }
     let (build, reader) = newest_build(http, base, now).await?;
     tokio::fs::create_dir_all(root).await?;
     let partial = root.join("basemap.pmtiles.part");
-    let n = copy(reader, &[tiles::region()], &partial).await?;
+    let n = copy(reader, &[tiles::region(zoom)], &partial).await?;
     tokio::fs::rename(&partial, &file).await?;
     let note = Note {
         build: build.clone(),
         spots: Vec::new(),
         made_at: now,
+        zoom,
     };
     tokio::fs::write(
         root.join(NOTE),
@@ -214,17 +224,23 @@ mod tests {
             build: "20261010".into(),
             spots: vec![],
             made_at: 0,
+            zoom: 8,
         };
-        assert!(due(false, None, 0));
+        assert!(due(false, None, 8, 0));
         // Someone else's file
-        assert!(!due(true, None, 0));
-        assert!(!due(true, Some(&ours), 86_400));
-        // Old, or from before the spots had files of their own
-        assert!(due(true, Some(&ours), RENEW_S + 1));
+        assert!(!due(true, None, 8, 0));
+        assert!(!due(true, Some(&ours), 8, 86_400));
+        // Old, another zoom asked for, or from before the spots had files of their own
+        assert!(due(true, Some(&ours), 8, RENEW_S + 1));
+        assert!(due(true, Some(&ours), 12, 86_400));
         let older = Note {
             spots: vec![[48.78, 8.08]],
-            ..ours
+            ..ours.clone()
         };
-        assert!(due(true, Some(&older), 86_400));
+        assert!(due(true, Some(&older), 8, 86_400));
+        // A note from before the zoom was a setting reads as zoom 8.
+        let read: Note =
+            serde_json::from_str(r#"{"build":"20261011","spots":[],"made_at":1}"#).unwrap();
+        assert_eq!(read.zoom, 8);
     }
 }

@@ -75,7 +75,7 @@ impl Readers {
         let mut files: Vec<PathBuf> = spots::on_disk(root)
             .await
             .into_iter()
-            .filter(|(s, _)| super::tiles::holds(&s.area(), z, x, y))
+            .filter(|(s, _)| super::tiles::holds(&s.area(0), z, x, y))
             .map(|(s, _): (Spot, _)| spots::path(root, s))
             .collect();
         files.push(super::path(root));
