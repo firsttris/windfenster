@@ -1,0 +1,15 @@
+services:
+  windfenster:
+    # Builds of main are published as :edge, releases as :latest and :x.y.z.
+    # To build from source instead: docker compose up --build
+    image: ghcr.io/firsttris/windfenster:edge
+    build: .
+    container_name: windfenster
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    volumes:
+      # SQLite database (from Phase 3 also the map textures)
+      - ./data:/data
+    environment:
+      - RUST_LOG=info

@@ -1,0 +1,19 @@
+[package]
+name = "windfenster"
+description = "Open-source wind forecast for water sports: one binary with API, ingest and SPA"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+wf-core.workspace = true
+wf-api.workspace = true
+anyhow.workspace = true
+axum.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

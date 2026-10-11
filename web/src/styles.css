@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Design tokens from the mockup (Zinc, dark first). shadcn/ui components use the semantic
+ * names; the extra tokens below cover what the mockup needs beyond them. The wind colour
+ * scale lives in src/ui/wind-scale.ts, because the table, the map and the alarms all
+ * compute with it.
+ */
+:root {
+  color-scheme: dark;
+  --radius: 0.75rem;
+
+  --background: #09090b; /* zinc-950 */
+  --foreground: #fafafa; /* zinc-50 */
+  --card: #111113; /* surfaces: cards, toolbars, inputs */
+  --card-foreground: #fafafa;
+  --popover: #111113;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --secondary: #18181b; /* zinc-900: chips, active nav item */
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa; /* zinc-400: labels */
+  --accent: #18181b;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --border: #27272a; /* zinc-800 */
+  --input: #27272a;
+  --ring: #d4d4d8;
+
+  /* beyond shadcn */
+  --line: #1f1f23; /* soft dividers: header, table rows */
+  --border-strong: #3f3f46; /* zinc-700 */
+  --subtle: #d4d4d8; /* zinc-300: secondary text */
+  --dim: #8e8e97; /* captions; 4.5:1 on --card */
+  --success: #4ade80;
+  --success-ring: #14532d;
+  --success-surface: #0b1a12;
+  --success-border: #1d3b28;
+  --success-foreground: #bbf7d0;
+  --water: #7dd3fc;
+  --sun: #fcd34d;
+  --measured: #8bd450; /* measured values (METAR, DWD) next to forecasts */
+
+  /* model series, in the order the models are listed */
+  --chart-1: #38bdf8;
+  --chart-2: #fafafa;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #8e8e97;
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-line: var(--line);
+  --color-border-strong: var(--border-strong);
+  --color-subtle: var(--subtle);
+  --color-dim: var(--dim);
+  --color-success: var(--success);
+  --color-success-ring: var(--success-ring);
+  --color-success-surface: var(--success-surface);
+  --color-success-border: var(--success-border);
+  --color-success-foreground: var(--success-foreground);
+  --color-water: var(--water);
+  --color-sun: var(--sun);
+  --color-measured: var(--measured);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  /* numbers line up in tables and live values */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
