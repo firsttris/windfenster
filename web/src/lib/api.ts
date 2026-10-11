@@ -3,6 +3,7 @@ import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Health } from '@/bindings/Health';
 import type { Model } from '@/bindings/Model';
+import type { NearGauge } from '@/bindings/NearGauge';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { SearchResults } from '@/bindings/SearchResults';
 import type { StationForecast } from '@/bindings/StationForecast';
@@ -81,4 +82,12 @@ export const liveQuery = (slug: string) =>
     queryFn: () => api<StationLive>(`/stations/${encodeURIComponent(slug)}/live`),
     // METARs come every 30 min, DWD values about every 30 min.
     refetchInterval: 2 * 60_000,
+  });
+
+export const gaugeQuery = (lat: number, lon: number) =>
+  queryOptions({
+    queryKey: ['gauge', lat.toFixed(2), lon.toFixed(2)],
+    queryFn: () => api<NearGauge | null>(`/gauges/near?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
+    // PEGELONLINE publishes every 15 minutes.
+    refetchInterval: 15 * 60_000,
   });

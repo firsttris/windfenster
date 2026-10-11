@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { LiveTile } from '@/components/live-tile';
 import { Failed, Loading, Page } from '@/components/page';
+import { WaterTile } from '@/components/water-tile';
 import { liveQuery, stationQuery } from '@/lib/api';
 import { coordinates, countryName, formatNumber } from '@/lib/format';
 import { useTitle } from '@/lib/use-title';
@@ -54,7 +55,12 @@ function StationPage() {
       </section>
       <ForecastView
         fc={forecast}
-        tiles={<LiveTile station={st} timeZone={forecast.timezone ?? 'UTC'} />}
+        tiles={
+          <>
+            <LiveTile station={st} timeZone={forecast.timezone ?? 'UTC'} />
+            <WaterTile lat={st.lat} lon={st.lon} timeZone={forecast.timezone ?? 'UTC'} />
+          </>
+        }
         measured={
           live.data && {
             source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}`,

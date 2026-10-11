@@ -1,5 +1,5 @@
 //! The background loop: station lists weekly, model runs every five minutes, METARs every ten,
-//! TAFs and DWD measurements every thirty, cleanup hourly.
+//! water gauges every ten, TAFs and DWD measurements every thirty, cleanup hourly.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -32,6 +32,7 @@ impl Scheduler {
         let mut next_metar = 0;
         let mut next_dwd = 0;
         let mut next_taf = 0;
+        let mut next_gauges = 0;
         let mut next_purge = 0;
         let mut mark_tracked = true;
         loop {
@@ -84,6 +85,14 @@ impl Scheduler {
                 match self.measurements.import_tafs(now - HOT_FOR_S).await {
                     Ok(n) => tracing::debug!("stored {n} TAFs"),
                     Err(e) => tracing::warn!("TAFs: {e:#}"),
+                }
+            }
+            if now >= next_gauges {
+                // PEGELONLINE publishes every 15 minutes; every other tick.
+                next_gauges = now + 540;
+                match self.measurements.import_gauges().await {
+                    Ok(n) => tracing::debug!("stored {n} gauges"),
+                    Err(e) => tracing::warn!("gauges: {e:#}"),
                 }
             }
             if let Err(e) = self.forecasts.detect_runs(now).await {

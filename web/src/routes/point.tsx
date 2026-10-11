@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { Failed, Loading, Page } from '@/components/page';
+import { WaterTile } from '@/components/water-tile';
 import { pointQuery } from '@/lib/api';
 import { coordinates, km } from '@/lib/format';
 import { useTitle } from '@/lib/use-title';
@@ -59,7 +60,7 @@ function PointPage() {
           </Link>
         )}
       </section>
-      <ForecastView fc={forecast} />
+      <ForecastView fc={forecast} tiles={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />} />
     </Page>
   );
 }

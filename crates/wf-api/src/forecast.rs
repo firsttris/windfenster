@@ -105,8 +105,8 @@ pub async fn station(
 
 #[derive(Deserialize)]
 pub struct PointQuery {
-    lat: f64,
-    lon: f64,
+    pub lat: f64,
+    pub lon: f64,
 }
 
 /// The station nearest to a free point.

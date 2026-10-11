@@ -45,6 +45,10 @@ function RootLayout() {
               ,{' '}
               <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
                 DWD
+              </a>{' '}
+              · {m.footer_gauges()}{' '}
+              <a href="https://www.pegelonline.wsv.de/" className="text-subtle hover:text-foreground">
+                PEGELONLINE (WSV)
               </a>
             </span>
             <span className="flex flex-wrap items-center gap-3">

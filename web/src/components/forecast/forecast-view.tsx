@@ -92,7 +92,7 @@ export function ForecastView({ fc, tiles, measured, taf }: Props) {
               </h2>
               <p className="m-0 mt-1 text-muted-foreground text-[13px]">
                 {m.forecast_note()}
-                {taf && ` · ${m.taf_row()}: ${m.taf_legend()}`}
+                {taf && desktop && ` · ${m.taf_row()}: ${m.taf_legend()}`}
               </p>
             </div>
             <ScaleLegend unit={unit} />

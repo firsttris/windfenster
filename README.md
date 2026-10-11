@@ -14,8 +14,8 @@ was closest to the measurements there recently.
 </div>
 
 > **Status:** early development. Station and point pages with forecasts from five models work
-> (Phase 1). Phase 2 is under way: live measurements from METAR and DWD stations and the
-> airport forecasts (TAF) are in; water levels and the model ranking follow.
+> (Phase 1). Phase 2 is under way: live measurements from METAR and DWD stations, airport
+> forecasts (TAF) and water gauges are in; the model ranking follows.
 
 ## What v1 will do
 
@@ -51,7 +51,7 @@ build the image yourself: `docker compose up --build` in a checkout.
 | `WF_OPEN_METEO_DAILY_BUDGET` | 9,000 without key | Open-Meteo calls per day |
 | `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
-| `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs every 10, TAFs and DWD measurements every 30 |
+| `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30 |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
 Commands of the binary:
@@ -81,6 +81,12 @@ TAFs (airport forecasts) of the same stations come from aviationweather.gov's TA
 minutes, with the change groups already decoded; Windfenster turns them into an hourly
 series with the span that TEMPO, PROB and a change in progress allow. Measurements and TAFs
 are kept for 13 months, for the verification of the models.
+
+Water gauges come from PEGELONLINE: one request every 10 minutes brings all of them (about 730
+with coordinates) with level, flow, water temperature and the official flood states. A
+station or point within 15 km of a gauge shows it, with the last seven days fetched from
+PEGELONLINE when the page is opened. The current on the Rhine is estimated from the flow and
+a blanket cross-section (300 m × 6 m, surface 1.3 times the mean) and labelled as an estimate.
 
 ## Development
 
@@ -112,13 +118,14 @@ pnpm build
 ```
 crates/
   wf-core/       models, units, stations, forecast-series format, database
-  wf-ingest/     Open-Meteo, station lists, measurements (METAR, DWD), geocoding, scheduler
+  wf-ingest/     Open-Meteo, station lists, measurements (METAR, TAF, DWD, PEGELONLINE),
+                 geocoding, scheduler
   wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
   windfenster/   the binary: serve | migrate | import-stations | probe
 migrations/      sqlx migrations (SQLite)
 web/
   src/routes/    pages (TanStack Router, file-based): start, station, point
-  src/components/ forecast view and table, live tile, search
+  src/components/ forecast view and table, live and water tiles, search
   src/lib/       logic without UI: forecast table, METAR decoder, TAF texts, units, formats, API
   src/ui/        shadcn/ui components, wind colour scale
   messages/      texts in German and English (Paraglide)
@@ -149,8 +156,11 @@ is for non-commercial use only. Running Windfenster commercially needs your own
 instance. Airport names and places come from [OurAirports](https://ourairports.com/data/)
 (public domain); which airports send METARs and TAFs, and the reports themselves, from the
 [Aviation Weather Center](https://aviationweather.gov/) (NOAA, public domain). Wind stations and
-their 10-minute values come from [DWD Open Data](https://opendata.dwd.de/). Further sources
-(PEGELONLINE, ECMWF) come with the phases that use them and are listed on an attribution page.
+their 10-minute values come from [DWD Open Data](https://opendata.dwd.de/). Water levels from
+[PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
+Bundes), credited on every page that shows them. Further sources (ECMWF
+open data for the map) come with the phases that use them and are listed on an attribution
+page.
 
 ---
 

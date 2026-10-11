@@ -36,17 +36,34 @@ pub fn unix(year: i64, month: u32, day: u32, hour: u32, minute: u32, second: u32
     days * 86_400 + i64::from(hour) * 3_600 + i64::from(minute) * 60 + i64::from(second)
 }
 
-/// Parses an ISO 8601 UTC time, e.g. `2026-10-11T08:50:00.000Z` or `2026-10-11T08:50:00Z`.
+/// Parses an ISO 8601 time in UTC or with an offset, e.g. `2026-10-11T08:50:00.000Z`,
+/// `2026-10-11T08:50:00Z` or `2026-10-11T10:50:00+02:00`.
 pub fn parse_iso(s: &str) -> Option<i64> {
-    let s = s.trim().strip_suffix('Z').unwrap_or(s.trim());
-    let (date, time) = s.split_once('T')?;
+    let (date, time) = s.trim().split_once('T')?;
     let mut d = date.split('-').map(|x| x.parse::<i64>().ok());
     let (y, mo, da) = (d.next()??, d.next()??, d.next()??);
-    let time = time.split(['+', '.']).next()?;
-    let mut t = time.split(':').map(|x| x.parse::<u32>().ok());
+    let (clock, offset) = if let Some(clock) = time.strip_suffix('Z') {
+        (clock, 0)
+    } else if let Some(i) = time.rfind(['+', '-']) {
+        let (clock, offset) = time.split_at(i);
+        let sign = if offset.starts_with('-') { -1 } else { 1 };
+        let digits: String = offset[1..].chars().filter(char::is_ascii_digit).collect();
+        if digits.len() != 4 {
+            return None;
+        }
+        let (h, m) = (
+            digits[..2].parse::<i64>().ok()?,
+            digits[2..].parse::<i64>().ok()?,
+        );
+        (clock, sign * (h * 3_600 + m * 60))
+    } else {
+        (time, 0)
+    };
+    let clock = clock.split('.').next()?;
+    let mut t = clock.split(':').map(|x| x.parse::<u32>().ok());
     let (h, mi) = (t.next()??, t.next()??);
     let sec = t.next().flatten().unwrap_or(0);
-    Some(unix(y, mo as u32, da as u32, h, mi, sec))
+    Some(unix(y, mo as u32, da as u32, h, mi, sec) - offset)
 }
 
 /// Parses DWD's `yyyymmddhhmm` (UTC).
@@ -77,6 +94,10 @@ mod tests {
         assert_eq!(parse_iso("2026-10-11T08:50:00.000Z"), Some(1_791_708_600));
         assert_eq!(parse_iso("2026-10-11T08:50:00Z"), Some(1_791_708_600));
         assert_eq!(parse_iso("2026-10-11"), None);
+        // PEGELONLINE: local time with offset
+        assert_eq!(parse_iso("2026-10-11T10:50:00+02:00"), Some(1_791_708_600));
+        assert_eq!(parse_iso("2026-10-11T05:50:00-03:00"), Some(1_791_708_600));
+        assert_eq!(parse_iso("2026-10-11T10:50:00+2"), None);
         assert_eq!(parse_compact("202610110850"), Some(1_791_708_600));
         assert_eq!(parse_compact("20261011085"), None);
     }

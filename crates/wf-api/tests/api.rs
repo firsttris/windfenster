@@ -1,5 +1,5 @@
-//! The API against stand-ins for Open-Meteo (forecast and geocoding) and aviationweather.gov
-//! that answer in their formats.
+//! The API against stand-ins for Open-Meteo (forecast and geocoding), aviationweather.gov and
+//! PEGELONLINE that answer in their formats.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::Result;
 use axum::Router;
 use axum::body::{Body, to_bytes};
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{Request, StatusCode};
 use axum::routing::get;
 use serde_json::{Value, json};
@@ -25,6 +25,7 @@ struct Calls {
     forecast: AtomicUsize,
     metar: AtomicUsize,
     taf: AtomicUsize,
+    gauge: AtomicUsize,
 }
 
 async fn fake_forecast(
@@ -99,6 +100,35 @@ async fn fake_taf(
     .to_string()
 }
 
+/// PEGELONLINE's level series: every 15 minutes of the last two hours, in its JSON shape.
+async fn fake_levels(State(calls): State<Arc<Calls>>, Path(uuid): Path<String>) -> String {
+    calls.gauge.fetch_add(1, Ordering::SeqCst);
+    assert_eq!(uuid, "b02be240-1364-4c97-8bb6-675d7d842332");
+    let now = wf_core::time::now();
+    let last = now - now % 900;
+    json!([
+        {"timestamp": iso(last - last % 3_600), "value": 70.0},
+        {"timestamp": iso(last - 900), "value": 63.0},
+        {"timestamp": iso(last), "value": 62.0}
+    ])
+    .to_string()
+}
+
+/// A Unix time as PEGELONLINE writes it, in German summer time.
+fn iso(unix: i64) -> String {
+    let local = unix + 7_200;
+    let d = wf_core::time::yyyymmdd(local);
+    let s = local.rem_euclid(86_400);
+    format!(
+        "{}-{:02}-{:02}T{:02}:{:02}:00+02:00",
+        d / 10_000,
+        d / 100 % 100,
+        d % 100,
+        s / 3_600,
+        s / 60 % 60
+    )
+}
+
 async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
     let calls = Arc::new(Calls::default());
     let fake = Router::new()
@@ -106,6 +136,7 @@ async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
         .route("/v1/search", get(fake_geocode))
         .route("/api/data/metar", get(fake_metar))
         .route("/api/data/taf", get(fake_taf))
+        .route("/stations/{uuid}/W/measurements.json", get(fake_levels))
         .with_state(calls.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
@@ -135,6 +166,28 @@ async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
         1,
     )
     .await?;
+    wf_core::gauge::upsert(
+        &db,
+        &[wf_core::gauge::Gauge {
+            uuid: "b02be240-1364-4c97-8bb6-675d7d842332".into(),
+            number: "23500600".into(),
+            name: "Iffezheim".into(),
+            water: Some("Rhein".into()),
+            km: Some(336.2),
+            lat: 48.852149,
+            lon: 8.116902,
+            level_cm: Some(62.0),
+            level_at: Some(1_791_710_100),
+            level_state: Some("low".into()),
+            shipping_state: Some("unknown".into()),
+            flow_m3s: Some(358.0),
+            flow_at: Some(1_791_709_200),
+            water_temp_c: None,
+            water_temp_at: None,
+        }],
+        1,
+    )
+    .await?;
     let http = reqwest::Client::builder().no_proxy().build()?;
     let models = wf_core::model::active(&db, None).await?;
     let om = OpenMeteo::new(
@@ -151,7 +204,8 @@ async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
         http,
         Urls {
             awc_base: base.clone(),
-            dwd_base: base,
+            dwd_base: base.clone(),
+            pegelonline_base: base,
         },
     ));
     let state = AppState::new(
@@ -308,6 +362,40 @@ async fn live_fetches_a_new_station_once() -> Result<()> {
 
     let (status, _) = get_json(&app, "/api/stations/xxxx/live").await?;
     assert_eq!(status, StatusCode::NOT_FOUND);
+    Ok(())
+}
+
+#[tokio::test]
+async fn gauge_near_a_place() -> Result<()> {
+    let (_dir, app, calls) = app().await?;
+    // Baden Airpark: Iffezheim on the Rhine, 8 km
+    let (status, body) = get_json(&app, "/api/gauges/near?lat=48.7794&lon=8.0805").await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        (&body["name"], &body["water"]),
+        (&json!("Iffezheim"), &json!("Rhein"))
+    );
+    assert_eq!(body["distanceKm"].as_f64(), Some(8.5));
+    assert_eq!(body["level"]["value"].as_f64(), Some(62.0));
+    assert_eq!(
+        (&body["levelState"], &body["shippingState"]),
+        (&json!("low"), &json!("unknown"))
+    );
+    assert_eq!(body["flow"]["value"].as_f64(), Some(358.0));
+    assert_eq!(body["waterTemp"], Value::Null);
+    assert!((body["currentMs"].as_f64().unwrap() - 0.2586).abs() < 0.001);
+    // The full hour and the newest value
+    let history = body["history"].as_array().unwrap();
+    assert_eq!(history.last().unwrap()["cm"].as_f64(), Some(62.0));
+    assert_eq!(calls.gauge.load(Ordering::SeqCst), 1);
+    get_json(&app, "/api/gauges/near?lat=48.78&lon=8.08").await?;
+    assert_eq!(calls.gauge.load(Ordering::SeqCst), 1);
+
+    // Rhodes: none
+    let (status, body) = get_json(&app, "/api/gauges/near?lat=36.4&lon=28.1").await?;
+    assert_eq!((status, body), (StatusCode::OK, Value::Null));
+    let (status, _) = get_json(&app, "/api/gauges/near?lat=95&lon=8").await?;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     Ok(())
 }
 

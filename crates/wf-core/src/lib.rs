@@ -5,6 +5,7 @@
 
 pub mod db;
 pub mod forecast;
+pub mod gauge;
 pub mod geo;
 pub mod model;
 pub mod observation;

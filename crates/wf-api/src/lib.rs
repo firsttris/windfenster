@@ -7,6 +7,7 @@ pub mod live;
 mod meta;
 pub mod search;
 mod spa;
+pub mod water;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,6 +50,7 @@ pub struct AppState {
     touched: moka::future::Cache<GridPoint, ()>,
     /// Stations (row ids) whose measurements were fetched on request within ten minutes.
     fetched: moka::future::Cache<i64, ()>,
+    gauge_history: water::HistoryCache,
 }
 
 impl AppState {
@@ -79,6 +81,7 @@ impl AppState {
                 .max_capacity(10_000)
                 .time_to_live(Duration::from_secs(600))
                 .build(),
+            gauge_history: water::new_cache(),
         }
     }
 
@@ -103,6 +106,7 @@ pub fn router(state: AppState) -> Router {
         .route("/stations/{slug}", get(forecast::station))
         .route("/stations/{slug}/live", get(live::live))
         .route("/point", get(forecast::point))
+        .route("/gauges/near", get(water::near))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)

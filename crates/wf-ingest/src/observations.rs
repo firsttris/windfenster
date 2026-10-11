@@ -1,6 +1,6 @@
-//! Measured wind and airport forecasts: all METARs from aviationweather.gov's cache file, TAFs
-//! and DWD 10-minute values for the stations people look at, and one station's recent values on
-//! request.
+//! Measured wind, airport forecasts and water gauges: all METARs from aviationweather.gov's
+//! cache file, TAFs and DWD 10-minute values for the stations people look at, one station's
+//! recent values on request, and every PEGELONLINE gauge with its latest values.
 
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -8,6 +8,7 @@ use std::io::Read;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
+use wf_core::gauge::{self, Gauge};
 use wf_core::observation::{self, Observation};
 use wf_core::station::{self, Station, StationSource};
 use wf_core::taf::{self, Taf, TafChange, TafCloud, TafGroup};
@@ -21,12 +22,19 @@ const TAF_BATCH: usize = 40;
 pub const DWD_BASE: &str =
     "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes";
 
+pub const PEGELONLINE_BASE: &str = "https://www.pegelonline.wsv.de/webservices/rest-api/v2";
+
+/// A gauge list shorter than this is taken as a broken answer and removes nothing.
+const PLAUSIBLE_GAUGES: usize = 300;
+
 #[derive(Debug, Clone)]
 pub struct Urls {
     /// aviationweather.gov: the METAR cache file and the METAR API.
     pub awc_base: String,
     /// The DWD's 10-minute products.
     pub dwd_base: String,
+    /// PEGELONLINE's REST API (v2).
+    pub pegelonline_base: String,
 }
 
 impl Default for Urls {
@@ -34,6 +42,7 @@ impl Default for Urls {
         Self {
             awc_base: AWC_BASE.into(),
             dwd_base: DWD_BASE.into(),
+            pegelonline_base: PEGELONLINE_BASE.into(),
         }
     }
 }
@@ -157,6 +166,35 @@ impl Measurements {
             StationSource::Owm => return Ok(0),
         };
         self.store(id, rows).await
+    }
+
+    /// Fetches every gauge with its latest level, flow and water temperature (one request of
+    /// about 750 KB); returns how many were stored.
+    pub async fn import_gauges(&self) -> Result<usize> {
+        let body = self
+            .get(&format!(
+                "{}/stations.json?includeTimeseries=true&includeCurrentMeasurement=true",
+                self.urls.pegelonline_base
+            ))
+            .await?;
+        let gauges = parse_gauges(&body)?;
+        let now = wf_core::time::now();
+        let n = gauge::upsert(&self.db, &gauges, now).await?;
+        if n >= PLAUSIBLE_GAUGES {
+            gauge::remove_unseen(&self.db, now - 7 * 86_400).await?;
+        }
+        Ok(n)
+    }
+
+    /// A gauge's water level over the last seven days (time, cm), oldest first.
+    pub async fn gauge_history(&self, uuid: &str) -> Result<Vec<(i64, f32)>> {
+        let body = self
+            .get(&format!(
+                "{}/stations/{uuid}/W/measurements.json?start=P7D",
+                self.urls.pegelonline_base
+            ))
+            .await?;
+        parse_measurements(&body)
     }
 
     async fn store(&self, id: i64, rows: Vec<Observation>) -> Result<usize> {
@@ -358,6 +396,100 @@ pub fn parse_taf_json(body: &[u8], fetched_at: i64) -> Result<Vec<(String, Taf)>
         .collect())
 }
 
+#[derive(Deserialize)]
+struct GaugeJson {
+    uuid: String,
+    number: String,
+    longname: String,
+    km: Option<f64>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    water: Option<WaterJson>,
+    #[serde(default)]
+    timeseries: Vec<SeriesJson>,
+}
+
+#[derive(Deserialize)]
+struct WaterJson {
+    longname: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SeriesJson {
+    shortname: String,
+    current_measurement: Option<CurrentJson>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CurrentJson {
+    timestamp: String,
+    value: Option<f64>,
+    state_mnw_mhw: Option<String>,
+    state_nsw_hsw: Option<String>,
+}
+
+/// Parses PEGELONLINE's station list with time series and current values: level W (cm), flow Q
+/// (m³/s), water temperature WT (°C). Gauges without coordinates (some abroad) are left out;
+/// names come in upper case and are made readable.
+pub fn parse_gauges(body: &[u8]) -> Result<Vec<Gauge>> {
+    let list: Vec<GaugeJson> = serde_json::from_slice(body).context("PEGELONLINE stations")?;
+    Ok(list
+        .into_iter()
+        .filter_map(|g| {
+            let (lat, lon) = (g.latitude?, g.longitude?);
+            let current = |name: &str| {
+                g.timeseries
+                    .iter()
+                    .find(|t| t.shortname == name)
+                    .and_then(|t| t.current_measurement.as_ref())
+            };
+            let reading = |name: &str| {
+                current(name)
+                    .and_then(|c| Some((c.value?, wf_core::time::parse_iso(&c.timestamp)?)))
+            };
+            let level = reading("W");
+            let flow = reading("Q");
+            let temp = reading("WT");
+            let w = current("W");
+            Some(Gauge {
+                uuid: g.uuid,
+                number: g.number,
+                name: wf_core::text::title_case(&g.longname),
+                water: g.water.map(|w| wf_core::text::title_case(&w.longname)),
+                km: g.km,
+                lat,
+                lon,
+                level_cm: level.map(|r| r.0),
+                level_at: level.map(|r| r.1),
+                level_state: w.and_then(|c| c.state_mnw_mhw.clone()),
+                shipping_state: w.and_then(|c| c.state_nsw_hsw.clone()),
+                flow_m3s: flow.map(|r| r.0),
+                flow_at: flow.map(|r| r.1),
+                water_temp_c: temp.map(|r| r.0),
+                water_temp_at: temp.map(|r| r.1),
+            })
+        })
+        .collect())
+}
+
+#[derive(Deserialize)]
+struct MeasurementJson {
+    timestamp: String,
+    value: Option<f32>,
+}
+
+/// Parses a PEGELONLINE measurement series (`…/W/measurements.json`).
+pub fn parse_measurements(body: &[u8]) -> Result<Vec<(i64, f32)>> {
+    let list: Vec<MeasurementJson> =
+        serde_json::from_slice(body).context("PEGELONLINE measurements")?;
+    Ok(list
+        .into_iter()
+        .filter_map(|m| Some((wf_core::time::parse_iso(&m.timestamp)?, m.value?)))
+        .collect())
+}
+
 /// Parses the METAR API's JSON (`/api/data/metar?format=json`). Wind in knots; the direction
 /// is a number or "VRB", 0 with wind is variable as well.
 pub fn parse_metar_json(body: &[u8]) -> Result<Vec<(String, Observation)>> {
@@ -547,6 +679,34 @@ mod tests {
         let lgrp = &tafs[1].1;
         assert_eq!(lgrp.groups[0].visibility_m, Some(5000.0));
         assert_eq!(lgrp.groups[0].clouds[0].kind.as_deref(), Some("TCU"));
+    }
+
+    #[test]
+    fn pegelonline() {
+        // From the real answers (2026-10-11), cut: Iffezheim with W and Q, a gauge abroad
+        // without coordinates.
+        let body = r#"[{"uuid":"b02be240-1364-4c97-8bb6-675d7d842332","number":"23500600","shortname":"IFFEZHEIM","longname":"IFFEZHEIM","km":336.2,"agency":"STANDORT FREIBURG","longitude":8.116902,"latitude":48.852149,"voiceServiceNumber":"+49228 286527 546","water":{"shortname":"RHEIN","longname":"RHEIN"},"timeseries":[{"shortname":"Q","longname":"ABFLUSS_ROHDATEN","unit":"m³/s","equidistance":15,"currentMeasurement":{"timestamp":"2026-10-11T11:00:00+02:00","value":358.0}},{"shortname":"W","longname":"WASSERSTAND ROHDATEN","unit":"cm","equidistance":15,"currentMeasurement":{"timestamp":"2026-10-11T11:15:00+02:00","value":62.0,"stateMnwMhw":"low","stateNswHsw":"unknown"},"gaugeZero":{"unit":"m. ü. NHN","value":110.019,"validFrom":"2018-11-01"}}]},
+            {"uuid":"x","number":"1","shortname":"DORDRECHT","longname":"DORDRECHT","water":{"shortname":"RHEIN","longname":"RHEIN"},"timeseries":[]}]"#;
+        let gauges = parse_gauges(body.as_bytes()).unwrap();
+        assert_eq!(gauges.len(), 1);
+        let g = &gauges[0];
+        assert_eq!(
+            (g.name.as_str(), g.water.as_deref(), g.km),
+            ("Iffezheim", Some("Rhein"), Some(336.2))
+        );
+        assert_eq!((g.level_cm, g.level_at), (Some(62.0), Some(1_791_710_100)));
+        assert_eq!(
+            (g.level_state.as_deref(), g.shipping_state.as_deref()),
+            (Some("low"), Some("unknown"))
+        );
+        assert_eq!((g.flow_m3s, g.flow_at), (Some(358.0), Some(1_791_709_200)));
+        assert_eq!(g.water_temp_c, None);
+
+        let history = br#"[{"timestamp":"2026-10-04T11:45:00+02:00","value":43.0},{"timestamp":"2026-10-11T11:15:00+02:00","value":62.0}]"#;
+        assert_eq!(
+            parse_measurements(history).unwrap(),
+            [(1_791_107_100, 43.0), (1_791_710_100, 62.0)]
+        );
     }
 
     #[test]
