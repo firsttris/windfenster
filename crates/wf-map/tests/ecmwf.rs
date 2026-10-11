@@ -21,17 +21,18 @@ struct Fake {
     ranges: Arc<AtomicUsize>,
 }
 
-/// U and V on a 1° grid from 30°W to 50°E and 75°N to 25°N, north row first as ECMWF sends it;
-/// U grows to the east, V is 4 everywhere, gusts 9 everywhere but at step 0, which has none.
+/// U and V on a 10° grid around the world, as ECMWF sends it: from 180° (= 180°W) eastwards,
+/// north row first, the last column at 170°E; U grows to the east, V is 4 everywhere, gusts 9
+/// everywhere but at step 0, which has none.
 fn file(step: u32) -> (Vec<u8>, String) {
-    let (ni, nj) = (81, 51);
+    let (ni, nj) = (36, 19);
     let grid = |f: &dyn Fn(u32) -> u8| {
         testing::message(
             ni,
             nj,
-            (75_000_000, 330_000_000),
-            (25_000_000, 50_000_000),
-            1_000_000,
+            (90_000_000, 180_000_000),
+            (-90_000_000, 170_000_000),
+            10_000_000,
             0x00,
             &(0..ni * nj).map(|k| Some(f(k % ni))).collect::<Vec<_>>(),
         )
@@ -89,7 +90,7 @@ async fn serve(
 }
 
 #[tokio::test]
-async fn fetches_the_wind_by_range_and_cuts_it_to_the_region() {
+async fn fetches_the_whole_world_by_range() {
     let fake = Fake::default();
     fake.last.store(6, Ordering::SeqCst);
     let app = Router::new()
@@ -116,12 +117,13 @@ async fn fetches_the_wind_by_range_and_cuts_it_to_the_region() {
         &std::fs::read(dir.path().join("ecmwf_ifs025/2026101100/003.json")).unwrap(),
     )
     .unwrap();
-    // 25°W to 45°E and 27°N to 72°N at 1°, texel edges half a degree out
-    assert_eq!((meta.width, meta.height), (71, 46));
+    // The whole world at 10°, texel edges 5° out; it wraps at 180°.
+    assert_eq!((meta.width, meta.height), (36, 19));
     assert_eq!(
         (meta.west, meta.south, meta.east, meta.north),
-        (-25.5, 26.5, 45.5, 72.5)
+        (-185.0, -95.0, 175.0, 95.0)
     );
+    assert!(meta.wraps());
     assert!((meta.v_min - 4.0 / 0.514_444).abs() < 0.01);
     assert!((meta.gust_max.unwrap() - 9.0 / 0.514_444).abs() < 0.01);
     let first: wf_map::texture::TextureMeta = serde_json::from_slice(

@@ -28,8 +28,6 @@ pub enum Error {
     Grid { file: String, source: GridError },
     #[error("{file}: no field {param} in the index")]
     Missing { file: String, param: &'static str },
-    #[error("{file}: the grid does not cover the map's region")]
-    Region { file: String },
     #[error("texture: {0}")]
     Texture(#[from] TextureError),
     #[error("writing textures: {0}")]
@@ -78,7 +76,7 @@ pub struct MapData {
     depth: crate::basemap::Depth,
 }
 
-/// The map's region (west, south, east, north): global fields are cut to it.
+/// The basemap's and the relief's region (west, south, east, north).
 pub const REGION: [f64; 4] = [-25.0, 27.0, 45.0, 72.0];
 
 impl MapData {

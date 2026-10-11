@@ -48,6 +48,14 @@ pub struct TextureMeta {
     pub gust_max: Option<f32>,
 }
 
+impl TextureMeta {
+    /// Whether the texture goes once around the world (its columns cover 360°), so it wraps
+    /// at its west and east edges.
+    pub fn wraps(&self) -> bool {
+        (self.east - self.west - 360.0).abs() < 1e-6
+    }
+}
+
 fn range(values: &[f32]) -> (f32, f32) {
     let (lo, hi) = values
         .iter()

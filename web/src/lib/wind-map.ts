@@ -12,6 +12,9 @@ export function mercatorX(lon: number): number {
   return (lon + 180) / 360;
 }
 
+/** Web Mercator's edge, degrees north and south */
+export const MAX_LAT = 85.051129;
+
 /** Web Mercator y, 0 at the northern edge (85.05° N) and 1 at the southern. */
 export function mercatorY(lat: number): number {
   const s = Math.sin((lat * Math.PI) / 180);
@@ -102,17 +105,38 @@ export interface Wind {
   gust: number | null;
 }
 
+/** Whether a texture goes once around the world, so it wraps at its west and east edges. */
+export function wrapsAround(meta: Pick<TextureMeta, 'west' | 'east'>): boolean {
+  return Math.abs(meta.east - meta.west - 360) < 1e-6;
+}
+
+/** The four texels around a fractional column: the left one, the right one and how far
+ * towards it. A global texture wraps (left of the first texel's centre lies the last). */
+function columns(fx: number, width: number, wraps: boolean): [number, number, number] {
+  const f = Math.floor(fx);
+  if (wraps) {
+    const x0 = ((f % width) + width) % width;
+    return [x0, (x0 + 1) % width, fx - f];
+  }
+  const x0 = Math.max(0, f);
+  return [x0, Math.min(width - 1, x0 + 1), Math.min(1, Math.max(0, fx - x0))];
+}
+
 /** The wind of a texture at a place, interpolated between the four texels around it like the
- * GPU does; null outside the model's domain. `pixels` is the PNG as RGBA, north row first. */
+ * GPU does; null outside the model's domain. `pixels` is the PNG as RGBA, north row first.
+ * Longitudes beyond ±180° (MapLibre's world copies) are the same places. */
 export function sampleWind(meta: TextureMeta, pixels: ArrayLike<number>, lon: number, lat: number): Wind | null {
-  const fx = ((lon - meta.west) / (meta.east - meta.west)) * meta.width - 0.5;
+  const wraps = wrapsAround(meta);
+  const span = meta.east - meta.west;
+  const at = wraps
+    ? meta.west + ((((lon - meta.west) % span) + span) % span)
+    : ((((lon + 180) % 360) + 360) % 360) - 180;
+  const fx = ((at - meta.west) / span) * meta.width - 0.5;
   const fy = ((meta.north - lat) / (meta.north - meta.south)) * meta.height - 0.5;
-  if (fx < -0.5 || fy < -0.5 || fx > meta.width - 0.5 || fy > meta.height - 0.5) return null;
-  const x0 = Math.max(0, Math.floor(fx));
+  if ((!wraps && (fx < -0.5 || fx > meta.width - 0.5)) || fy < -0.5 || fy > meta.height - 0.5) return null;
+  const [x0, x1, ax] = columns(fx, meta.width, wraps);
   const y0 = Math.max(0, Math.floor(fy));
-  const x1 = Math.min(meta.width - 1, x0 + 1);
   const y1 = Math.min(meta.height - 1, y0 + 1);
-  const ax = Math.min(1, Math.max(0, fx - x0));
   const ay = Math.min(1, Math.max(0, fy - y0));
   let r = 0;
   let g = 0;

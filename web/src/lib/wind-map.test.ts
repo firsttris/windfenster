@@ -17,6 +17,7 @@ import {
   speedAndDirection,
   startTime,
   viewOf,
+  wrapsAround,
 } from './wind-map';
 
 const frame = (validAt: number): MapFrame => ({ validAt, runAt: 0, path: `icon_d2/2026101106/${validAt}` });
@@ -97,6 +98,20 @@ describe('sampling a texture', () => {
     expect(sampleWind(meta, px, 0.5, 51)).toEqual({ u: 0, v: 10, gust: 15 });
     // Next to the missing texel only the valid ones count.
     expect(sampleWind(meta, px, 1.5, 51)).toEqual({ u: 10, v: 0, gust: 12 });
+  });
+
+  it('wraps a global texture at 180°, also on world copies', () => {
+    // Two columns of 180°: west half U -10, east half U 10 (north row), centres at -90 and 90
+    const world = { ...meta, west: -180, east: 180, south: -90, north: 90 };
+    expect(wrapsAround(world)).toBe(true);
+    expect(wrapsAround(meta)).toBe(false);
+    // At 180° both columns count half each, the same 360° further.
+    expect(sampleWind(world, px, 180, 45)).toEqual({ u: -10, v: 0, gust: 0 });
+    expect(sampleWind(world, px, 0, 45)).toEqual({ u: -10, v: 0, gust: 0 });
+    expect(sampleWind(world, px, -90, 45)).toEqual(sampleWind(world, px, 270, 45));
+    expect(sampleWind(world, px, -90, 45)).toEqual(sampleWind(world, px, -450, 45));
+    // A regional texture on a world copy
+    expect(sampleWind(meta, px, 360.5, 51.5)).toEqual({ u: -10, v: 0, gust: 0 });
   });
 
   it('has no gusts where the model hour has none', () => {

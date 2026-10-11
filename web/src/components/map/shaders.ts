@@ -9,8 +9,10 @@
  * the detail (ICON-D2, its domain), which wins inside its domain and fades into the base over the
  * last 30–60 km to its edge (the edge read from a coarse mip level). Textures hold texel edges in
  * `bounds` (west, south, east, north), value ranges in `range` (uMin, uMax, vMin, vMax) and the
- * gust at blue 255 in `gust` (negative when the hour has none). The colour field samples with
- * mipmaps; the particles read the full texture (`SAMPLE`). */
+ * gust at blue 255 in `gust` (negative when the hour has none). A texture 360° wide (the global
+ * base) repeats east and west, so MapLibre's world copies show it and the seam at 180° is sampled
+ * across; a regional one is placed on the copy its longitudes fall on. The colour field samples
+ * with mipmaps; the particles read the full texture (`SAMPLE`). */
 const WIND = `
 uniform sampler2D u_base0;
 uniform sampler2D u_base1;
@@ -32,25 +34,39 @@ uniform vec2 u_has;   // 1 where a model is shown: base, detail
 const float PI = 3.141592653589793;
 const float EDGE_LOD = 4.0;
 
+/** Longitude (beyond ±180° on world copies) and latitude */
 vec2 lonLat(vec2 merc) {
   return vec2(merc.x * 360.0 - 180.0, degrees(atan(sinh(PI * (1.0 - 2.0 * merc.y)))));
 }
 
-vec2 uvOf(vec4 b, vec2 ll) {
-  return vec2((ll.x - b.x) / (b.z - b.x), (b.w - ll.y) / (b.w - b.y));
+/** 1 for a texture that goes once around the world */
+float wrapsOf(vec4 b) {
+  return step(359.0, b.z - b.x);
 }
 
-float insideOf(vec2 uv) {
-  return step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+/** Texture coordinates; around the world unwrapped (the texture repeats, and the mipmaps see no
+ * jump at 180°), else on the copy the place falls on. */
+vec2 uvOf(vec4 b, vec2 ll) {
+  float lon = wrapsOf(b) > 0.5 ? ll.x : ll.x - 360.0 * floor((ll.x + 180.0) / 360.0);
+  return vec2((lon - b.x) / (b.z - b.x), (b.w - ll.y) / (b.w - b.y));
+}
+
+float insideOf(vec4 b, vec2 uv) {
+  float x = max(wrapsOf(b), step(0.0, uv.x) * step(uv.x, 1.0));
+  return x * step(0.0, uv.y) * step(uv.y, 1.0);
+}
+
+vec2 clampOf(vec4 b, vec2 uv) {
+  return vec2(wrapsOf(b) > 0.5 ? uv.x : clamp(uv.x, 0.0, 1.0), clamp(uv.y, 0.0, 1.0));
 }
 
 vec4 windOf(sampler2D tex, vec4 b, vec4 r, float g, vec2 ll) {
   vec2 uv = uvOf(b, ll);
   // Sampled before any branch, so the field's mipmaps see smooth derivatives
-  vec4 c = SAMPLE(tex, clamp(uv, 0.0, 1.0));
+  vec4 c = SAMPLE(tex, clampOf(b, uv));
   // Texels outside the domain are (0, 0, 0, 0): dividing by alpha leaves the valid ones.
   vec3 n = c.rgb / max(c.a, 0.004);
-  return vec4(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), g < 0.0 ? -1.0 : n.z * g, c.a * insideOf(uv));
+  return vec4(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), g < 0.0 ? -1.0 : n.z * g, c.a * insideOf(b, uv));
 }
 
 /** a and b mixed; a gust missing on one side (negative) is taken from the other. */
@@ -69,7 +85,7 @@ vec4 wind(vec2 merc) {
     windOf(u_detail0, u_detail_bounds0, u_detail_range0, u_detail_gust.x, ll),
     windOf(u_detail1, u_detail_bounds1, u_detail_range1, u_detail_gust.y, ll), u_mix.y);
   vec2 duv = uvOf(u_detail_bounds0, ll);
-  float edge = textureLod(u_detail0, clamp(duv, 0.0, 1.0), EDGE_LOD).a * insideOf(duv);
+  float edge = textureLod(u_detail0, clampOf(u_detail_bounds0, duv), EDGE_LOD).a * insideOf(u_detail_bounds0, duv);
   float w = step(0.5, detail.w) * (base.w < 0.5 ? 1.0 : smoothstep(0.6, 0.98, edge));
   vec4 m = mixWind(base, detail, w);
   // Never a gust below the wind: both are interpolated apart, and hours without gusts show wind.

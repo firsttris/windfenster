@@ -45,20 +45,41 @@ pub struct MapSeries {
 }
 
 /// The four texels around a place (row 0 north) with their weights, blended as the GPU and the
-/// app's `sampleWind` do; None outside the texture.
+/// app's `sampleWind` do; None outside the texture. A global texture wraps: the first column
+/// is the last one's east neighbour.
 pub fn around(meta: &TextureMeta, lat: f64, lon: f64) -> Option<[(usize, f64); 4]> {
     let (w, h) = (f64::from(meta.width), f64::from(meta.height));
-    let fx = (lon - meta.west) / (meta.east - meta.west) * w - 0.5;
+    let span = meta.east - meta.west;
+    let wraps = meta.wraps();
+    let lon = if wraps {
+        meta.west + (lon - meta.west).rem_euclid(span)
+    } else {
+        lon
+    };
+    let fx = (lon - meta.west) / span * w - 0.5;
     let fy = (meta.north - lat) / (meta.north - meta.south) * h - 0.5;
-    if fx < -0.5 || fy < -0.5 || fx > w - 0.5 || fy > h - 0.5 {
+    if (!wraps && (fx < -0.5 || fx > w - 0.5)) || fy < -0.5 || fy > h - 0.5 {
         return None;
     }
-    let (x0, y0) = (fx.floor().max(0.0), fy.floor().max(0.0));
-    let (ax, ay) = ((fx - x0).clamp(0.0, 1.0), (fy - y0).clamp(0.0, 1.0));
-    let (x0, y0) = (x0 as usize, y0 as usize);
-    let x1 = (x0 + 1).min(meta.width as usize - 1);
-    let y1 = (y0 + 1).min(meta.height as usize - 1);
-    let at = |x: usize, y: usize| y * meta.width as usize + x;
+    let (width, height) = (meta.width as usize, meta.height as usize);
+    let fx0 = fx.floor();
+    let (x0, x1, ax) = if wraps {
+        // fx lies in −0.5…w − 0.5: left of the first texel's centre the last one is the neighbour
+        let x0 = fx0.rem_euclid(w) as usize;
+        (x0, (x0 + 1) % width, fx - fx0)
+    } else {
+        let x0 = fx0.max(0.0);
+        (
+            x0 as usize,
+            (x0 as usize + 1).min(width - 1),
+            (fx - x0).clamp(0.0, 1.0),
+        )
+    };
+    let y0 = fy.floor().max(0.0);
+    let ay = (fy - y0).clamp(0.0, 1.0);
+    let y0 = y0 as usize;
+    let y1 = (y0 + 1).min(height - 1);
+    let at = |x: usize, y: usize| y * width + x;
     Some([
         (at(x0, y0), (1.0 - ax) * (1.0 - ay)),
         (at(x1, y0), ax * (1.0 - ay)),
@@ -184,6 +205,29 @@ mod tests {
             blend(&[([200, 100, 0, 255], 0.5), ([100, 0, 50, 255], 0.5)]),
             Some([150.0, 50.0, 25.0])
         );
+    }
+
+    #[test]
+    fn wraps_around_the_world() {
+        // Four columns of 90°, centres at −135, −45, 45 and 135° east
+        let m = TextureMeta {
+            west: -180.0,
+            east: 180.0,
+            south: -90.0,
+            north: 90.0,
+            width: 4,
+            height: 2,
+            ..meta()
+        };
+        assert!(m.wraps() && !meta().wraps());
+        // At 180° the last and the first column count half each.
+        let c = around(&m, 45.0, 180.0).unwrap();
+        assert_eq!((c[0], c[1]), ((3, 0.5), (0, 0.5)));
+        // The same west of −180 and east of 180 (MapLibre's world copies)
+        assert_eq!(around(&m, 45.0, -180.0), Some(c));
+        assert_eq!(around(&m, 45.0, 540.0), Some(c));
+        let d = around(&m, 45.0, -157.5).unwrap();
+        assert_eq!((d[0], d[1]), ((3, 0.25), (0, 0.75)));
     }
 
     #[test]

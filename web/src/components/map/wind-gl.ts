@@ -1,5 +1,6 @@
 /** What both wind layers share on the GPU: the hours on show as textures and the uniforms the
  * `wind()` GLSL function reads. */
+import { wrapsAround } from '@/lib/wind-map';
 import type { WindFrame } from './frames';
 import { bindTexture, createTexture, type Program } from './gl';
 
@@ -29,7 +30,8 @@ export function framesOf(l: WindLayers): WindFrame[] {
 }
 
 /** Textures per frame in one GL context, uploaded when first drawn, with mipmaps: the field is
- * often shown smaller than its texels, and the detail's edge is read from a coarse level. */
+ * often shown smaller than its texels, and the detail's edge is read from a coarse level. A
+ * global texture repeats east and west. */
 export function windTextures(gl: WebGL2RenderingContext) {
   const textures = new Map<string, WebGLTexture>();
   // Stands in for a model that is not shown: no wind, outside every domain
@@ -41,6 +43,8 @@ export function windTextures(gl: WebGL2RenderingContext) {
       if (!t) {
         t = createTexture(gl, gl.LINEAR, frame.image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        // Around the world the east edge continues at the west one.
+        if (wrapsAround(frame.meta)) gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         gl.generateMipmap(gl.TEXTURE_2D);
         textures.set(frame.path, t);
       }

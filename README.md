@@ -122,9 +122,9 @@ What follows:
   and then the relief; at the zoom levels above that takes a while, and the map shows Natural
   Earth and coarser tiles until then. Detail spots come a minute or two after a place is opened.
 - **Disk:** with the settings above roughly 15 to 20 GB at most: the basemap (7 GB), relief
-  (about 6 GB), spots (a few GB once many are used), the map's runs (two per model, ICON-D2
-  about 230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
-  about 1.5 GB.
+  (about 6 GB), spots (a few GB once many are used), the map's runs (two per model, about
+  230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
+  about 2 GB.
 - **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
   container; the database migrates itself on start. With Compose:
   `docker compose pull && docker compose up -d`.
@@ -232,11 +232,12 @@ its extent, value ranges and the model's domain, under
 hours, lies ECMWF's IFS from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
 (0.25°, a run every 6 hours): Windfenster reads each step's index and fetches only the wind at
 10 m and the gusts (`10fg`) by byte range (2.8 MB per step), for 0 to 120 hours every 3 hours,
-and cuts them to the map's region (25° W to 45° E, 27° N to 72° N). When ECMWF's portal is busy
+for the whole world (1440 × 721 points, a PNG of 1 to 1.5 MB per hour; it wraps at 180°, so the
+map, a tapped spot and the readout under the pointer read across the date line). When ECMWF's portal is busy
 (HTTP 429) it waits 20 seconds and asks again, a few times, then leaves the rest to the next
 round. Next to each PNG the texels lie uncompressed (`.rgba`), so one place can be read over
 every hour in milliseconds. The newest run and the one before are kept per model: for ICON-D2
-about 150 MB of downloads and 230 MB on disk per run, for ECMWF about 115 MB and 13 MB. Hours
+about 150 MB of downloads and 230 MB on disk per run, for ECMWF about 115 MB and 220 MB. Hours
 without gusts (ECMWF's first, and late hours of some runs) show the wind on the gust layer, with
 a note. `GET /api/map` lists the hours, each from the newest run that has it;
 `GET /api/map/series?lat=&lon=` gives a place's wind, gusts and direction over all of them.

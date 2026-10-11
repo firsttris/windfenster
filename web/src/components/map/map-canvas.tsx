@@ -143,7 +143,8 @@ export function MapCanvas({
     mp.on('move', sync);
     mp.on('resize', sync);
     const middle = () => {
-      const c = mp.getCenter();
+      // On a world copy: the same place within ±180°
+      const c = mp.getCenter().wrap();
       center.current(c.lng, c.lat);
     };
     mp.on('moveend', middle);
@@ -181,7 +182,8 @@ export function MapCanvas({
         const [lon, lat] = hit.geometry.coordinates;
         pick.current({ lon, lat, slug: String(hit.properties.slug) });
       } else {
-        pick.current({ lon: e.lngLat.lng, lat: e.lngLat.lat, slug: null });
+        const at = e.lngLat.wrap();
+        pick.current({ lon: at.lng, lat: at.lat, slug: null });
       }
     });
     for (const l of PIN_LAYERS) {

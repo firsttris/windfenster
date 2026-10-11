@@ -2,10 +2,13 @@
  * coastlines and labels. It draws only when the map or the hour changes. */
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
 import { townness } from '@/lib/town-zoom';
-import { mercatorX, mercatorY, RAMP_MAX_KN, rampPixels } from '@/lib/wind-map';
+import { MAX_LAT, mercatorX, mercatorY, RAMP_MAX_KN, rampPixels, wrapsAround } from '@/lib/wind-map';
 import { activate, bindAttribute, bindTexture, createBuffer, createProgram, createTexture, type Program } from './gl';
 import { FIELD_FRAG, FIELD_VERT } from './shaders';
 import { bindWind, framesOf, hasWind, NO_WIND, type WindLayers, type WindTextures, windTextures } from './wind-gl';
+
+/** World copies drawn east and west of the world: as many as fit beside it when zoomed out */
+const WORLD_COPIES = 2;
 
 export interface WindField {
   layer: CustomLayerInterface;
@@ -58,12 +61,14 @@ export function windField(id: string, opacity: number, gusts: boolean): WindFiel
       const town = townness(map?.getZoom() ?? 0);
       if (!hasWind(shown) || !program || !ramp || !textures || town >= 1) return;
       const g = context;
-      // Two triangles over all the textures' extent, in Mercator
+      // Two triangles over all the textures' extent, in Mercator; around the world over the
+      // world copies on either side too
       const metas = framesOf(shown).map((f) => f.meta);
-      const west = Math.min(...metas.map((m) => m.west));
-      const east = Math.max(...metas.map((m) => m.east));
-      const south = Math.min(...metas.map((m) => m.south));
-      const north = Math.max(...metas.map((m) => m.north));
+      const world = metas.some(wrapsAround);
+      const west = world ? -180 - WORLD_COPIES * 360 : Math.min(...metas.map((m) => m.west));
+      const east = world ? 180 + WORLD_COPIES * 360 : Math.max(...metas.map((m) => m.east));
+      const south = Math.max(-MAX_LAT, Math.min(...metas.map((m) => m.south)));
+      const north = Math.min(MAX_LAT, Math.max(...metas.map((m) => m.north)));
       const key = `${west},${south},${east},${north}`;
       if (quadFor !== key) {
         const [x0, x1] = [mercatorX(west), mercatorX(east)];

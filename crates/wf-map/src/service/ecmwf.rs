@@ -1,10 +1,10 @@
 //! ECMWF: a step is out once its index is; U, V and the gusts come by byte range from the
-//! step's file and are cut to the map's region.
+//! step's file, the whole world.
 
 use reqwest::StatusCode;
 use reqwest::header::RANGE;
 
-use super::{Error, MapData, REGION};
+use super::{Error, MapData};
 
 /// Between two steps, so as not to run into ECMWF's request limit
 const PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
@@ -131,13 +131,10 @@ impl MapData {
             .bytes()
             .await?;
         tokio::task::spawn_blocking(move || {
-            let g = grid::decode(&bytes).map_err(|source| Error::Grid {
+            grid::decode(&bytes).map_err(|source| Error::Grid {
                 file: format!("{url} {param}"),
                 source,
-            })?;
-            let [west, south, east, north] = REGION;
-            g.crop(west, south, east, north)
-                .ok_or(Error::Region { file: url })
+            })
         })
         .await?
     }
