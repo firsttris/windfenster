@@ -9,6 +9,11 @@ use crate::AppState;
 #[folder = "../../web/dist"]
 struct Assets;
 
+/// The built SPA's index.html, if one is embedded.
+pub fn index_html() -> Option<String> {
+    Assets::get("index.html").map(|f| String::from_utf8_lossy(&f.data).into_owned())
+}
+
 /// Serves the built SPA; unknown paths get `index.html` so client-side routes work.
 pub async fn serve(State(state): State<AppState>, uri: Uri, headers: HeaderMap) -> Response {
     let path = uri.path().trim_start_matches('/');

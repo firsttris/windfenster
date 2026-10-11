@@ -12,24 +12,30 @@ publish = false
 [workspace.dependencies]
 wf-core = { path = "crates/wf-core" }
 wf-api = { path = "crates/wf-api" }
+wf-ingest = { path = "crates/wf-ingest" }
 
 anyhow = "1"
 axum = "0.8"
 clap = { version = "4", features = ["derive", "env"] }
+csv = "1"
+governor = "0.10"
 dotenvy = "0.15"
 hex = "0.4"
 mime_guess = "2"
+moka = { version = "0.12", features = ["future"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json", "gzip", "http2"] }
 rust-embed = "8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "fs"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "fs", "sync", "time"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["compression-br", "compression-gzip"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ts-rs = "12"
+unicode-normalization = "0.1"
 tempfile = "3"
 
 [profile.release]

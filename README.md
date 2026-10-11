@@ -41,10 +41,31 @@ Open http://localhost:8080. The database lives in `./data`.
 |---|---|---|
 | `WF_DATA_DIR` | `/data` | Database (later also the map textures) |
 | `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
+| `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages |
+| `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
+| `OPEN_METEO_BASE_URL` | | Own Open-Meteo instance |
+| `OPEN_METEO_GEOCODING_URL` | | Own Open-Meteo geocoding instance (place search) |
+| `WF_OPEN_METEO_DAILY_BUDGET` | 9,000 without key | Open-Meteo calls per day |
+| `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
+| `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 
-The binary has two commands: `windfenster serve` (default; migrates the database, then
-serves) and `windfenster migrate` (migrates and exits).
+Commands of the binary:
+
+- `windfenster serve` (default): migrates the database, serves the API and the web app, keeps
+  station lists and forecasts current
+- `windfenster migrate`: migrates and exits
+- `windfenster import-stations`: fetches the station lists now
+- `windfenster probe --lat 48.78 --lon 8.08`: asks Open-Meteo for every model at a point and
+  prints what comes back
+
+### How forecasts are fetched
+
+Requests go to Open-Meteo only from the server. A place (a station or a point rounded to
+0.01°) is fetched when someone opens it, once per model run. Places opened within the last
+seven days are refreshed after every new run; free points are dropped two days after the last
+request. The free API allows about 10,000 calls a day, which covers a few hundred places
+that people look at regularly; larger instances need a key or an own Open-Meteo.
 
 ## Development
 
@@ -75,8 +96,9 @@ pnpm build
 
 ```
 crates/
-  wf-core/       models, units, forecast-series format, database
-  wf-api/        axum routes, embedded web app
+  wf-core/       models, units, stations, forecast-series format, database
+  wf-ingest/     Open-Meteo, station lists (OurAirports, DWD), geocoding, scheduler
+  wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
   windfenster/   the binary: serve | migrate
 migrations/      sqlx migrations (SQLite)
 web/
@@ -98,8 +120,9 @@ date.
 Weather data by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Open-Meteo's free API
 is for non-commercial use only. Running Windfenster commercially needs your own
 [Open-Meteo subscription](https://open-meteo.com/en/pricing) or a self-hosted Open-Meteo
-instance. Further sources (DWD, aviationweather.gov, PEGELONLINE, ECMWF) come with the phases
-that use them and are listed on an attribution page.
+instance. Airport stations come from [OurAirports](https://ourairports.com/data/) (public domain), wind
+stations from [DWD Open Data](https://opendata.dwd.de/). Further sources (aviationweather.gov,
+PEGELONLINE, ECMWF) come with the phases that use them and are listed on an attribution page.
 
 ## License
 

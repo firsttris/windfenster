@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 wf-core.workspace = true
 wf-api.workspace = true
+wf-ingest.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true

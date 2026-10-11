@@ -1,7 +1,14 @@
-//! The HTTP side of Windfenster: JSON API under `/api`, everything else is the SPA.
+//! The HTTP side of Windfenster: JSON API under `/api`, station pages with meta tags,
+//! everything else is the SPA.
 
 mod error;
+pub mod forecast;
+mod meta;
+pub mod search;
 mod spa;
+
+use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::State;
 use axum::routing::get;
@@ -12,9 +19,12 @@ use tower_http::CompressionLevel;
 use tower_http::compression::predicate::{NotForContentType, Predicate};
 use tower_http::compression::{CompressionLayer, DefaultPredicate};
 use ts_rs::TS;
-use wf_core::model::{self, Model};
+use wf_core::geo::GridPoint;
+use wf_core::model::Model;
+use wf_ingest::forecasts::Forecasts;
+use wf_ingest::geocode::Geocoder;
 
-pub use error::ApiError;
+pub use error::{ApiError, ErrorCode};
 
 /// Version of the running binary, as shown in the UI.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,17 +32,68 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
+    pub forecasts: Arc<Forecasts>,
+    /// Place search; without it the search finds stations only.
+    pub geocoder: Option<Arc<Geocoder>>,
+    /// Public address, e.g. https://windfenster.example, for canonical links.
+    pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     pub dev_ui: Option<String>,
+    cache: forecast::ForecastCache,
+    places: search::PlaceCache,
+    /// Places whose request time was written within the last hour.
+    touched: moka::future::Cache<GridPoint, ()>,
+}
+
+impl AppState {
+    pub fn new(
+        db: SqlitePool,
+        forecasts: Arc<Forecasts>,
+        geocoder: Option<Arc<Geocoder>>,
+        public_url: Option<String>,
+        dev_ui: Option<String>,
+    ) -> Self {
+        let cache = forecast::new_cache();
+        forecast::spawn_invalidation(&forecasts, cache.clone());
+        Self {
+            db,
+            forecasts,
+            geocoder,
+            public_url,
+            dev_ui,
+            cache,
+            places: search::new_cache(),
+            touched: moka::future::Cache::builder()
+                .max_capacity(50_000)
+                .time_to_live(Duration::from_secs(3_600))
+                .build(),
+        }
+    }
+
+    /// Keeps a place served from the cache "hot", so the scheduler keeps refreshing it.
+    async fn touch(&self, p: GridPoint, pinned: bool) {
+        if self.touched.contains_key(&p) {
+            return;
+        }
+        let now = wf_core::time::now();
+        match wf_core::forecast::touch_place(&self.db, p, pinned, now).await {
+            Ok(()) => self.touched.insert(p, ()).await,
+            Err(e) => tracing::warn!("touch place: {e}"),
+        }
+    }
 }
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health))
         .route("/models", get(models))
+        .route("/stations", get(search::search))
+        .route("/stations/{slug}", get(forecast::station))
+        .route("/point", get(forecast::point))
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)
+        .route("/station/{slug}", get(meta::station_page))
         .fallback(spa::serve)
         .with_state(state)
         // gzip/br for the bundle and JSON; fonts (woff2) are compressed already.
@@ -64,22 +125,20 @@ async fn health(State(s): State<AppState>) -> Result<Json<Health>, ApiError> {
     let schema_version = wf_core::db::schema_version(&s.db)
         .await
         .map_err(ApiError::internal)?;
-    let (stations, models, model_runs): (i64, i64, i64) = sqlx::query_as(
-        "SELECT (SELECT COUNT(*) FROM station), (SELECT COUNT(*) FROM model), \
-         (SELECT COUNT(*) FROM model_run)",
-    )
-    .fetch_one(&s.db)
-    .await?;
+    let (stations, model_runs): (i64, i64) =
+        sqlx::query_as("SELECT (SELECT COUNT(*) FROM station), (SELECT COUNT(*) FROM model_run)")
+            .fetch_one(&s.db)
+            .await?;
     Ok(Json(Health {
         version: VERSION.to_owned(),
         schema_version,
         stations,
-        models,
+        models: s.forecasts.models().len() as i64,
         model_runs,
     }))
 }
 
-/// `GET /api/models`
-async fn models(State(s): State<AppState>) -> Result<Json<Vec<Model>>, ApiError> {
-    Ok(Json(model::list(&s.db).await?))
+/// `GET /api/models`: the active models.
+async fn models(State(s): State<AppState>) -> Json<Vec<Model>> {
+    Json(s.forecasts.models().to_vec())
 }

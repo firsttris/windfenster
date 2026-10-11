@@ -30,9 +30,27 @@ impl GridPoint {
     }
 }
 
+/// Great-circle distance in km.
+pub fn distance_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+    const EARTH_RADIUS_KM: f64 = 6371.0;
+    let (p1, p2) = (lat1.to_radians(), lat2.to_radians());
+    let dp = (lat2 - lat1).to_radians();
+    let dl = (lon2 - lon1).to_radians();
+    let a = (dp / 2.0).sin().powi(2) + p1.cos() * p2.cos() * (dl / 2.0).sin().powi(2);
+    2.0 * EARTH_RADIUS_KM * a.sqrt().asin()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn distances() {
+        // Baden Airpark (EDSB) to Frankfurt (EDDF): about 143 km
+        let d = distance_km(48.7794, 8.0805, 50.0267, 8.5584);
+        assert!((d - 142.9).abs() < 0.5, "{d}");
+        assert_eq!(distance_km(48.0, 8.0, 48.0, 8.0), 0.0);
+    }
 
     #[test]
     fn rounds_to_hundredths() {

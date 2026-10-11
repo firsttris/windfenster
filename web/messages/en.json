@@ -1,0 +1,5 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "meta_stationTitle": "{name} ({code}): wind forecast | Windfenster",
+  "meta_stationDescription": "Wind, gusts and direction for {name} ({code}): 10-day forecast from several weather models, Superforecast and Forecast."
+}

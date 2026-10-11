@@ -4,16 +4,27 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use ts_rs::TS;
 
+/// What went wrong, as a code: the SPA shows the text for it in the viewer's language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ErrorCode {
+    NotFound,
+    InvalidCoordinates,
+    Internal,
+}
+
 /// Body of every API error response.
 #[derive(Debug, Serialize, TS)]
 #[ts(export)]
 pub struct ErrorBody {
-    pub error: String,
+    pub code: ErrorCode,
 }
 
 #[derive(Debug)]
 pub enum ApiError {
     NotFound,
+    InvalidCoordinates,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -30,18 +41,24 @@ impl From<sqlx::Error> for ApiError {
     }
 }
 
+impl From<anyhow::Error> for ApiError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Internal(format!("{err:#}"))
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, error) = match self {
-            ApiError::NotFound => (StatusCode::NOT_FOUND, "not found".to_owned()),
+        let (status, code) = match self {
+            ApiError::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
+            ApiError::InvalidCoordinates => {
+                (StatusCode::BAD_REQUEST, ErrorCode::InvalidCoordinates)
+            }
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal error".to_owned(),
-                )
+                (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)
             }
         };
-        (status, Json(ErrorBody { error })).into_response()
+        (status, Json(ErrorBody { code })).into_response()
     }
 }

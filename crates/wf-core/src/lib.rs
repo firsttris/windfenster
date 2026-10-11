@@ -4,7 +4,11 @@
 //! `web/src/bindings` (see `.cargo/config.toml`), and the SPA imports them from there.
 
 pub mod db;
+pub mod forecast;
 pub mod geo;
 pub mod model;
 pub mod series;
+pub mod station;
+pub mod text;
+pub mod time;
 pub mod units;

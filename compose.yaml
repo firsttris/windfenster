@@ -12,4 +12,8 @@ services:
       # SQLite database (from Phase 3 also the map textures)
       - ./data:/data
     environment:
+      # Public address, for canonical links of station pages
+      # - WF_PUBLIC_URL=https://windfenster.example
+      # Optional: Open-Meteo key for the customer API (commercial use)
+      # - OPEN_METEO_API_KEY=
       - RUST_LOG=info

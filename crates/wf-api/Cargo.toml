@@ -9,19 +9,22 @@ publish.workspace = true
 
 [dependencies]
 wf-core.workspace = true
+wf-ingest.workspace = true
+anyhow.workspace = true
 axum.workspace = true
 hex.workspace = true
 mime_guess.workspace = true
+moka.workspace = true
 rust-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
+tokio.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 ts-rs.workspace = true
 
 [dev-dependencies]
-anyhow.workspace = true
+reqwest.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
 tower.workspace = true

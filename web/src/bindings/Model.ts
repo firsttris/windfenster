@@ -13,4 +13,8 @@ id: string, name: string, provider: string, resolutionKm: number, class: ModelCl
 /**
  * Computational domain; global models have none.
  */
-domain: BBox | null, maxLeadH: number, runsPerDay: number, };
+domain: BBox | null, maxLeadH: number, runsPerDay: number, 
+/**
+ * Default order while a station has no verification data (lower first).
+ */
+rank: number, };

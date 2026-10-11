@@ -17,6 +17,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY crates crates
 COPY migrations migrations
+# Station pages take their meta texts from the SPA's message files.
+COPY web/messages web/messages
 COPY --from=web /src/web/dist web/dist
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \

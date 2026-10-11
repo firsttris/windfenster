@@ -45,6 +45,12 @@ pub struct Model {
     pub domain: Option<BBox>,
     pub max_lead_h: u32,
     pub runs_per_day: u32,
+    /// Default order while a station has no verification data (lower first).
+    pub rank: u32,
+    /// Open-Meteo's dataset name for the run metadata (`/data/{meta_id}/static/meta.json`).
+    #[serde(skip)]
+    #[ts(skip)]
+    pub meta_id: Option<String>,
 }
 
 impl Model {
@@ -66,6 +72,8 @@ struct ModelRow {
     bbox_north: Option<f64>,
     max_lead_h: u32,
     runs_per_day: u32,
+    rank: u32,
+    meta_id: Option<String>,
 }
 
 impl From<ModelRow> for Model {
@@ -88,20 +96,39 @@ impl From<ModelRow> for Model {
             domain,
             max_lead_h: r.max_lead_h,
             runs_per_day: r.runs_per_day,
+            rank: r.rank,
+            meta_id: r.meta_id,
         }
     }
 }
 
-/// All models, regional ones first, each group by resolution.
+/// All models in their default order (regional ones first).
 pub async fn list(db: &SqlitePool) -> sqlx::Result<Vec<Model>> {
     let rows: Vec<ModelRow> = sqlx::query_as(
         "SELECT id, name, provider, resolution_km, class, bbox_west, bbox_south, bbox_east, \
-         bbox_north, max_lead_h, runs_per_day FROM model \
-         ORDER BY class = 'global', resolution_km, id",
+         bbox_north, max_lead_h, runs_per_day, rank, meta_id FROM model \
+         ORDER BY class = 'global', rank, id",
     )
     .fetch_all(db)
     .await?;
     Ok(rows.into_iter().map(Model::from).collect())
+}
+
+/// The models to use: all of them, or those named in `only` (e.g. from `WF_MODELS`), in the
+/// default order. Unknown ids in `only` are an error, so a typo does not go unnoticed.
+pub async fn active(db: &SqlitePool, only: Option<&[String]>) -> anyhow::Result<Vec<Model>> {
+    let all = list(db).await?;
+    let Some(only) = only else { return Ok(all) };
+    if let Some(unknown) = only.iter().find(|id| !all.iter().any(|m| &m.id == *id)) {
+        anyhow::bail!(
+            "unknown model '{unknown}'; known: {}",
+            all.iter()
+                .map(|m| m.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    Ok(all.into_iter().filter(|m| only.contains(&m.id)).collect())
 }
 
 #[cfg(test)]
@@ -124,6 +151,8 @@ mod tests {
             }),
             max_lead_h: 48,
             runs_per_day: 8,
+            rank: 10,
+            meta_id: None,
         };
         assert!(regional.covers(48.78, 8.08)); // Baden Airpark
         assert!(!regional.covers(36.4, 28.09)); // Rhodes
