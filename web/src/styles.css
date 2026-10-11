@@ -58,6 +58,10 @@
   /* the Windfenster mix */
   --chart-mix: #db2777;
 
+  /* measured wind and gusts over the day: blue and red, as Windfinder has them */
+  --chart-wind: #2563eb;
+  --chart-gust: #dc2626;
+
   /* do the models agree: high, medium, low */
   --agree-high: #65a30d;
   --agree-medium: #ca8a04;
@@ -110,6 +114,9 @@
   --chart-5: #8e8e97;
 
   --chart-mix: #f472b6;
+
+  --chart-wind: #60a5fa;
+  --chart-gust: #f87171;
 
   --agree-high: #8bd450;
   --agree-medium: #f2d544;
@@ -167,6 +174,8 @@
   --color-chart-5: var(--chart-5);
 
   --color-chart-mix: var(--chart-mix);
+  --color-chart-wind: var(--chart-wind);
+  --color-chart-gust: var(--chart-gust);
 
   --color-agree-high: var(--agree-high);
   --color-agree-medium: var(--agree-medium);
@@ -187,4 +196,9 @@
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* uPlot's crosshair in our colours instead of its dashed grey */
+.wf-chart .u-hz .u-cursor-x {
+  border-right: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
 }

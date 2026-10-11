@@ -115,3 +115,24 @@ export function arrowPicks(
   }
   return out;
 }
+
+/** Size of the card that shows the values under the pointer, in CSS pixels */
+export const TIP = { width: 156, height: 92, gap: 14 } as const;
+
+/** Where that card goes for a point at (x, y) of a chart `width` wide: centred above the
+ * point, kept inside the chart at its edges, and below the point when there is no room above. */
+export function tipPlacement(x: number, y: number, width: number): { left: number; top: number } {
+  const left = Math.min(Math.max(0, x - TIP.width / 2), Math.max(0, width - TIP.width));
+  const above = y - TIP.gap - TIP.height;
+  return { left, top: above >= 0 ? above : y + TIP.gap };
+}
+
+/** Indices of values that stand alone between gaps: a line cannot show them, a dot can.
+ * METARs name gusts only when there are some, so a gust often stands alone. */
+export function isolated(values: ArrayLike<number | null | undefined>): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] != null && values[i - 1] == null && values[i + 1] == null) out.push(i);
+  }
+  return out;
+}

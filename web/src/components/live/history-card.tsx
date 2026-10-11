@@ -1,30 +1,20 @@
-import 'uplot/dist/uPlot.min.css';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import uPlot from 'uplot';
-import type { Observation } from '@/bindings/Observation';
+import { useMemo, useState } from 'react';
 import type { Station } from '@/bindings/Station';
 import { historyQuery } from '@/lib/api';
-import { localClock } from '@/lib/forecast';
-import { clock, compass, dayMonthOf } from '@/lib/format';
-import { arrowPicks, BEAUFORT_KN, type DayOption, dayOptions, dayStats } from '@/lib/history';
+import { compass, dayMonthOf } from '@/lib/format';
+import { type DayOption, dayOptions, dayStats } from '@/lib/history';
 import { intlLocale } from '@/lib/i18n';
-import { useTheme, useUnit } from '@/lib/prefs';
-import { formatWind, KMH_PER_KN, MS_PER_KN, UNIT_LABEL } from '@/lib/units';
+import { useUnit } from '@/lib/prefs';
+import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { Card } from '@/ui/card';
 import { WindArrow } from '@/ui/wind-arrow';
-import { WIND_SCALE } from '@/ui/wind-scale';
+import { HistoryChart } from './history-chart';
 
 const HEIGHT = 240;
-
-/** A CSS colour as the canvas needs it: var(--x) resolved against the page. */
-function resolve(color: string): string {
-  const v = color.match(/^var\((--[\w-]+)\)$/);
-  return v ? getComputedStyle(document.documentElement).getPropertyValue(v[1]).trim() : color;
-}
 
 /** The measurements of a day as Windfinder shows them: mean wind and gusts as lines, the
  * direction as arrows above, bands by wind strength behind; today (the last 24 hours) and
@@ -83,7 +73,7 @@ export function HistoryCard({ station, timeZone }: { station: Station; timeZone:
               )}
             </Figure>
           </dl>
-          <Chart obs={obs} day={day} timeZone={timeZone} />
+          <HistoryChart obs={obs} day={day} timeZone={timeZone} />
         </>
       )}
     </Card>
@@ -140,199 +130,5 @@ function DayChips({
         );
       })}
     </fieldset>
-  );
-}
-
-/** The arrow of WindArrow, centred on (x, y), `size` px, pointing where the wind blows. */
-function drawArrow(ctx: CanvasRenderingContext2D, x: number, y: number, deg: number, size: number) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(((deg + 180) * Math.PI) / 180);
-  const s = size / 24;
-  ctx.beginPath();
-  ctx.moveTo(0, -9 * s);
-  ctx.lineTo(6.5 * s, 8 * s);
-  ctx.lineTo(0, 4 * s);
-  ctx.lineTo(-6.5 * s, 8 * s);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function Chart({ obs, day, timeZone }: { obs: Observation[]; day: DayOption; timeZone: string }) {
-  const [unit] = useUnit();
-  const [theme] = useTheme();
-  const box = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<Observation | null>(null);
-  const factor = unit === 'kn' ? 1 : unit === 'ms' ? MS_PER_KN : KMH_PER_KN;
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the colours come from the page, so a theme change redraws
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const fg = resolve('var(--muted-foreground)');
-    const text = resolve('var(--foreground)');
-    const grid = resolve('var(--line)');
-    const gustColor = resolve('var(--chart-3)');
-    const dark = document.documentElement.classList.contains('dark');
-    const lc = localClock(timeZone);
-    const weekday = new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', timeZone });
-    const midnights: number[] = [];
-    const ticks: number[] = [];
-    for (let t = day.from - (day.from % 3600); t <= day.to; t += 3600) {
-      if (t < day.from) continue;
-      const h = lc(t).hour;
-      if (h === 0) midnights.push(t);
-      if (h % 3 === 0) ticks.push(t);
-    }
-    const x = obs.map((o) => o.at);
-    const mean = obs.map((o) => (o.wind === null ? null : o.wind * factor));
-    const gust = obs.map((o) => (o.gust === null ? null : o.gust * factor));
-    const top = Math.max(...obs.map((o) => Math.max(o.wind ?? 0, o.gust ?? 0))) * factor;
-    const step = unit === 'kmh' ? 10 : 5;
-    const ymax = Math.max(step * 2, Math.ceil((top + step / 2) / step) * step);
-    const bands: uPlot.Plugin = {
-      hooks: {
-        drawClear: [
-          (u) => {
-            const { left, top: t, width, height } = u.bbox;
-            const ctx = u.ctx;
-            ctx.save();
-            ctx.globalAlpha = dark ? 0.13 : 0.2;
-            WIND_SCALE.forEach((b, i) => {
-              const next = WIND_SCALE[i + 1]?.from ?? 1_000;
-              const y0 = Math.min(t + height, u.valToPos(b.from * factor, 'y', true));
-              const y1 = Math.max(t, u.valToPos(next * factor, 'y', true));
-              if (y0 <= y1) return;
-              ctx.fillStyle = b.bg;
-              ctx.fillRect(left, y1, width, y0 - y1);
-            });
-            ctx.restore();
-          },
-        ],
-        draw: [
-          (u) => {
-            const ctx = u.ctx;
-            const { left, top: t, width, height } = u.bbox;
-            const px = devicePixelRatio;
-            ctx.save();
-            // Midnight: a line, as Windfinder marks the day change
-            ctx.strokeStyle = text;
-            ctx.globalAlpha = 0.45;
-            ctx.lineWidth = px;
-            for (const mid of midnights) {
-              const mx = u.valToPos(mid, 'x', true);
-              if (mx <= left || mx >= left + width) continue;
-              ctx.beginPath();
-              ctx.moveTo(mx, t);
-              ctx.lineTo(mx, t + height);
-              ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = text;
-            for (const o of arrowPicks(obs, day.from, day.to, width / px)) {
-              drawArrow(ctx, u.valToPos(o.at, 'x', true), t - 13 * px, o.dir ?? 0, 18 * px);
-            }
-            ctx.restore();
-          },
-        ],
-        setCursor: [
-          (u) => {
-            const i = u.cursor.idx;
-            setHover(i == null ? null : (obs[i] ?? null));
-          },
-        ],
-      },
-    };
-    const bftSplits = BEAUFORT_KN.map((kn) => kn * factor).filter((v) => v <= ymax);
-    const opts: uPlot.Options = {
-      width: el.clientWidth,
-      height: HEIGHT,
-      padding: [30, 4, 0, 0],
-      legend: { show: false },
-      cursor: { drag: { x: false, y: false }, points: { size: 7 }, y: false },
-      scales: { x: { time: false, range: [day.from, day.to] }, y: { range: [0, ymax] } },
-      axes: [
-        {
-          stroke: fg,
-          grid: { show: false },
-          ticks: { show: true, stroke: grid, size: 4 },
-          font: '11px Geist Mono Variable, monospace',
-          // Every three hours, on a narrow chart every six
-          splits: (u) => {
-            const every = u.bbox.width / devicePixelRatio < 520 ? 6 : 3;
-            return ticks.filter((t) => lc(t).hour % every === 0);
-          },
-          values: (_u, splits) =>
-            splits.map((t) => (lc(t).hour === 0 ? weekday.format(new Date(t * 1000)) : clock(t, timeZone))),
-        },
-        {
-          stroke: fg,
-          grid: { stroke: grid, width: 1, dash: [3, 4] },
-          ticks: { show: false },
-          font: '11px Geist Mono Variable, monospace',
-          size: 34,
-          incrs: [step, step * 2, step * 4],
-          space: 22,
-        },
-        {
-          side: 1,
-          scale: 'y',
-          stroke: fg,
-          grid: { show: false },
-          ticks: { show: false },
-          font: '11px Geist Mono Variable, monospace',
-          size: 30,
-          label: 'bft',
-          labelSize: 14,
-          labelFont: '11px Geist Mono Variable, monospace',
-          splits: () => bftSplits,
-          values: (_u, splits) => splits.map((_, i) => String(i + 1)),
-        },
-      ],
-      series: [
-        {},
-        { label: m.history_mean(), stroke: text, width: 2.25, points: { show: false } },
-        { label: m.history_gusts(), stroke: gustColor, width: 1.5, points: { show: false } },
-      ],
-      plugins: [bands],
-    };
-    const plot = new uPlot(opts, [x, mean, gust] as uPlot.AlignedData, el);
-    const resize = new ResizeObserver(() => plot.setSize({ width: el.clientWidth, height: HEIGHT }));
-    resize.observe(el);
-    return () => {
-      resize.disconnect();
-      plot.destroy();
-    };
-  }, [obs, day, timeZone, factor, unit, theme]);
-
-  const dayLabel = day.key === 'today' ? m.history_last24() : dayMonthOf(day.from + 12 * 3600, timeZone);
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex min-h-5 flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-live="polite">
-        {hover ? (
-          <span className="font-mono text-subtle">
-            {clock(hover.at, timeZone)} · {m.history_mean()} {hover.wind === null ? '–' : formatWind(hover.wind, unit)}
-            {hover.gust !== null && ` · ${m.history_gusts()} ${formatWind(hover.gust, unit)}`} {UNIT_LABEL[unit]}
-            {hover.dir !== null && ` · ${compass(hover.dir)} ${Math.round(hover.dir)}°`}
-          </span>
-        ) : (
-          <>
-            <Legend color="var(--foreground)" label={m.history_mean()} thick />
-            <Legend color="var(--chart-3)" label={m.history_gusts()} />
-          </>
-        )}
-      </div>
-      <div ref={box} role="img" aria-label={m.history_aria({ day: dayLabel })} className="w-full" />
-    </div>
-  );
-}
-
-function Legend({ color, label, thick = false }: { color: string; label: string; thick?: boolean }) {
-  return (
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      <span className={cn('w-3.5 rounded-full', thick ? 'h-[3px]' : 'h-0.5')} style={{ background: color }} />
-      {label}
-    </span>
   );
 }

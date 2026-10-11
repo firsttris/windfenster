@@ -304,5 +304,6 @@
   "map_gust": "gusts {gust} {unit}",
   "map_openStation": "Open station",
   "map_forecastHere": "Forecast for this place",
-  "map_attribution": "Data:"
+  "map_attribution": "Data:",
+  "history_hint": "Point or tap for the values at any time"
 }

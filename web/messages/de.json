@@ -304,5 +304,6 @@
   "map_gust": "Böen {gust} {unit}",
   "map_openStation": "Station öffnen",
   "map_forecastHere": "Vorhersage für diesen Ort",
-  "map_attribution": "Daten:"
+  "map_attribution": "Daten:",
+  "history_hint": "Zeigen oder tippen: Werte zu jedem Messzeitpunkt"
 }
