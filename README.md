@@ -42,43 +42,98 @@ docker compose up -d
 Open http://localhost:8080. The database lives in `./data`. Until the first release is out,
 build the image yourself: `docker compose up --build` in a checkout.
 
-### Podman Quadlet
+### On a server with Podman
 
-For Podman with systemd, [`windfenster.container`](windfenster.container) is a Quadlet unit:
+Step by step, as a normal user with [Podman](https://podman.io/) 4.4 or newer (Quadlet), for a
+server with room to spare (the example: a Xeon with 32 GB RAM and a large SSD; Windfenster needs
+no memory setting).
+
+**1. Folders and the unit.** The data folder must exist before the start (Podman refuses to mount
+a missing one).
 
 ```bash
 mkdir -p ~/.config/containers/systemd ~/windfenster/data
 curl -o ~/.config/containers/systemd/windfenster.container \
   https://raw.githubusercontent.com/firsttris/windfenster/main/windfenster.container
-# set WF_PUBLIC_URL and the other Environment= lines you want, then
-systemctl --user daemon-reload
-systemctl --user start windfenster
 ```
 
-The data folder must exist before the start (Podman refuses to mount a missing one). For a start
-at boot without a login, run `loginctl enable-linger $USER`, or install the file into
-`/etc/containers/systemd/` and use `systemctl` without `--user`. On a data disk of its own, use
-the commented `Volume=` line instead. Logs: `journalctl --user -u windfenster` or
-`podman logs windfenster`.
+**2. The settings.** Open `~/.config/containers/systemd/windfenster.container` and set the
+`[Container]` part to this, with your own address:
 
-### Running it on a server
+```ini
+[Container]
+Image=docker.io/tristanteu/windfenster:latest
+ContainerName=windfenster
+AutoUpdate=registry
+# Only the reverse proxy on this host reaches it; 8080 taken (haul, say)? 127.0.0.1:8081:8080
+PublishPort=127.0.0.1:8080:8080
+Volume=%h/windfenster/data:/data:Z
+
+# The public address: canonical links and meta tags of the station pages
+Environment=WF_PUBLIC_URL=https://windfenster.example
+# Basemap: the whole region to zoom 12, every town's streets (about 7 GB, an hour or so the first time)
+Environment=WF_BASEMAP_ZOOM=12
+# Full detail (zoom 14) kept for up to 500 spots where people look (2 to 17 MB each)
+Environment=WF_BASEMAP_SPOTS=500
+# Relief to zoom 10 (estimated 6 GB; each level is about four times the one before)
+Environment=WF_TERRAIN_ZOOM=10
+# Stations kept current and verified even when nobody opens them: add your own spots' stations
+Environment=WF_TRACKED_STATIONS=edsb,lgrp
+Environment=RUST_LOG=info
+# Only for commercial use: a key for Open-Meteo's customer API
+# Environment=OPEN_METEO_API_KEY=
+```
+
+Everything else stays at its default (see [Configuration](#configuration)). Leave `[Service]` and
+`[Install]` as they are.
+
+**3. Start it, and at boot.** Quadlet units are not enabled with `systemctl enable`; the
+`[Install]` part starts them at boot once the user's services run without a login:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user start windfenster
+loginctl enable-linger $USER                               # start at boot without a login
+systemctl --user enable --now podman-auto-update.timer     # pull new releases daily
+```
+
+**4. Check it.**
+
+```bash
+curl http://127.0.0.1:8080/api/health    # {"version":…,"schemaVersion":…,"stations":…}
+journalctl --user -u windfenster -f      # or: podman logs -f windfenster
+```
+
+**5. Reach it from outside.** A reverse proxy terminates TLS, e.g. Caddy (`/etc/caddy/Caddyfile`):
+
+```
+windfenster.example {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+What follows:
 
 - **First start:** the server creates the database and fetches the station lists, measurements
   and the newest model runs right away; the map's first hours are there once ICON-D2 and ECMWF
-  are downloaded (about 150 and 115 MB per run). A minute after the start it makes the basemap
-  (about 190 MB at the default zoom 8) and the relief (about 90 MB).
-- **Disk:** up to about 1.5 GB with the defaults: two runs per map model (ICON-D2 about 230 MB
-  each), the basemap, relief and up to 60 detail spots. With room to spare, raise `WF_BASEMAP_ZOOM` and `WF_TERRAIN_ZOOM` (see below).
-- **Updating:** the unit sets `AutoUpdate=registry`, so `podman auto-update` (or its daily
-  timer, `systemctl --user enable --now podman-auto-update.timer`) pulls new releases and
-  restarts the container; with Compose, `docker compose pull && docker compose up -d`. The
-  database migrates itself on start.
-- **Behind a reverse proxy:** publish on the loopback only (`127.0.0.1:8080:8080`), let the proxy
-  (Caddy, Traefik, nginx) terminate TLS, and set `WF_PUBLIC_URL` to the public address. Port
-  8080 taken by another service? Change only the left side, e.g. `8081:8080`.
+  are downloaded (about 150 and 115 MB per run). A minute after the start it cuts the basemap
+  and then the relief; at the zoom levels above that takes a while, and the map shows Natural
+  Earth and coarser tiles until then. Detail spots come a minute or two after a place is opened.
+- **Disk:** with the settings above roughly 15 to 20 GB at most: the basemap (7 GB), relief
+  (about 6 GB), spots (a few GB once many are used), the map's runs (two per model, ICON-D2
+  about 230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
+  about 1.5 GB.
+- **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
+  container; the database migrates itself on start. With Compose:
+  `docker compose pull && docker compose up -d`.
 - **Backup:** only `windfenster.db` matters; the map data comes back by itself. Copy it while the
   server runs with `sqlite3 ~/windfenster/data/windfenster.db "VACUUM INTO 'windfenster-backup.db'"`,
   or stop the container and copy `windfenster.db*`.
+- As root instead: put the unit into `/etc/containers/systemd/`, use a path like
+  `Volume=/srv/windfenster:/data:Z` and `systemctl` without `--user`; linger is not needed. On a
+  data disk of its own, see the commented `Volume=` lines in the unit.
+
+### Configuration
 
 | Variable | Default | |
 |---|---|---|
@@ -310,11 +365,14 @@ windfenster.container  Podman Quadlet unit
 
 ### Releases
 
-The version lives in `Cargo.toml`. **Actions → Bump version** (or a pushed tag `vX.Y.Z`) runs
-the CI, then the shared Docker release from
-[firsttris/workflows](https://github.com/firsttris/workflows): amd64 and arm64 to Docker Hub
-(`tristanteu/windfenster`) and ghcr.io, and the GitHub release. It needs the `DOCKER_PAT`
-secret. Run by hand on main, it publishes `:edge`.
+The version lives in `Cargo.toml`. **Actions → Bump version** (pick patch, minor or major)
+raises it there and in `Cargo.lock`, commits, tags `vX.Y.Z` and starts the release; a tag pushed
+from a checkout does the same for the version already in `Cargo.toml`. The release runs the CI,
+then the shared Docker release from [firsttris/workflows](https://github.com/firsttris/workflows):
+amd64 and arm64 as `:x.y.z`, `:x.y` and `:latest` to Docker Hub (`tristanteu/windfenster`) and
+ghcr.io, and the GitHub release. It needs the `DOCKER_PAT` secret (a Docker Hub access token
+of `tristanteu`). Servers with `podman auto-update` pick up the new `:latest` within a day.
+**Actions → Release**, run by hand on main, publishes `:edge` and releases nothing.
 
 ### Shared types
 
