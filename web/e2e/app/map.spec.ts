@@ -37,7 +37,9 @@ test("a spot's hours are the ones the API has for it", async ({ page, request })
   await page.goto(EDSB);
   const card = page.getByRole('region', { name: 'Karlsruhe Baden-Baden Airport' });
   await expect(card).toBeVisible();
-  const series = await (await request.get('/api/map/series?lat=48.7794&lon=8.0805')).json();
+  // As the app asks: on the 0.01° grid places are stored on (lib/api.ts, mapSeriesQuery). The exact
+  // place gives slightly different values, which round apart near a half knot.
+  const series = await (await request.get('/api/map/series?lat=48.78&lon=8.08')).json();
   const d2 = new Map<number, { wind: number; gust: number | null }>(
     series.layers
       .find((l: { model: string }) => l.model === 'icon_d2')
