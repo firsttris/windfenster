@@ -156,7 +156,32 @@ antwortet sofort.
 
 Bericht steht noch aus.
 
-## Vorschlag für die Reihenfolge
+## Bewertung der offenen Punkte (am Code nachgeprüft)
+
+Jeder offene Punkt wurde gegen den Code gehalten: stimmt er, und lohnt sich der Fix (Nutzen
+gegen Aufwand und Risiko)? Kein neuer Cache, wo sich Daten ändern können.
+
+| # | Stimmt? | Lohnt sich? | Begründung |
+|---|---|---|---|
+| 2.6 | ja | **ja** | Ein einmaliger Aussetzer kostet 10 Tage ohne das Modell am Ort. Fix: „leer“ gilt einen Tag, dann einmal neu fragen; kostet höchstens eine Modell-Abfrage pro Ort und Tag mehr. |
+| 3.7 | ja | **ja** (nur Live-Kachel) | Der erste Besucher einer veralteten Station wartet bis zu 2 min, wenn ein Dienst hängt. Fix: 15 s Grenze für den Abruf im Request; der Scheduler holt den Rest. Verlauf-Nachladen bleibt (große Dateien). |
+| 3.6 | ja | **ja** (öffentliche Instanz geplant) | Viele parallele Passwort-Anmeldungen belegen CPU und je 19 MiB. Fix: höchstens 4 gleichzeitige Hashes. |
+| 2.4 | ja | **ja** | Eine Zeile, macht die TAF-Wertung konsistent mit der eigenen Regel (nur Stunden nach dem Abruf). |
+| 2.7 | ja | **ja** | Zwei Zellen „14“ in verschiedenen Farben sehen nach Fehler aus. Fix: Farbe nach dem gerundeten Wert, zentral in `windBand`. |
+| 2.2 | ja | **ja** | Selten (Südhalbkugel, genau .xx5), aber eine Zeile: gleich runden wie der Server. |
+| 2.9 | ja | **ja** | Eine Zeile Schutz gegen Division durch null. |
+| 1.4 | ja | später, **Entscheidung** | 3 GB für ICON global sind auf einem Pi viel; `WF_ICON_GLOBAL=false` hilft schon heute. Ein anderes Speicherformat ist ein größerer Umbau. |
+| 3.9 | ja | später, **Entscheidung** | Spürbar nur für den ersten Besuch (Bundle wird live komprimiert, auf dem Pi 1–2 s). Fix braucht Vorkomprimieren im Build oder beim Start. |
+| 3.13 | ja | nein, vorerst | Betrifft nur eine offene Karte genau beim jährlichen Erneuern des Reliefs; Neuladen behebt es. |
+| 3.5 | ja | nein, vorerst | Realistisch ~200 MB; ein Gewicht nach Größe wäre schöner, ändert aber nichts Spürbares. |
+| 1.5 | ja | nein | 130 MB Spitze je ICON-global-Stunde sind auch auf einem Pi 4 tragbar. |
+| 1.6 | teils | nein | Der DWD hat das Gitter seit 2015 nicht geändert; bei einer Änderung zeigen sich falsche Werte deutlich. |
+| 1.7, 1.8, 2.5 | ja | nein | Datumsgrenze, Quantisierung, Mix-Bucket: für Europa ohne spürbare Wirkung. |
+| 2.8 | ja | nein, vorerst | Nur US-Sichtweiten wie „1 1/2SM“. |
+| 3.4, 3.8, 3.10, 3.11, 3.14 | ja | nein | Je unter einer Sekunde pro Stunde oder Millisekunden je Anfrage bei der erwarteten Größe. |
+| 3.12, 3.15 | – | nein | Hinweise; CI nutzt bewusst die neueste Rust-Version. |
+
+## Vorschlag für die Reihenfolge (ursprünglich)
 
 1. **Jetzt, klein und klar:** 2.1 (Sommerzeit); 3.1
    (Kachel-Cache); 2.3 (Verifikations-Scan); 3.2 (Timeouts je Schritt); 3.3 (Loops überwachen);

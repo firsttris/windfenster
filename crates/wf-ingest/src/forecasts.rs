@@ -116,7 +116,7 @@ impl Forecasts {
         let mut wanted = Vec::new();
         for m in self.covering(p) {
             let run = self.current_run(m, now).await?;
-            if needs(&state, m, &run) {
+            if needs(&state, &m.id, &run) {
                 wanted.push((m, run));
             }
         }
@@ -183,7 +183,7 @@ impl Forecasts {
             let state = state_map(forecast::series_state(&self.db, p).await?);
             let wanted: Vec<(&Model, Run)> = pending
                 .iter()
-                .filter(|(m, run)| m.covers(p.lat(), p.lon()) && needs(&state, m, run))
+                .filter(|(m, run)| m.covers(p.lat(), p.lon()) && needs(&state, &m.id, run))
                 .map(|(m, run)| (*m, *run))
                 .collect();
             if wanted.is_empty() {
@@ -274,11 +274,45 @@ fn state_map(rows: Vec<(String, i64, bool)>) -> HashMap<String, (i64, bool)> {
         .collect()
 }
 
-/// Whether a place lacks a model's run. A model that had no values there is not asked again.
-fn needs(state: &HashMap<String, (i64, bool)>, m: &Model, run: &Run) -> bool {
-    match state.get(&m.id) {
-        Some((_, true)) => false,
+/// How long a model that answered without values at a place is left alone there: the corners
+/// of a regional model's rectangle lie outside its domain and stay empty, but a single empty
+/// answer (an outage at Open-Meteo) must not cost the place that model for the 10 days the
+/// run is kept. One more question a day settles it.
+const EMPTY_HOLDS_S: i64 = 86_400;
+
+/// Whether a place lacks a model's run.
+fn needs(state: &HashMap<String, (i64, bool)>, model: &str, run: &Run) -> bool {
+    match state.get(model) {
+        Some((run_at, true)) => run_at + EMPTY_HOLDS_S <= run.run_at,
         Some((run_at, false)) => *run_at < run.run_at,
         None => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn asks_a_model_again_a_day_after_it_answered_empty() {
+        let run = |run_at| Run {
+            id: 1,
+            run_at,
+            complete: true,
+            estimated: false,
+        };
+        let state: HashMap<String, (i64, bool)> = [
+            ("icon_d2".to_owned(), (1_000_000, true)),
+            ("ecmwf".to_owned(), (1_000_000, false)),
+        ]
+        .into();
+        // Empty at the 1 000 000 run: not asked for the next runs of that day, asked after it
+        assert!(!needs(&state, "icon_d2", &run(1_000_000 + 3 * 3_600)));
+        assert!(needs(&state, "icon_d2", &run(1_000_000 + 86_400)));
+        // With values: asked for every newer run, not for the same one
+        assert!(!needs(&state, "ecmwf", &run(1_000_000)));
+        assert!(needs(&state, "ecmwf", &run(1_000_000 + 6 * 3_600)));
+        // Never asked: asked
+        assert!(needs(&state, "gfs", &run(1_000_000)));
     }
 }

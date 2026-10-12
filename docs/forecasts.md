@@ -26,7 +26,9 @@ Requests go to [Open-Meteo](https://open-meteo.com/) only from the server, never
 browser. A place (a station, or a point rounded to the 0.01° grid) is fetched **when someone opens
 it, once per model run**: Open-Meteo's model metadata says when a new run is out, and a place is
 asked again only then. Places opened within the last seven days are refreshed after every new
-run; points nobody opened for two days are dropped.
+run; points nobody opened for two days are dropped. A model that answers a place without values (a
+regional model's rectangle reaches past its domain) is asked there again a day later, not with
+every run.
 
 The free API allows about 10,000 calls a day (`WF_OPEN_METEO_DAILY_BUDGET`, 9,000 by default):
 enough for a few hundred places people look at regularly.
