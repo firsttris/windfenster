@@ -62,6 +62,14 @@ impl GearItem {
     }
 }
 
+/// The piece the wind sits in most centrally (as the app's `gearFor`); None when none fits.
+pub fn best_for(gear: &[GearItem], wind: f64) -> Option<&GearItem> {
+    let off = |g: &GearItem| (wind - (g.min_kn + g.max_kn) / 2.0).abs() / (g.max_kn - g.min_kn);
+    gear.iter()
+        .filter(|g| (g.min_kn..=g.max_kn).contains(&wind))
+        .min_by(|a, b| off(a).total_cmp(&off(b)))
+}
+
 pub async fn list(db: &SqlitePool, account_id: i64) -> sqlx::Result<Vec<GearItem>> {
     let rows: Vec<(String, f64, f64, f64)> = sqlx::query_as(
         "SELECT kind, size, min_kn, max_kn FROM gear WHERE account_id = ? ORDER BY position",

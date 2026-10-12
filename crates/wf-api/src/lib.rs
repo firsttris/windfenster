@@ -1,6 +1,7 @@
 //! The HTTP side of Windfenster: JSON API under `/api`, station pages with meta tags,
 //! everything else is the SPA.
 
+pub mod alarms;
 pub mod auth;
 mod error;
 pub mod favorites;
@@ -49,6 +50,8 @@ pub struct AppState {
     pub measurements: Option<Arc<Measurements>>,
     /// The wind map's textures; without them the map has no layers.
     pub map: Option<Arc<MapData>>,
+    /// Alarms: push key, e-mail and test messages; without, no push and no e-mail.
+    pub alarms: Option<Arc<wf_alarm::Alarms>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
@@ -87,6 +90,7 @@ impl AppState {
             geocoder,
             measurements,
             map: None,
+            alarms: None,
             passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
             password_failures: auth::password::new_failures(),
             public_url,
@@ -115,6 +119,14 @@ impl AppState {
     pub fn with_map(self, map: Arc<MapData>) -> Self {
         Self {
             map: Some(map),
+            ..self
+        }
+    }
+
+    /// With alarms.
+    pub fn with_alarms(self, alarms: Arc<wf_alarm::Alarms>) -> Self {
+        Self {
+            alarms: Some(alarms),
             ..self
         }
     }
@@ -165,6 +177,17 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/signout", post(auth::sign_out))
         .route("/favorites", get(favorites::list).post(favorites::add))
         .route("/gear", get(gear::list).put(gear::replace))
+        .route("/alarms", get(alarms::list))
+        .route("/alarms/test", post(alarms::test))
+        .route(
+            "/alarms/{favorite}",
+            put(alarms::set).delete(alarms::remove),
+        )
+        .route("/push", get(alarms::info))
+        .route(
+            "/push/subscriptions",
+            post(alarms::subscribe).delete(alarms::unsubscribe),
+        )
         .route("/favorites/order", put(favorites::reorder))
         .route(
             "/favorites/{id}",

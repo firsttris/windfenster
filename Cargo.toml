@@ -15,12 +15,16 @@ wf-core = { path = "crates/wf-core" }
 wf-api = { path = "crates/wf-api" }
 wf-ingest = { path = "crates/wf-ingest" }
 wf-map = { path = "crates/wf-map" }
+wf-alarm = { path = "crates/wf-alarm" }
 
 anyhow = "1"
 # Passwords, Argon2id
 argon2 = "0.5"
 axum = "0.8"
 bzip2 = "0.6"
+# Alarm times in the user's time zone (e-mails)
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
 csv = "1"
 governor = "0.10"
@@ -29,6 +33,8 @@ grib = { version = "0.19", default-features = false, features = ["ccsds-unpack-w
 dotenvy = "0.15"
 flate2 = "1"
 hex = "0.4"
+# Alarm e-mails over SMTP, TLS by rustls as reqwest
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls", "hostname"] }
 mime_guess = "2"
 # Built into the binary (webauthn-rs needs OpenSSL): no system library in the image
 openssl = { version = "0.10", features = ["vendored"] }
@@ -49,6 +55,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ts-rs = "12"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 unicode-normalization = "0.1"
+# Alarms as push messages (VAPID, aes128gcm); sent with reqwest, not its own client
+web-push = { version = "0.11", default-features = false }
 # Passkeys; conditional-ui for the sign-in offered by the browser's autofill
 webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
 tempfile = "3"

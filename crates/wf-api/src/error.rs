@@ -36,6 +36,10 @@ pub enum ErrorCode {
     TooManyAttempts,
     /// A size or wind range out of bounds, or more than 30 pieces
     InvalidGear,
+    /// Wind out of 0–80 kn, nothing to tell or no channel, or an unknown language or time zone
+    InvalidAlarm,
+    /// Not a push subscription a browser would send
+    InvalidSubscription,
     Internal,
 }
 
@@ -63,6 +67,8 @@ pub enum ApiError {
     WrongPassword,
     TooManyAttempts,
     InvalidGear,
+    InvalidAlarm,
+    InvalidSubscription,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -104,6 +110,10 @@ impl IntoResponse for ApiError {
             ApiError::WeakPassword => (StatusCode::BAD_REQUEST, ErrorCode::WeakPassword),
             ApiError::WrongPassword => (StatusCode::UNAUTHORIZED, ErrorCode::WrongPassword),
             ApiError::InvalidGear => (StatusCode::BAD_REQUEST, ErrorCode::InvalidGear),
+            ApiError::InvalidAlarm => (StatusCode::BAD_REQUEST, ErrorCode::InvalidAlarm),
+            ApiError::InvalidSubscription => {
+                (StatusCode::BAD_REQUEST, ErrorCode::InvalidSubscription)
+            }
             ApiError::TooManyAttempts => {
                 (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
             }

@@ -2,6 +2,8 @@
 //! answer in their formats, and the API wired to them.
 #![allow(dead_code)] // each test file uses part of it
 
+pub mod session;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

@@ -1,0 +1,30 @@
+[package]
+name = "wf-alarm"
+description = "Windfenster alarms: checks favourites against forecast and measurements, sends push messages and e-mails"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+chrono-tz.workspace = true
+lettre.workspace = true
+openssl.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+web-push.workspace = true
+wf-core.workspace = true
+wf-map.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true

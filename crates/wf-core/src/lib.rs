@@ -4,6 +4,7 @@
 //! `web/src/bindings` (see `.cargo/config.toml`), and the SPA imports them from there.
 
 pub mod account;
+pub mod alarm;
 pub mod db;
 pub mod favorite;
 pub mod forecast;

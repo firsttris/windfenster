@@ -434,5 +434,7 @@
   "table_gear": "Your gear",
   "table_gearShort": "Gear",
   "error_invalidGear": "Check the entries: size above 0, \"from\" below \"to\", at most 30 pieces.",
-  "place_showOnMap": "Show on map"
+  "place_showOnMap": "Show on map",
+  "error_invalidAlarm": "Check the alarm: wind between 0 and 80 kn, at least one kind of message and one way (push or e-mail).",
+  "error_invalidSubscription": "This browser cannot take push messages."
 }

@@ -434,5 +434,7 @@
   "table_gear": "Dein Material",
   "table_gearShort": "Mat.",
   "error_invalidGear": "Prüf die Einträge: Größe über 0, „ab“ kleiner als „bis“, höchstens 30 Stück.",
-  "place_showOnMap": "Auf Karte anzeigen"
+  "place_showOnMap": "Auf Karte anzeigen",
+  "error_invalidAlarm": "Prüf den Alarm: Wind zwischen 0 und 80 kn, mindestens eine Benachrichtigung und ein Weg (Push oder E-Mail).",
+  "error_invalidSubscription": "Dieser Browser kann keine Push-Nachrichten empfangen."
 }

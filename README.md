@@ -84,6 +84,9 @@ Environment=WF_BASEMAP_SPOTS=500
 Environment=WF_TERRAIN_ZOOM=8
 # Stations kept current and verified even when nobody opens them: add your own spots' stations
 Environment=WF_TRACKED_STATIONS=edsb,lgrp
+# Alarm e-mails (alarms go by push without): your mail provider's SMTP, e.g. port 465 with TLS
+# Environment=WF_SMTP_URL=smtps://alarm%40example.org:PASSWORD@smtp.example.org:465
+# Environment=WF_MAIL_FROM=Windfenster <alarm@example.org>
 Environment=RUST_LOG=info
 # Only for commercial use: a key for Open-Meteo's customer API
 # Environment=OPEN_METEO_API_KEY=
@@ -158,6 +161,8 @@ What follows:
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
 | `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
 | `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
+| `WF_SMTP_URL` | | SMTP server for alarm e-mails: `smtps://user:password@host:465` (TLS) or `smtp://user:password@host:587?tls=required` (STARTTLS); an `@` in the user name is written `%40`. Without it alarms go by push only |
+| `WF_MAIL_FROM` | | Sender of alarm e-mails, e.g. `Windfenster <alarm@example.org>`; needed with `WF_SMTP_URL` |
 | `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes, the whole world (1 to 12): 6 is 278 MB, 7 is 948 MB, every level roughly three to four times more; `0` turns it off |
 | `RUST_LOG` | `info,sqlx=warn` | Log level |
 

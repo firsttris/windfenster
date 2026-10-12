@@ -3,4 +3,4 @@
 /**
  * What went wrong, as a code: the SPA shows the text for it in the viewer's language.
  */
-export type ErrorCode = "not_found" | "invalid_coordinates" | "invalid_range" | "signed_out" | "passkeys_off" | "passkey_rejected" | "invalid_name" | "invalid_favorite" | "too_many_favorites" | "invalid_email" | "email_taken" | "weak_password" | "wrong_password" | "too_many_attempts" | "invalid_gear" | "internal";
+export type ErrorCode = "not_found" | "invalid_coordinates" | "invalid_range" | "signed_out" | "passkeys_off" | "passkey_rejected" | "invalid_name" | "invalid_favorite" | "too_many_favorites" | "invalid_email" | "email_taken" | "weak_password" | "wrong_password" | "too_many_attempts" | "invalid_gear" | "invalid_alarm" | "invalid_subscription" | "internal";

@@ -1,4 +1,6 @@
 use std::io::IsTerminal;
+mod alarms;
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -30,7 +32,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Migrate the database, then serve the API and the SPA and keep the data current.
-    Serve(ServeArgs),
+    Serve(Box<ServeArgs>),
     /// Apply pending database migrations and exit.
     Migrate(DataArgs),
     /// Fetch the station lists (OurAirports, DWD) now.
@@ -157,6 +159,8 @@ struct ServeArgs {
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     #[arg(long, env = "WF_DEV_UI")]
     dev_ui: Option<String>,
+    #[command(flatten)]
+    mail: alarms::MailArgs,
 }
 
 #[derive(Args)]
@@ -193,7 +197,7 @@ async fn main() -> Result<()> {
     }
 
     let cli = Cli::parse();
-    match cli.command.unwrap_or(Command::Serve(cli.serve)) {
+    match cli.command.unwrap_or(Command::Serve(Box::new(cli.serve))) {
         Command::Migrate(data) => {
             open(&data).await?;
             Ok(())
@@ -204,7 +208,7 @@ async fn main() -> Result<()> {
             Ok(stations::import_all(&db, &http, &Sources::default()).await?)
         }
         Command::Probe(args) => probe(args).await,
-        Command::Serve(args) => serve(args).await,
+        Command::Serve(args) => serve(*args).await,
     }
 }
 
@@ -259,6 +263,14 @@ async fn serve(args: ServeArgs) -> Result<()> {
             }),
         )
     });
+    let alarms = Arc::new(alarms::build(
+        db.clone(),
+        &args.data.data_dir,
+        http.clone(),
+        map.clone(),
+        &args.mail,
+        non_empty(&args.public_url),
+    )?);
     let tracked: Vec<String> = args
         .tracked_stations
         .iter()
@@ -272,6 +284,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         }
     }
     if args.scheduler {
+        tokio::spawn(alarms.clone().run());
         tokio::spawn(
             Scheduler {
                 db: db.clone(),
@@ -295,6 +308,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
     if let Some(map) = map {
         state = state.with_map(map);
     }
+    state = state.with_alarms(alarms);
     let listener = TcpListener::bind(args.listen)
         .await
         .with_context(|| format!("binding {}", args.listen))?;
