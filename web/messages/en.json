@@ -433,5 +433,6 @@
   "title_gear": "My gear | Windfenster",
   "table_gear": "Your gear",
   "table_gearShort": "Gear",
-  "error_invalidGear": "Check the entries: size above 0, \"from\" below \"to\", at most 30 pieces."
+  "error_invalidGear": "Check the entries: size above 0, \"from\" below \"to\", at most 30 pieces.",
+  "place_showOnMap": "Show on map"
 }

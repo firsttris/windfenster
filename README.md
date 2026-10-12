@@ -299,7 +299,9 @@ copied link) opens the same picture; layer and model are also remembered in the 
 mouse the wind and gusts under the pointer show without a click. The timeline jumps by day
 (tap a day, or Page up/down), marks now and goes back to it in one tap. Keys: ←/→ an hour (with
 Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. A
-search result stays on the map: it flies there and opens the spot. From town zoom on stations
+search result stays on the map: it flies there and opens the spot. "Auf Karte anzeigen" on a
+station or point page opens the map there at zoom 12 with the spot picked
+(`/map?spot=lat,lon&station=slug#12/lat/lon`). From town zoom on stations
 carry their name; a tapped station shows its last six hours measured as a small curve. While an
 hour's texture is on its way the timeline says so. On phones the spot is a sheet: folded it shows the coming hours, pulled up
 the measurement and the link too; swiping down folds and then closes it. With

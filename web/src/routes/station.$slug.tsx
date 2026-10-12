@@ -4,6 +4,7 @@ import { FavoriteButton } from '@/components/favorite';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { HistoryCard } from '@/components/live/history-card';
 import { LiveTile } from '@/components/live/live-tile';
+import { MapLink } from '@/components/map-link';
 import { Failed, Loading, Page } from '@/components/page';
 import { WaterTile } from '@/components/water-tile';
 import { liveQuery, stationQuery } from '@/lib/api';
@@ -50,7 +51,10 @@ function StationPage() {
               {st.code}
             </span>
           </h1>
-          <FavoriteButton target={{ slug: st.slug }} lat={st.lat} lon={st.lon} name={st.municipality ?? st.name} />
+          <div className="flex flex-wrap gap-2">
+            <MapLink lat={st.lat} lon={st.lon} slug={st.slug} />
+            <FavoriteButton target={{ slug: st.slug }} lat={st.lat} lon={st.lon} name={st.municipality ?? st.name} />
+          </div>
         </div>
         <p className="m-0 font-mono text-muted-foreground text-[13px]">
           {coordinates(st.lat, st.lon)}

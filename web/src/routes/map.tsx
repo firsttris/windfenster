@@ -16,7 +16,7 @@ import type { WindPair } from '@/components/map/wind-gl';
 import { useSearchTarget } from '@/components/search';
 import { mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
 import { formatNumber, runHour } from '@/lib/format';
-import { mapQuery, parseMapState } from '@/lib/map-url';
+import { mapQuery, parseMapState, parseSpot } from '@/lib/map-url';
 import { usePref, useUnit } from '@/lib/prefs';
 import { spotHours, windGradient } from '@/lib/spot-series';
 import { useMedia } from '@/lib/use-media';
@@ -72,7 +72,7 @@ function MapPage() {
   const base = useWindPair(choice.base?.frames ?? [], time, playing);
   const detail = useWindPair(hoursAt(choice.detail?.frames ?? [], time), time, playing);
   const layers = useMemo(() => ({ base, detail }), [base, detail]);
-  const [pick, setPick] = useState<Pick | null>(null);
+  const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
   const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);

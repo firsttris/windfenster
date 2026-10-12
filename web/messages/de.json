@@ -433,5 +433,6 @@
   "title_gear": "Mein Material | Windfenster",
   "table_gear": "Dein Material",
   "table_gearShort": "Mat.",
-  "error_invalidGear": "Prüf die Einträge: Größe über 0, „ab“ kleiner als „bis“, höchstens 30 Stück."
+  "error_invalidGear": "Prüf die Einträge: Größe über 0, „ab“ kleiner als „bis“, höchstens 30 Stück.",
+  "place_showOnMap": "Auf Karte anzeigen"
 }
