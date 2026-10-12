@@ -10,6 +10,7 @@ pub mod grid;
 pub mod icon_d2;
 pub mod icon_global;
 pub mod index;
+pub mod ready;
 pub mod series;
 pub mod service;
 pub mod store;

@@ -5,6 +5,7 @@ use std::io::Read;
 use super::{Error, MapData};
 use crate::grid::{self, LatLonGrid};
 use crate::icon_d2;
+use crate::ready::{Ready, ready_steps};
 
 impl MapData {
     /// Fetches the hours of the newest ICON-D2 run that are out and not on disk yet; returns how
@@ -17,25 +18,31 @@ impl MapData {
                 self.listed_icon_d2(run_at, icon_d2::U).await?,
                 self.listed_icon_d2(run_at, icon_d2::V).await?,
             );
-            let ready: Vec<u32> = u.into_iter().filter(|s| v.contains(s)).collect();
-            // Gusts come with the wind; an hour without them is drawn all the same.
-            let gusts = self.listed_icon_d2(run_at, icon_d2::GUST).await?;
-            if ready.is_empty() {
+            if u.is_empty() || v.is_empty() {
                 // Not out yet; try the run before.
                 continue;
             }
+            let gusts = self.listed_icon_d2(run_at, icon_d2::GUST).await?;
+            let ready = ready_steps(&u, &v, &gusts);
+            if ready.is_empty() {
+                continue;
+            }
             let have = self.steps_on_disk(model, run_at).await?;
-            for step in ready.into_iter().filter(|s| !have.contains(s)) {
-                let u = self.fetch_icon_d2(run_at, step, icon_d2::U).await?;
-                let v = self.fetch_icon_d2(run_at, step, icon_d2::V).await?;
-                let gust = if gusts.contains(&step) {
-                    Some(self.fetch_icon_d2(run_at, step, icon_d2::GUST).await?)
-                } else {
-                    None
+            for Ready { step, gust } in ready.into_iter().filter(|r| !have.contains(&r.step)) {
+                // One bad file (a 404, a truncated archive) costs this hour, not the run
+                let fetched = async {
+                    let u = self.fetch_icon_d2(run_at, step, icon_d2::U).await?;
+                    let v = self.fetch_icon_d2(run_at, step, icon_d2::V).await?;
+                    let gust = match gust {
+                        true => Some(self.fetch_icon_d2(run_at, step, icon_d2::GUST).await?),
+                        false => None,
+                    };
+                    self.write_hour(model, run_at, step, u, v, gust, true).await
                 };
-                self.write_hour(model, run_at, step, u, v, gust, true)
-                    .await?;
-                written += 1;
+                match fetched.await {
+                    Ok(()) => written += 1,
+                    Err(e) => tracing::warn!("map {model}: hour {step} of run {run_at}: {e}"),
+                }
             }
             break;
         }

@@ -59,7 +59,12 @@ impl MapData {
                         tracing::debug!("map {model}: portal busy after {written} hours");
                         break;
                     }
-                    Err(e) => return Err(e),
+                    // A bad step ends this round (steps come in order); the run is tried again
+                    // next round, and the old runs are still pruned
+                    Err(e) => {
+                        tracing::warn!("map {model}: hour {step} of run {run_at}: {e}");
+                        break;
+                    }
                 };
                 self.write_hour(model, run_at, step, u, v, gust, true)
                     .await?;

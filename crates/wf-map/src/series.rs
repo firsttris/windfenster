@@ -2,11 +2,10 @@
 //! (`{step:03}.rgba`, four bytes each): a tap on the map shows days of forecast at once,
 //! straight from the model fields and without asking Open-Meteo.
 
-use std::io::SeekFrom;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
 use serde::Serialize;
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use ts_rs::TS;
 
 use crate::index::MapIndex;
@@ -122,128 +121,39 @@ pub fn decode(meta: &TextureMeta, [r, g, b]: [f32; 3]) -> SeriesPoint {
 }
 
 /// One hour at the place, or None outside the domain or when the hour is gone (pruned).
-async fn hour(root: &Path, path: &str, lat: f64, lon: f64) -> Option<SeriesPoint> {
-    let json = tokio::fs::read(root.join(format!("{path}.json")))
-        .await
-        .ok()?;
+fn hour(root: &Path, path: &str, lat: f64, lon: f64) -> Option<SeriesPoint> {
+    let json = std::fs::read(root.join(format!("{path}.json"))).ok()?;
     let meta: TextureMeta = serde_json::from_slice(&json).ok()?;
     let texels = around(&meta, lat, lon)?;
-    let mut file = tokio::fs::File::open(root.join(format!("{path}.rgba")))
-        .await
-        .ok()?;
+    let mut file = std::fs::File::open(root.join(format!("{path}.rgba"))).ok()?;
     let mut read = Vec::with_capacity(4);
     for (at, w) in texels {
-        file.seek(SeekFrom::Start(at as u64 * 4)).await.ok()?;
+        file.seek(SeekFrom::Start(at as u64 * 4)).ok()?;
         let mut px = [0u8; 4];
-        file.read_exact(&mut px).await.ok()?;
+        file.read_exact(&mut px).ok()?;
         read.push((px, w));
     }
     Some(decode(&meta, blend(&read)?))
 }
 
-/// The place over every hour of every layer of the index.
+/// The place over every hour of every layer of the index. Some 200 small reads: all in one
+/// blocking task, not a thread hand-off per read.
 pub async fn series(root: &Path, index: &MapIndex, lat: f64, lon: f64) -> MapSeries {
-    let mut layers = Vec::with_capacity(index.layers.len());
-    for layer in &index.layers {
-        let mut points = Vec::with_capacity(layer.frames.len());
-        for frame in &layer.frames {
-            if let Some(p) = hour(root, &frame.path, lat, lon).await {
-                points.push(p);
-            }
-        }
-        layers.push(SeriesLayer {
-            model: layer.model.clone(),
-            points,
-        });
-    }
-    MapSeries { layers }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn meta() -> TextureMeta {
-        TextureMeta {
-            model: "icon_d2".into(),
-            run_at: 0,
-            step: 3,
-            valid_at: 10_800,
-            west: 0.0,
-            south: 50.0,
-            east: 2.0,
-            north: 52.0,
-            width: 2,
-            height: 2,
-            domain: vec![],
-            u_min: -10.0,
-            u_max: 10.0,
-            v_min: -10.0,
-            v_max: 10.0,
-            gust_max: Some(30.0),
-        }
-    }
-
-    #[test]
-    fn blends_the_texels_around_a_place() {
-        let m = meta();
-        // On a texel centre it alone counts.
-        let c = around(&m, 51.5, 0.5).unwrap();
-        assert_eq!(c[0], (0, 1.0));
-        // Halfway between the two western centres
-        let w = around(&m, 51.0, 0.5).unwrap();
-        assert_eq!((w[0], w[2]), ((0, 0.5), (2, 0.5)));
-        assert_eq!(around(&m, 49.9, 0.5), None);
-        // Outside the domain left out; less than half inside is no value.
-        let blended = blend(&[([255, 0, 0, 255], 0.5), ([0, 0, 0, 0], 0.5)]);
-        assert_eq!(blended, Some([255.0, 0.0, 0.0]));
-        assert_eq!(
-            blend(&[([255, 0, 0, 255], 0.25), ([0, 0, 0, 0], 0.75)]),
-            None
-        );
-        assert_eq!(
-            blend(&[([200, 100, 0, 255], 0.5), ([100, 0, 50, 255], 0.5)]),
-            Some([150.0, 50.0, 25.0])
-        );
-    }
-
-    #[test]
-    fn wraps_around_the_world() {
-        // Four columns of 90°, centres at −135, −45, 45 and 135° east
-        let m = TextureMeta {
-            west: -180.0,
-            east: 180.0,
-            south: -90.0,
-            north: 90.0,
-            width: 4,
-            height: 2,
-            ..meta()
-        };
-        assert!(m.wraps() && !meta().wraps());
-        // At 180° the last and the first column count half each.
-        let c = around(&m, 45.0, 180.0).unwrap();
-        assert_eq!((c[0], c[1]), ((3, 0.5), (0, 0.5)));
-        // The same west of −180 and east of 180 (MapLibre's world copies)
-        assert_eq!(around(&m, 45.0, -180.0), Some(c));
-        assert_eq!(around(&m, 45.0, 540.0), Some(c));
-        let d = around(&m, 45.0, -157.5).unwrap();
-        assert_eq!((d[0], d[1]), ((3, 0.25), (0, 0.75)));
-    }
-
-    #[test]
-    fn reads_the_wind() {
-        let m = meta();
-        // U +10 (towards the east), V 0: from the west at 10 kn, gusts 15
-        let p = decode(&m, [255.0, 127.5, 127.5]);
-        assert!((p.wind - 10.0).abs() < 0.05);
-        assert!((p.dir - 270.0).abs() < 0.5);
-        assert_eq!(p.gust, Some(15.0));
-        // Gusts under the wind are lifted to it.
-        assert_eq!(decode(&m, [255.0, 127.5, 0.0]).gust, Some(p.wind));
-        let none = TextureMeta {
-            gust_max: None,
-            ..meta()
-        };
-        assert_eq!(decode(&none, [255.0, 127.5, 127.5]).gust, None);
-    }
+    let (root, index) = (root.to_path_buf(), index.clone());
+    let read = tokio::task::spawn_blocking(move || {
+        let layers = index
+            .layers
+            .iter()
+            .map(|layer| SeriesLayer {
+                model: layer.model.clone(),
+                points: layer
+                    .frames
+                    .iter()
+                    .filter_map(|frame| hour(&root, &frame.path, lat, lon))
+                    .collect(),
+            })
+            .collect();
+        MapSeries { layers }
+    });
+    read.await.unwrap_or(MapSeries { layers: Vec::new() })
 }

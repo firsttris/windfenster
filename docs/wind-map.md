@@ -33,7 +33,10 @@ flowchart LR
 | **ECMWF IFS** | 0.25° (1440 × 721) | world | 120 h, 3-hourly | 00, 06, 12, 18 UTC | ~115 MB download, ~220 MB on disk |
 
 Each has its own loop on the server; every 10 minutes it looks for the newest run and fetches
-only the hours not on disk yet. The two newest runs per model are kept; older ones are deleted.
+only the hours not on disk yet. The DWD writes a run's files one variable at a time, so an hour is
+taken once its wind *and* its gust are listed (an hour whose gust is not out yet waits, unless a
+later hour's gust is listed already). One bad file costs that hour, not the run: the loop goes on
+with the next hour and tries again in 10 minutes. The two newest runs per model are kept; older ones are deleted.
 `WF_MAP=false` turns the map off, `WF_ICON_GLOBAL=false` leaves the world to ECMWF.
 
 ### ICON-D2

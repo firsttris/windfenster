@@ -10,6 +10,7 @@ use std::time::Duration;
 use super::{Error, MapData};
 use crate::grid;
 use crate::icon_global as files;
+use crate::ready::{Ready, ready_steps};
 
 /// How often to look for new hours (a run comes out over about two hours)
 const EVERY: Duration = Duration::from_secs(600);
@@ -40,37 +41,48 @@ impl MapData {
                 self.listed_icon_global(run_at, files::U).await?,
                 self.listed_icon_global(run_at, files::V).await?,
             );
-            let ready: Vec<u32> = u.into_iter().filter(|s| v.contains(s)).collect();
-            if ready.is_empty() {
+            if u.is_empty() || v.is_empty() {
                 continue;
             }
             let gusts = self.listed_icon_global(run_at, files::GUST).await?;
+            let ready = ready_steps(&u, &v, &gusts);
+            if ready.is_empty() {
+                continue;
+            }
             let have = self.steps_on_disk(model, run_at).await?;
-            let todo: Vec<u32> = ready.into_iter().filter(|s| !have.contains(s)).collect();
+            let todo: Vec<Ready> = ready
+                .into_iter()
+                .filter(|r| !have.contains(&r.step))
+                .collect();
             if !todo.is_empty() {
                 let near = self.icon_global_grid(run_at).await?;
-                for step in todo {
-                    let u = self.fetch_icon_global(run_at, step, files::U).await?;
-                    let v = self.fetch_icon_global(run_at, step, files::V).await?;
-                    let gust = if gusts.contains(&step) {
-                        Some(self.fetch_icon_global(run_at, step, files::GUST).await?)
-                    } else {
-                        None
-                    };
-                    let near = near.clone();
-                    let (u, v, gust) = tokio::task::spawn_blocking(move || {
-                        (
-                            files::regrid(&u, &near),
-                            files::regrid(&v, &near),
-                            gust.map(|g| files::regrid(&g, &near)),
-                        )
-                    })
-                    .await?;
-                    // The world texture is not sent as such: the app takes pieces of it
-                    // (`texture::crop`), cut from the texels.
-                    self.write_hour(model, run_at, step, u, v, gust, false)
+                for Ready { step, gust } in todo {
+                    // One bad file costs this hour, not the run
+                    let fetched = async {
+                        let u = self.fetch_icon_global(run_at, step, files::U).await?;
+                        let v = self.fetch_icon_global(run_at, step, files::V).await?;
+                        let gust = match gust {
+                            true => Some(self.fetch_icon_global(run_at, step, files::GUST).await?),
+                            false => None,
+                        };
+                        let near = near.clone();
+                        let (u, v, gust) = tokio::task::spawn_blocking(move || {
+                            (
+                                files::regrid(&u, &near),
+                                files::regrid(&v, &near),
+                                gust.map(|g| files::regrid(&g, &near)),
+                            )
+                        })
                         .await?;
-                    written += 1;
+                        // The world texture is not sent as such: the app takes pieces of it
+                        // (`texture::crop`), cut from the texels.
+                        self.write_hour(model, run_at, step, u, v, gust, false)
+                            .await
+                    };
+                    match fetched.await {
+                        Ok(()) => written += 1,
+                        Err(e) => tracing::warn!("map {model}: hour {step} of run {run_at}: {e}"),
+                    }
                 }
             }
             break;
