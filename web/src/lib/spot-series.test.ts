@@ -39,7 +39,7 @@ describe('a place over the hours', () => {
   it('colours the timeline by the wind', () => {
     const hours = spotHours(series, [null, 'ecmwf_ifs025']);
     const g = windGradient(hours, 0, 6);
-    // 1 kn, 9 kn and 15 kn: the bands from 0, 9 and 15 kn
+    // 1 kn, 9 kn and 15 kn: the bands from 0, 8 and 14 kn
     expect(g).toBe(
       `linear-gradient(to right, ${WIND_SCALE[0].bg} 0.00%, ${WIND_SCALE[0].bg} 25.00%, ` +
         `${WIND_SCALE[4].bg} 25.00%, ${WIND_SCALE[4].bg} 75.00%, ${WIND_SCALE[7].bg} 75.00%, ${WIND_SCALE[7].bg} 100.00%)`,

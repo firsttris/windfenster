@@ -62,12 +62,12 @@ describe('timeline', () => {
 describe('colour ramp', () => {
   it('runs through the wind scale and holds its last colour', () => {
     const px = rampPixels(RAMP_MAX_KN + 1);
-    // 1 kn per texel: 0 kn is the calm colour #4c2a85, 5 kn its band's #1d4ed8, 4 kn halfway
-    // from 3 kn's #4338ca to it, 40 kn the last band's #c026d3.
-    expect([...px.slice(0, 4)]).toEqual([0x4c, 0x2a, 0x85, 255]);
-    expect([...px.slice(5 * 4, 5 * 4 + 3)]).toEqual([0x1d, 0x4e, 0xd8]);
-    expect([...px.slice(4 * 4, 4 * 4 + 3)]).toEqual([0x30, 0x43, 0xd1]);
-    expect([...px.slice(40 * 4, 40 * 4 + 3)]).toEqual([0xc0, 0x26, 0xd3]);
+    // 1 kn per texel: 0 kn is the calm colour #7900cc, 2 kn its band's #5000cc, 1 kn halfway
+    // between them, 40 kn the band from 40 kn, #b03b17.
+    expect([...px.slice(0, 4)]).toEqual([0x79, 0x00, 0xcc, 255]);
+    expect([...px.slice(2 * 4, 2 * 4 + 3)]).toEqual([0x50, 0x00, 0xcc]);
+    expect([...px.slice(1 * 4, 1 * 4 + 3)]).toEqual([0x65, 0x00, 0xcc]);
+    expect([...px.slice(40 * 4, 40 * 4 + 3)]).toEqual([0xb0, 0x3b, 0x17]);
   });
 });
 

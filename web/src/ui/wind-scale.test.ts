@@ -15,14 +15,15 @@ function contrast(a: string, b: string): number {
 }
 
 describe('windBand', () => {
-  it('uses inclusive lower edges', () => {
-    expect(windBand(2.9)).toBe(WIND_SCALE[0]);
-    expect(windBand(3)).toBe(WIND_SCALE[1]);
-    expect(windBand(14.99)).toBe(WIND_SCALE[6]);
-    expect(windBand(15)).toBe(WIND_SCALE[7]);
-    expect(windBand(34.9)).toBe(WIND_SCALE[12]);
-    expect(windBand(35)).toBe(WIND_SCALE[13]);
-    expect(windBand(80)).toBe(WIND_SCALE[13]);
+  it('uses inclusive lower edges, a step per 2 kn', () => {
+    expect(windBand(1.9)).toBe(WIND_SCALE[0]);
+    expect(windBand(2)).toBe(WIND_SCALE[1]);
+    expect(windBand(15.99)).toBe(WIND_SCALE[7]);
+    expect(windBand(16)).toBe(WIND_SCALE[8]);
+    expect(windBand(51.9)).toBe(WIND_SCALE[25]);
+    expect(windBand(52)).toBe(WIND_SCALE[26]);
+    expect(windBand(80)).toBe(WIND_SCALE[26]);
+    expect(WIND_SCALE.every((b, i) => b.from === i * 2)).toBe(true);
   });
 
   it('puts calm and invalid values in the first band', () => {
