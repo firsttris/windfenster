@@ -108,6 +108,11 @@ test('measured values and the TAF stand under the forecast, to compare', async (
     .filter({ has: page.getByText(/^TAF · zeitw\./) })
     .first();
   await expect(card).toContainText(/Schauer/);
+  // The "?" says what a row is when tapped, for touch screens without hover
+  await card.getByRole('button', { name: /^TAF:/ }).click();
+  await expect(card.getByRole('note')).toContainText('Flugwetter-Vorhersage');
+  await card.getByRole('button', { name: /^TAF:/ }).click();
+  await expect(card.getByRole('note')).toHaveCount(0);
 });
 
 test('the quick view shows all ten days and leads to each one', async ({ page }) => {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
 import type { GearItem } from '@/bindings/GearItem';
 import type { Taf } from '@/bindings/Taf';
@@ -40,6 +41,9 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
   const showMeasured = !!measured && day.cells.some((c) => c.past);
   const showTaf = !!taf && day.cells.some((c) => tafHour(taf, c.time)?.wind != null);
   const hourly = day.stage === 'hourly';
+  // The "?" of a row opens its sentence under the table: touch screens have no hover
+  const [help, setHelp] = useState<'measured' | 'taf' | null>(null);
+  const toggle = (row: 'measured' | 'taf') => setHelp((h) => (h === row ? null : row));
 
   const td = (c: Cell, opts: { fade?: boolean; className?: string } = {}) =>
     cn(
@@ -147,7 +151,11 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
                   <span className="flex flex-col leading-tight">
                     <span className="flex items-center gap-1 font-semibold text-success-foreground">
                       {m.table_measured()}
-                      <Help text={m.table_measuredHelp()} />
+                      <Help
+                        text={m.table_measuredHelp()}
+                        open={help === 'measured'}
+                        onToggle={() => toggle('measured')}
+                      />
                     </span>
                     <span className="font-mono text-[10px]">{measured.source}</span>
                   </span>
@@ -165,7 +173,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
                   <span className="flex flex-col leading-tight">
                     <span className="flex items-center gap-1 font-semibold text-foreground">
                       {m.taf_row()}
-                      <Help text={m.taf_help()} />
+                      <Help text={m.taf_help()} open={help === 'taf'} onToggle={() => toggle('taf')} />
                     </span>
                     <span className="font-mono text-[10px]">{m.taf_rowSub()}</span>
                   </span>
@@ -220,6 +228,11 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
           </tbody>
         </table>
       </div>
+      {help && (
+        <p role="note" className="m-0 mx-4 mt-2 rounded-lg bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          {help === 'measured' ? m.table_measuredHelp() : m.taf_help()}
+        </p>
+      )}
       {showTaf && taf && <TafNotes fc={fc} day={day} taf={taf} unit={unit} now={now} />}
     </section>
   );
@@ -227,7 +240,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
 
 const label = (extra: string) =>
   cn(
-    'sticky left-0 z-10 w-[76px] min-w-[76px] bg-card pr-1 pl-2 text-left font-normal text-[12px] text-muted-foreground',
+    'sticky left-0 z-10 w-[94px] min-w-[94px] max-w-[94px] overflow-hidden bg-card pr-2 pl-2 text-left font-normal text-[12px] text-muted-foreground',
     extra,
   );
 
@@ -291,17 +304,23 @@ function GroupRow({ span, title }: { span: number; title: string }) {
   );
 }
 
-/** A question mark that says in a sentence what a row is */
-function Help({ text }: { text: string }) {
+/** A question mark that says in a sentence what a row is: on hover, and under the table when
+ * tapped */
+function Help({ text, open, onToggle }: { text: string; open: boolean; onToggle: () => void }) {
   return (
-    <span
-      role="img"
+    <button
+      type="button"
       aria-label={text}
+      aria-expanded={open}
       title={text}
-      className="inline-grid size-3.5 cursor-help place-items-center rounded-full border border-border-strong font-sans font-normal text-[9px] text-muted-foreground"
+      onClick={onToggle}
+      className={cn(
+        'inline-grid size-3.5 shrink-0 cursor-help place-items-center rounded-full border border-border-strong font-normal font-sans text-[9px] text-muted-foreground',
+        open && 'bg-foreground text-background',
+      )}
     >
       ?
-    </span>
+    </button>
   );
 }
 
