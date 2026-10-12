@@ -26,7 +26,8 @@ export function gearFor(gear: readonly GearItem[], wind: number, gust: number | 
     if (gear.every((g) => wind > g.maxKn)) return 'high';
     return 'none';
   }
-  const offCentre = (g: GearItem) => Math.abs(wind - (g.minKn + g.maxKn) / 2) / (g.maxKn - g.minKn);
+  // A range of a single knot counts as one knot wide, not as zero (no division by it)
+  const offCentre = (g: GearItem) => Math.abs(wind - (g.minKn + g.maxKn) / 2) / Math.max(1, g.maxKn - g.minKn);
   const best = fitting.reduce((a, b) => (offCentre(b) < offCentre(a) ? b : a));
   return { fits: best, gusty: gust !== null && gust > best.maxKn };
 }

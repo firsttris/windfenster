@@ -15,6 +15,13 @@ describe('gear for an hour', () => {
     expect(gearFor([wing5, kite12], 17, null)).toEqual({ fits: kite12, gusty: false });
   });
 
+  it('takes a range of a single knot as one knot wide', () => {
+    const exact: GearItem = { kind: 'kite', size: 9, minKn: 20, maxKn: 20 };
+    expect(gearFor([exact], 20, null)).toEqual({ fits: exact, gusty: false });
+    // Centred at 20 it fits better than the 4 at the top of its range
+    expect(gearFor([wing4, exact], 20, null)).toEqual({ fits: exact, gusty: false });
+  });
+
   it('says when the gusts go past the top of the range', () => {
     expect(gearFor([wing5], 16, 24)).toEqual({ fits: wing5, gusty: true });
   });
