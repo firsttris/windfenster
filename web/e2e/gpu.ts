@@ -13,7 +13,7 @@ import type { TextureMeta } from '@/bindings/TextureMeta';
 import type { WindFrame } from '@/components/map/frames';
 import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from '@/components/map/gl';
 import { drawParticles, fadeTrails, moveParticles, particlePasses, screenQuad } from '@/components/map/particle-passes';
-import { COPY_FRAG, QUAD_VERT, WIND } from '@/components/map/shaders';
+import { COPY_FRAG, PRECISION, QUAD_VERT, WIND } from '@/components/map/shaders';
 import { windAt } from '@/components/map/wind-at';
 import { windField } from '@/components/map/wind-field';
 import { bindWind, WIND_UNITS, type WindLayers, windTextures } from '@/components/map/wind-gl';
@@ -48,7 +48,7 @@ export interface Both {
 const MAX_POINTS = 64;
 
 const FRAG = `#version 300 es
-precision highp float;
+${PRECISION}
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
 ${WIND}
 uniform vec2 u_points[${MAX_POINTS}];

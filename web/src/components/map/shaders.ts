@@ -4,6 +4,15 @@
  * positions in two bytes per axis.
  */
 
+/** Full precision for numbers and for what textures give back, in every shader. WebGL reads
+ * textures at low precision unless told otherwise; ANGLE on OpenGL ES drivers that honour that
+ * (Mesa radeonsi under Chrome and Brave) then decodes them in 16 bits, too coarse for particle
+ * positions kept in two bytes per axis. Seen on an AMD card: no particles in Chrome and Brave,
+ * while Firefox (desktop OpenGL, which ignores precision) and the tests' SwiftShader drew them. */
+export const PRECISION = `precision highp float;
+precision highp int;
+precision highp sampler2D;`;
+
 /** The uniforms of one layer: two hours (`0`, `1`), each with its texture, texel edges (west,
  * south, east, north) and value ranges (uMin, uMax, vMin, vMax), and the gust at blue 255 per
  * hour (negative when the hour has none). */
@@ -114,6 +123,7 @@ vec4 wind(vec2 merc) {
 
 /** The colour field: a quad over the texture in Mercator, coloured by speed. */
 export const FIELD_VERT = `#version 300 es
+${PRECISION}
 uniform mat4 u_matrix;
 in vec2 a_merc;
 out vec2 v_merc;
@@ -123,7 +133,7 @@ void main() {
 }`;
 
 export const FIELD_FRAG = `#version 300 es
-precision highp float;
+${PRECISION}
 // One mip level softer than the screen asks for: 2 km detail reads as noise from afar.
 #define SAMPLE(t, uv) texture(t, uv, 1.0)
 ${WIND}
@@ -145,6 +155,7 @@ void main() {
 
 /** A quad over the whole target, for the particle update and the trails. */
 export const QUAD_VERT = `#version 300 es
+${PRECISION}
 in vec2 a_pos;
 out vec2 v_pos;
 void main() {
@@ -180,7 +191,7 @@ vec4 encode(vec2 p) {
  * holds too many start anew, and new particles go where the old view was not (the strip a pan
  * uncovers, the border a zoom out adds). */
 export const UPDATE_FRAG = `#version 300 es
-precision highp float;
+${PRECISION}
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
 ${WIND}
 ${STATE}
@@ -241,7 +252,7 @@ void main() {
 /** One quad per particle from where it was to where it is, `u_width` pixels wide plus a pixel of
  * soft edge on either side, so slanted lines are smooth instead of stair-stepped. */
 export const DRAW_VERT = `#version 300 es
-precision highp float;
+${PRECISION}
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
 ${WIND}
 ${STATE}
@@ -295,12 +306,12 @@ void main() {
 /** White over the colour field; from town zoom on, where the field gives way to the map, in
  * the field's colours, a little stronger, so the wind's strength stays readable. */
 export const DRAW_FRAG = `#version 300 es
-precision mediump float;
+${PRECISION}
 uniform vec4 u_ink;       // the theme's ink and how far to lean towards it
 uniform sampler2D u_ramp;
 uniform float u_ramp_max;
 uniform float u_town;
-uniform highp float u_width;
+uniform float u_width;
 in float v_alpha;
 in float v_kn;
 in float v_across;
@@ -319,7 +330,7 @@ void main() {
  * map moved they move with it (`u_shift` as in the update), so a pan or zoom keeps them where
  * the wind drew them instead of wiping them. */
 export const FADE_FRAG = `#version 300 es
-precision highp float;
+${PRECISION}
 uniform sampler2D u_screen_tex;
 uniform float u_fade;
 uniform vec4 u_shift;     // the view moved: new = old * xy + zw, from the top left
@@ -339,7 +350,7 @@ void main() {
 
 /** Copies a texture onto the canvas. */
 export const COPY_FRAG = `#version 300 es
-precision mediump float;
+${PRECISION}
 uniform sampler2D u_screen_tex;
 in vec2 v_pos;
 out vec4 color;
