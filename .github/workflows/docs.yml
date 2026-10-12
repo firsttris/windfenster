@@ -1,7 +1,8 @@
 # Builds docs/ with MkDocs Material and publishes it to GitHub Pages:
 # https://firsttris.github.io/windfenster/
-# One-time requirement: Settings → Pages → Source "GitHub Actions"
-# (configure-pages with enablement switches that on itself during the first run).
+# One-time requirement: Settings → Pages → Source "GitHub Actions". The workflow's token cannot
+# create the Pages site itself (configure-pages fails with "Resource not accessible by
+# integration" until it exists); after that, run this workflow again.
 name: Docs
 
 on:
