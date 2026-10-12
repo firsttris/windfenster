@@ -90,6 +90,21 @@ test('measured values and the TAF stand under the forecast, to compare', async (
   await expect(today.getByText('Zum Vergleich')).toBeVisible();
 });
 
+test('the quick view shows all ten days and leads to each one', async ({ page }) => {
+  await page.goto('/station/edsb');
+  const glance = page.getByRole('region', { name: 'Auf einen Blick' });
+  const days = glance.getByRole('listitem');
+  await expect(days).toHaveCount(10);
+  // Each day its strongest wind; without a saved spot no hours are marked
+  await expect(days.first()).toContainText(/max \d+ kn/);
+  await expect(glance).toContainText('Strich = Böe');
+  // A day leads to its card
+  const sixth = days.nth(5).getByRole('button');
+  const title = (await sixth.getAttribute('title'))?.replace(/^Zu (\S+), .* springen$/, '$1') ?? '';
+  await sixth.click();
+  await expect(page.getByRole('heading', { level: 3, name: title, exact: true })).toBeInViewport();
+});
+
 test('a DWD station: ten-minute values', async ({ page, request }) => {
   await page.goto('/station/dwd-04177');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Rheinstetten');

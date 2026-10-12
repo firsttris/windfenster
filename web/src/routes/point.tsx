@@ -72,6 +72,7 @@ function PointPage() {
         fc={forecast}
         tiles={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />}
         ranking={ranking}
+        spot={{ lat, lon }}
         rankingStation={
           nearest && ranking
             ? {

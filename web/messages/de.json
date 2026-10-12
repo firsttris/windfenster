@@ -520,5 +520,11 @@
   "taf_help": "TAF: die Flugwetter-Vorhersage, von Meteorologen für den Flughafen geschrieben, für 24 bis 30 Stunden. Eine Spanne heißt zeitweise oder im Übergang.",
   "forecast_step": "Heute und morgen",
   "forecast_stepHourly": "1 h",
-  "forecast_stepThree": "3 h"
+  "forecast_stepThree": "3 h",
+  "glance_title": "Auf einen Blick",
+  "glance_note": "Balken alle 3 Stunden, Strich = Böe, Pfeil = Hauptrichtung tagsüber",
+  "glance_works": "Grün: Stunden, die bei {spot} gehen",
+  "glance_jump": "Zu {day} springen",
+  "glance_max": "max {wind} {unit}",
+  "glance_dayWorks": "An diesem Tag gehen Stunden an deinem Spot."
 }

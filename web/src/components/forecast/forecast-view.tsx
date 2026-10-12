@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -7,6 +8,9 @@ import type { Taf } from '@/bindings/Taf';
 import { AgreementTile } from '@/components/verification/agreement-tile';
 import { CompareChart } from '@/components/verification/compare-chart';
 import { RankingCard } from '@/components/verification/ranking-card';
+import { favoritesQuery, meQuery } from '@/lib/api';
+import { dayGlance, spotWorks } from '@/lib/day-glance';
+import { type FavoriteTarget, findFavorite } from '@/lib/favorites';
 import { autoModel, buildDays, initialModel, MIX, type Mode, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
@@ -20,6 +24,7 @@ import { m } from '@/paraglide/messages';
 import { Segmented } from '@/ui/segmented';
 import { ForecastDays } from './forecast-days';
 import { ModelChips } from './model-chips';
+import { QuickView } from './quick-view';
 import { modelName, ScaleLegend } from './shared';
 
 interface Props {
@@ -36,10 +41,12 @@ interface Props {
   history?: ReactNode;
   /** The station the ranking belongs to: its code, and for points how far away it is */
   rankingStation?: { code: string; source: string; from?: string };
+  /** The page as a favourite: when it is one, the quick view marks the hours that work there */
+  spot?: FavoriteTarget;
 }
 
 /** Everything below a place's title: mode and unit, the models, tiles, the ten days. */
-export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation, history }: Props) {
+export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation, history, spot }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
   const superModel = autoModel(fc, ranking, 'super');
@@ -54,6 +61,18 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
     () => (selected ? buildDays(fc, selected, now, globalModel, hourly) : []),
     [fc, selected, now, globalModel, hourly],
   );
+  // The quick view always in 3 hours, the same columns for all ten days
+  const threeHourly = useMemo(
+    () => (selected ? buildDays(fc, selected, now, globalModel, false) : []),
+    [fc, selected, now, globalModel],
+  );
+  const me = useQuery(meQuery);
+  const favorites = useQuery({ ...favoritesQuery, enabled: Boolean(me.data) });
+  const fav = spot && favorites.data ? findFavorite(favorites.data, spot) : undefined;
+  const glances = useMemo(() => {
+    const works = fav ? spotWorks(fav.sector, gear) : null;
+    return threeHourly.map((d) => dayGlance(d, works));
+  }, [threeHourly, fav, gear]);
   const desktop = useMedia('(min-width: 768px)', true);
   const series = fc.series.find((s) => s.model === selected);
   const mode = selected ? modeOf(fc, selected) : null;
@@ -143,7 +162,8 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
               <ScaleLegend unit={unit} />
             </div>
           </div>
-          <div className="sm:p-3">
+          <div className="flex flex-col gap-4 sm:p-3">
+            <QuickView fc={fc} days={threeHourly} glances={glances} unit={unit} spot={fav?.name} />
             <ForecastDays fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
           </div>
         </section>

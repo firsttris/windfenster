@@ -49,6 +49,10 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await spot.getByLabel('Name').fill('Baden Airpark');
   await spot.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('button', { name: 'Gemerkt' })).toBeVisible();
+  // The quick view now marks the hours that work at the spot
+  await expect(page.getByRole('region', { name: 'Auf einen Blick' })).toContainText(
+    'Grün: Stunden, die bei Baden Airpark gehen',
+  );
 
   // Its alarm: on this server neither push (no browser permission) nor e-mail (no SMTP) is set
   // up, so saving needs a way first and says so

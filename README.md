@@ -21,8 +21,10 @@ was closest to the measurements there recently.
 
 ## What v1 will do
 
-- A page for every METAR and DWD station: live measurement, 10-day table (wind, gusts,
-  direction, weather, temperature, rain) in kn, m/s or km/h
+- A page for every METAR and DWD station: live measurement, the ten days at a glance (wind
+  every 3 hours, main direction, strongest wind, model agreement, the hours that work at a
+  saved spot), then a card per day (wind, gusts, direction, measured and TAF to compare,
+  weather, temperature, rain) in kn, m/s or km/h
 - A forecast for any point by map click or search, with the nearest station
 - Superforecast / Forecast plus a free choice of at least five models
 - A model ranking per station from 30 days of verification, and the automatic model choice

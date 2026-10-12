@@ -85,6 +85,7 @@ function StationPage() {
           </>
         }
         ranking={q.data.ranking}
+        spot={{ slug: st.slug }}
         rankingStation={{ code: st.code, source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}` }}
       />
     </Page>

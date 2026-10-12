@@ -520,5 +520,11 @@
   "taf_help": "TAF: the aviation forecast, written by meteorologists for the airport, for 24 to 30 hours. A span means at times or while changing.",
   "forecast_step": "Today and tomorrow",
   "forecast_stepHourly": "1 h",
-  "forecast_stepThree": "3 h"
+  "forecast_stepThree": "3 h",
+  "glance_title": "At a glance",
+  "glance_note": "Bars every 3 hours, tick = gust, arrow = main direction by day",
+  "glance_works": "Green: hours that work at {spot}",
+  "glance_jump": "Go to {day}",
+  "glance_max": "max {wind} {unit}",
+  "glance_dayWorks": "Some hours this day work at your spot."
 }
