@@ -4,8 +4,7 @@ Stand nach v0.1.8. Vier Prüfungen über die Kernbereiche, jede nur mit belegten
 (Datei:Zeile). **Bestätigt** = im Code nachvollzogen, **plausibel** = Verdacht, nicht bis zum
 Ende verfolgt. Der Status sagt, was schon im Repo ist.
 
-Der vierte Bericht (die Karte im Browser: Shader, Partikel, Leistung) läuft noch und wird hier
-ergänzt.
+Der vierte Bericht (die Karte im Browser: Shader, Partikel, Leistung) steht in Abschnitt 4.
 
 ## Zusammenfassung
 
@@ -154,7 +153,30 @@ antwortet sofort.
 
 ## 4. Karte im Browser (Shader, Partikel, Leistung)
 
-Bericht steht noch aus.
+### Fehler und Leistung
+
+| # | Fund | Schwere | Status |
+|---|---|---|---|
+| 4.1 | Der Pixel-Cache der Wind-Abfrage (`frames.ts`) hielt 4 Bilder und warf das älteste raus, auch wenn es gerade gebraucht wurde. Mit drei Modellen zwischen zwei Stunden werden 6 Bilder im Kreis gelesen: kein einziger Treffer, jede Abfrage dekodiert 6 volle Texturen (ECMWF allein 4 MB). Spürbar bei Abspielen, Hover-Anzeige und vor allem im Pfeilfeld bei „reduzierter Bewegung“ (ca. 6.000 Dekodierungen je Bild). | hoch | **behoben** (a64e4d1): LRU mit 8 Plätzen, Treffer zählt als Nutzung (`lib/lru.ts`, getestet) |
+| 4.2 | Die Schweiflänge hing von der Bildwiederholrate ab: das Abrunden auf ganze Bytes nimmt jedes Bild ca. 1 Byte weg, egal wie lang das Bild war. Bei 144 Hz halb so lange Schweife wie bei 60 Hz (iPhone/Mac mit 120 Hz). | mittel | **behoben** (2bebb8c): höchstens ca. 60 Schritte pro Sekunde (`lib/trails.ts`, getestet) |
+| 4.3 | Nach einem kleinen Verschieben blieb der neue Rand sekundenlang fast leer: ein neuer Partikel suchte zwölfmal zufällig nach dem frei gewordenen Streifen und fand einen schmalen Streifen kaum. | mittel | **behoben** (db3373a): der frei gewordene Bereich (bis zu vier Rechtecke) wird direkt nach Fläche gezogen; neuer Browser-Test für kleines Verschieben (vorher Dichte 0,54 am Rand) |
+| 4.4 | Böen-Farbe außerhalb eines feineren Modells: der Shader nahm die Böe vom Randpixel von ICON-D2 bzw. dem ICON-Stück, u. U. Hunderte km entfernt, wenn ECMWF für die Stunde keine Böe hat (Schritt 0). Die Abfrage unter dem Finger zeigte dort etwas anderes als die Farbe. | niedrig–mittel | **behoben** (4a50617): außerhalb des Gebiets keine Böe; Browser-Test |
+| 4.5 | Der Vertex-Shader der Partikel liest den ganzen Wind-Stapel je Ecke, 6 Ecken je Partikel. | mittel | **behoben, teilweise** (83fa81d): 4 Ecken als Strip, ein Drittel weniger Arbeit, Bild identisch. Der volle Fix (Wind einmal in einem zweiten Render-Target ablegen) ist mehr Aufwand als der Rest kostet. |
+| 4.6 | Volle Arbeit bei jeder Bildwiederholung (Update, Ausblenden, Kopie in voller Auflösung), auch ohne Wind. | mittel | **behoben** (2bebb8c, mit 4.2): 60-Hz-Grenze; ohne Wind wird einmal geleert, dann nichts mehr gezeichnet |
+| 4.7 | Jede Stunde wird in zwei GL-Kontexten (Farbfeld und Partikel) hochgeladen und gemipmappt. | niedrig–mittel | **nicht behoben**: das doppelte Hochladen bleibt so oder so (zwei Kontexte), Mipmaps erzeugt die GPU in Bruchteilen einer Millisekunde; eine Sonderbehandlung je Kontext brächte das Risiko unvollständiger Texturen (schwarze Karte) für kaum messbaren Gewinn. |
+| 4.8 | Bei 144 Hz bewegen sich Partikel in Flaute nur 1–3 Stufen der 16-Bit-Position je Bild, die Richtung rastet um 10–17° ein. | niedrig | **behoben** mit 4.2 (größere Schritte bei 60 Hz) |
+| 4.9 | Die CPU-Nachbildung der Mipmap (`wind-stack.ts`) folgt Chromium; Firefox/Safari könnten ungerade Größen anders verkleinern, die Überblendung am ICON-D2-Rand wiche minimal ab. | niedrig, plausibel | **nicht behoben**: nur Verdacht, Wirkung höchstens ein Hauch im Überblendband |
+
+### Als korrekt bestätigt
+
+Mercator-Umrechnung und die Matrix von MapLibre; Texel-Mitten auf den Gitterpunkten, die
+CPU-Abfrage tastet genau wie die GPU ab (kein halber Pixel Versatz, auch an Rändern und über die
+Datumsgrenze); `REPEAT` nur bei weltweiten Texturen; Dekodierung passt zu `texture.rs`;
+Überblendung der Stunden und der drei Modelle, CPU und GPU gleich; Farbskala; Partikel-Zustand
+(zwei Bytes je Achse) ohne Verzerrung; Windrichtung auf dem Bildschirm (Norden nach oben);
+Verschieben mit `u_shift`; Zeitschritt `dt` mit Obergrenze nach verstecktem Tab; Texturen werden
+einmal hochgeladen und freigegeben; beim Verlassen der Karte werden rAF, Texturen, Kontext und
+Listener freigegeben.
 
 ## Bewertung der offenen Punkte (am Code nachgeprüft)
 
@@ -180,6 +202,9 @@ gegen Aufwand und Risiko)? Kein neuer Cache, wo sich Daten ändern können.
 | 2.8 | ja | nein, vorerst | Nur US-Sichtweiten wie „1 1/2SM“. |
 | 3.4, 3.8, 3.10, 3.11, 3.14 | ja | nein | Je unter einer Sekunde pro Stunde oder Millisekunden je Anfrage bei der erwarteten Größe. |
 | 3.12, 3.15 | – | nein | Hinweise; CI nutzt bewusst die neueste Rust-Version. |
+| 4.1–4.6, 4.8 | ja | **ja, behoben** | Siehe Abschnitt 4; jeder mit Test, 4.3 und 4.4 im Browser-Test. |
+| 4.7 | ja | nein | Zwei Kontexte laden ohnehin doppelt; Mipmaps kosten auf der GPU fast nichts. |
+| 4.9 | plausibel | nein | Unbelegter Verdacht mit höchstens minimaler Wirkung. |
 
 ## Vorschlag für die Reihenfolge (ursprünglich)
 

@@ -151,13 +151,19 @@ flowchart LR
   every particle and the trails with the map, so nothing flickers or is wiped. After a zoom out the
   old view covers only part of the new one: as many of its particles as it now holds too many
   start anew, and new ones go to the border the zoom added, so the view is evenly filled again.
+  The particles a pan moves out of the view are placed straight into the strip it uncovers
+  (picked by area among the up to four rectangles around the old view), so even a thin strip
+  after a small pan is filled at once.
 - **DRAW** paints each particle as a thin quad from where it was to where it is, with a soft pixel
   at either side (smooth slanted lines, no stair steps). A particle that just started, or stands in
   calm air, draws nothing, so there are no specks. Over the colour field the lines are white; at
   town zoom they take the wind scale's colours, so the wind's strength stays readable over the
   street map.
 - **FADE** draws the last frame again a little fainter (98 % per frame at 60 frames a second,
-  adjusted to the real frame time), shifted with the map. That leaves the **trails**.
+  adjusted to the real frame time), shifted with the map. That leaves the **trails**. The loop
+  takes at most about 60 steps a second: the fade rounds to whole bytes every step, so at 144 Hz
+  trails would be half as long, and the GPU would do more than twice the work. Without wind the
+  canvas is cleared once and the loop draws nothing.
 
 The number of particles follows the screen: one per 480 CSS pixels², between 1,500 and 16,000.
 When the device averages more than 22 ms a frame (below about 45 frames a second) over 120
