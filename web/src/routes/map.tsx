@@ -15,7 +15,7 @@ import { useMapKeys } from '@/components/map/use-map-keys';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
 import type { WindPair } from '@/components/map/wind-gl';
 import { useSearchTarget } from '@/components/search';
-import { mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
+import { mapGaugesQuery, mapIndexQuery, mapSeriesQuery, mapStationsQuery, modelsQuery } from '@/lib/api';
 import { formatNumber, runHour } from '@/lib/format';
 import { mapQuery, parseMapState, parseSpot } from '@/lib/map-url';
 import { usePref, useUnit } from '@/lib/prefs';
@@ -51,6 +51,7 @@ function MapPage() {
   useTitle(m.title_map());
   const index = useQuery(mapIndexQuery);
   const pins = useQuery(mapStationsQuery);
+  const gauges = useQuery(mapGaugesQuery);
   const models = useQuery(modelsQuery);
   const [unit] = useUnit();
   const now = useNow();
@@ -280,6 +281,7 @@ function MapPage() {
             layers={layers}
             gusts={gusts}
             pins={pins.data}
+            gauges={gauges.data}
             unit={unit}
             picked={pick}
             onPick={setPick}
@@ -377,7 +379,7 @@ function Attribution({ osm, relief, className }: { osm: boolean; relief: boolean
         link('https://www.naturalearthdata.com/', 'Natural Earth')
       )}{' '}
       {relief && <>· {link('https://mapterhorn.com/attribution', '© Mapterhorn')} </>}·{' '}
-      {link('https://maplibre.org/', 'MapLibre')} ·{' '}
+      {link('https://www.pegelonline.wsv.de/', 'PEGELONLINE (WSV)')} · {link('https://maplibre.org/', 'MapLibre')} ·{' '}
       <Link to="/sources" className="text-subtle hover:text-foreground">
         {m.sources_all()}
       </Link>

@@ -10,6 +10,7 @@
  * - /iem/cgi-bin/request/asos.py: the Iowa Environmental Mesonet's METAR archive, a year of
  *   hourly reports per request
  * - /dwd-hourly/historical/ and its long file: the DWD's archive of hourly wind
+ * - /pegelonline/stations.json: PEGELONLINE's gauges with their current levels
  * Baden Airpark (EDSB) and Rhodes (LGRP) with METAR and TAF, Rheinstetten (DWD 04177). The
  * values follow the same weather as the map's textures (map-data.mjs), relative to `now`.
  */
@@ -318,6 +319,42 @@ function dwdHourly(now) {
   return { name: `stundenwerte_FF_04177_${last - 11}0101_${last}1231_hist.zip`, text: `${lines.join('\n')}\n` };
 }
 
+/** PEGELONLINE's gauge list with current values, as the server asks for it: Iffezheim on the
+ * Rhine high, Maxau normal, a gauge abroad without coordinates (left out) */
+function gauges(now) {
+  const at = iso(now - 900).replace('Z', '+00:00');
+  const series = (value, state) => [
+    {
+      shortname: 'W',
+      unit: 'cm',
+      currentMeasurement: { timestamp: at, value, stateMnwMhw: state, stateNswHsw: 'normal' },
+    },
+  ];
+  return [
+    {
+      uuid: 'b02be240-1364-4c97-8bb6-675d7d842332',
+      number: '23500600',
+      longname: 'IFFEZHEIM',
+      km: 336.2,
+      latitude: 48.852149,
+      longitude: 8.116902,
+      water: { shortname: 'RHEIN', longname: 'RHEIN' },
+      timeseries: series(612, 'high'),
+    },
+    {
+      uuid: 'a0b0a6fd-1d4e-4f39-8b4a-3b5f0f5e0c1a',
+      number: '23700200',
+      longname: 'MAXAU',
+      km: 362.3,
+      latitude: 49.03,
+      longitude: 8.3,
+      water: { shortname: 'RHEIN', longname: 'RHEIN' },
+      timeseries: series(498, 'normal'),
+    },
+    { uuid: 'x', number: '9', longname: 'ABROAD', water: null, timeseries: [] },
+  ];
+}
+
 /** Starts the stand-in; `now` (unix seconds) is the moment the tests take as now. */
 export function startStandIn(port, now) {
   const server = createServer((req, res) => {
@@ -358,6 +395,7 @@ export function startStandIn(port, now) {
       }));
       return send(gzipSync(JSON.stringify(list)), 'application/gzip');
     }
+    if (p === '/pegelonline/stations.json') return json(gauges(now));
     if (p === '/ourairports/airports.csv') return send(airportsCsv(), 'text/csv');
     if (p === '/ourairports/regions.csv') return send(regionsCsv(), 'text/csv');
     if (p === '/dwd/stations.txt') return send(Buffer.from(dwdStations(now), 'latin1'), 'text/plain');

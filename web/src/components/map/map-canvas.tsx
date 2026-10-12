@@ -4,6 +4,7 @@ import { addProtocol, type GeoJSONSource, Map as MapLibreMap, setWorkerUrl, type
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { Protocol } from 'pmtiles';
 import { useEffect, useRef, useState } from 'react';
+import type { GaugePin } from '@/bindings/GaugePin';
 import type { StationWind } from '@/bindings/StationWind';
 import type { WindUnit } from '@/bindings/WindUnit';
 import { getLocale } from '@/lib/i18n';
@@ -14,6 +15,7 @@ import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
 import { applyTheme, type Basemap, isWorld } from './basemap';
+import { gaugeTheme, setGauges } from './gauges';
 import { HoverReadout } from './hover-readout';
 import { type Particles, particles } from './particles';
 import { openCluster, PIN_LAYERS, pinTheme, setPins } from './pins';
@@ -33,6 +35,7 @@ interface Props {
   /** Colour by the gusts instead of the wind */
   gusts: boolean;
   pins: readonly StationWind[] | undefined;
+  gauges: readonly GaugePin[] | undefined;
   unit: WindUnit;
   picked: Pick | null;
   onPick: (p: Pick) => void;
@@ -59,7 +62,19 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({ basemap, layers, gusts, pins, unit, picked, onPick, onCenter, focus, detail }: Props) {
+export function MapCanvas({
+  basemap,
+  layers,
+  gusts,
+  pins,
+  gauges,
+  unit,
+  picked,
+  onPick,
+  onCenter,
+  focus,
+  detail,
+}: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -235,6 +250,7 @@ export function MapCanvas({ basemap, layers, gusts, pins, unit, picked, onPick, 
     if (!ready || !mp) return;
     applyTheme(mp, basemap, theme);
     pinTheme(mp, theme);
+    gaugeTheme(mp, theme);
     field.current?.setOpacity(FIELD_OPACITY[theme]);
     parts.current?.setTheme(theme);
     mp.setPaintProperty('picked', 'circle-stroke-color', theme === 'dark' ? '#fafafa' : '#09090b');
@@ -243,6 +259,10 @@ export function MapCanvas({ basemap, layers, gusts, pins, unit, picked, onPick, 
   useEffect(() => {
     if (ready && map.current && pins) setPins(map.current, pins, unit, theme);
   }, [ready, pins, unit, theme]);
+
+  useEffect(() => {
+    if (ready && map.current && gauges) setGauges(map.current, gauges, theme);
+  }, [ready, gauges, theme]);
 
   useEffect(() => {
     if (!ready || !map.current) return;

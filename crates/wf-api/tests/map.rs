@@ -67,6 +67,33 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
         ],
     )
     .await?;
+    // A gauge read 20 minutes ago, one read last night
+    let gauge = |uuid: &str, name: &str, at: i64| wf_core::gauge::Gauge {
+        uuid: uuid.into(),
+        number: "1".into(),
+        name: name.into(),
+        water: Some("Rhein".into()),
+        km: None,
+        lat: 48.85,
+        lon: 8.12,
+        level_cm: Some(312.0),
+        level_at: Some(at),
+        level_state: Some("high".into()),
+        shipping_state: None,
+        flow_m3s: None,
+        flow_at: None,
+        water_temp_c: None,
+        water_temp_at: None,
+    };
+    wf_core::gauge::upsert(
+        &db,
+        &[
+            gauge("a", "Iffezheim", *NOW - 1_200),
+            gauge("b", "Maxau", *NOW - 12 * 3_600),
+        ],
+        *NOW,
+    )
+    .await?;
     let root = dir.path().join("map");
     let grid = |values| LatLonGrid {
         lon0: 10.0,
@@ -181,6 +208,25 @@ async fn pins_carry_the_newest_measurement() -> Result<()> {
         pins,
         json!([{"slug": "edsb", "source": "metar", "code": "EDSB", "name": "Baden Airpark",
             "lat": 48.78, "lon": 8.08, "at": *NOW - 600, "wind": 12.0, "gust": 22.0, "dir": 240.0}])
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn gauge_pins_carry_a_fresh_level() -> Result<()> {
+    let (_dir, app) = app(true).await?;
+    let (status, cache, body) = get(&app, "/api/map/gauges").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cache.as_deref(), Some("public, max-age=60"));
+    let pins: Value = serde_json::from_slice(&body)?;
+    assert_eq!(
+        pins,
+        json!([
+            {"uuid": "a", "name": "Iffezheim", "water": "Rhein", "lat": 48.85, "lon": 8.12,
+                "levelCm": 312.0, "state": "high"},
+            {"uuid": "b", "name": "Maxau", "water": "Rhein", "lat": 48.85, "lon": 8.12,
+                "levelCm": null, "state": "unknown"}
+        ])
     );
     Ok(())
 }

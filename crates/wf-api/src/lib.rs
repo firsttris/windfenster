@@ -73,6 +73,7 @@ pub struct AppState {
     gauge_history: water::HistoryCache,
     rankings: ranking::RankingCache,
     pins: map::PinCache,
+    gauge_pins: map::GaugePinCache,
     pieces: map_piece::PieceCache,
     /// Stations (row ids) whose past days were filled in within six hours.
     backfilled: moka::future::Cache<i64, ()>,
@@ -114,6 +115,7 @@ impl AppState {
             gauge_history: water::new_cache(),
             rankings: ranking::new_cache(),
             pins: map::new_pin_cache(),
+            gauge_pins: map::new_gauge_pin_cache(),
             pieces: map_piece::new_cache(),
             backfilled: moka::future::Cache::builder()
                 .max_capacity(10_000)
@@ -172,6 +174,7 @@ pub fn router(state: AppState) -> Router {
         .route("/gauges/near", get(water::near))
         .route("/map", get(map::index))
         .route("/map/stations", get(map::stations))
+        .route("/map/gauges", get(map::gauges))
         .route("/map/series", get(map::series))
         .route("/map/basemap.pmtiles", get(map::basemap))
         .route("/map/terrain.pmtiles", get(map::terrain))

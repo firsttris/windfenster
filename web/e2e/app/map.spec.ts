@@ -117,3 +117,16 @@ test('a place picked on the map, the model and the gust layer', async ({ page })
   await layer.getByRole('button', { name: 'Böen' }).click();
   await expect(layer.getByRole('button', { name: 'Böen' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('the water gauges with their levels, from town zoom on', async ({ page }) => {
+  const asked = page.waitForResponse((r) => r.ok() && new URL(r.url()).pathname === '/api/map/gauges');
+  await page.goto('/map#10/48.9/8.15');
+  const gauges = await (await asked).json();
+  // Imported with the stations; the one abroad without coordinates left out
+  expect(gauges.map((g: { name: string; levelCm: number; state: string }) => [g.name, g.levelCm, g.state])).toEqual([
+    ['Maxau', 498, 'normal'],
+    ['Iffezheim', 612, 'high'],
+  ]);
+  await expect(page.getByText(/blau normal, gelb niedrig, rot hoch/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeVisible();
+});

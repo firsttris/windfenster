@@ -35,7 +35,7 @@ enum Command {
     Serve(Box<ServeArgs>),
     /// Apply pending database migrations and exit.
     Migrate(DataArgs),
-    /// Fetch the station lists (OurAirports, DWD) now.
+    /// Fetch the station lists (OurAirports, DWD) and the water gauges (PEGELONLINE) now.
     ImportStations(DataArgs),
     /// Ask Open-Meteo for every model at a point and print what comes back.
     Probe(ProbeArgs),
@@ -268,7 +268,14 @@ async fn main() -> Result<()> {
         Command::ImportStations(data) => {
             let db = open(&data).await?;
             let http = wf_ingest::http_client()?;
-            Ok(stations::import_all(&db, &http, &data.station_sources()).await?)
+            stations::import_all(&db, &http, &data.station_sources()).await?;
+            // The gauges are a list of places too; without them the stations still stand.
+            let gauges = Measurements::new(db, http, data.measurement_urls());
+            match gauges.import_gauges().await {
+                Ok(n) => tracing::info!(gauges = n, "gauges imported"),
+                Err(e) => tracing::warn!(error = %e, "gauges not imported"),
+            }
+            Ok(())
         }
         Command::Probe(args) => probe(args).await,
         Command::Serve(args) => serve(*args).await,

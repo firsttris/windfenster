@@ -127,6 +127,59 @@ pub async fn nearest(
         .min_by(|a, b| a.1.total_cmp(&b.1)))
 }
 
+/// A gauge with its level, for the map's pins.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct GaugePin {
+    pub uuid: String,
+    pub name: String,
+    pub water: Option<String>,
+    pub lat: f64,
+    pub lon: f64,
+    /// cm against the gauge's zero; null without a reading since the asked time
+    pub level_cm: Option<f64>,
+    pub state: GaugeState,
+}
+
+/// Every gauge, with its level when it was read at `since` or later.
+pub async fn pins(db: &SqlitePool, since: i64) -> sqlx::Result<Vec<GaugePin>> {
+    type Row = (
+        String,
+        String,
+        Option<String>,
+        f64,
+        f64,
+        Option<f64>,
+        Option<i64>,
+        Option<String>,
+    );
+    let rows: Vec<Row> = sqlx::query_as(
+        "SELECT uuid, name, water, lat, lon, level_cm, level_at, level_state FROM gauge ORDER BY uuid",
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(uuid, name, water, lat, lon, level, at, state)| {
+            let fresh = at.is_some_and(|t| t >= since);
+            GaugePin {
+                uuid,
+                name,
+                water,
+                lat,
+                lon,
+                level_cm: level.filter(|_| fresh),
+                state: if fresh {
+                    GaugeState::parse(state.as_deref())
+                } else {
+                    GaugeState::Unknown
+                },
+            }
+        })
+        .collect())
+}
+
 /// Surface current in m/s, estimated from the flow through a blanket cross-section: for the
 /// Rhine 300 m wide and 6 m deep (as in the Flugwetterdaten project), the surface flowing
 /// about 1.3 times as fast as the mean. Other waters have no cross-section yet, so no estimate.
@@ -184,6 +237,14 @@ mod tests {
         assert_eq!(g, iffezheim());
         assert!((8.0..9.0).contains(&d), "{d}");
         assert!(nearest(&db, 36.4, 28.1, 15.0).await?.is_none());
+        // On the map: Iffezheim's level while fresh, none once older than asked
+        let all = pins(&db, 1_791_710_000).await?;
+        let iff = all.iter().find(|p| p.name == "Iffezheim").unwrap();
+        assert_eq!((iff.level_cm, iff.state), (Some(62.0), GaugeState::Low));
+        let old = pins(&db, 1_791_710_200).await?;
+        let iff = old.iter().find(|p| p.name == "Iffezheim").unwrap();
+        assert_eq!((iff.level_cm, iff.state), (None, GaugeState::Unknown));
+        assert_eq!(all.len(), 2);
         upsert(&db, &[iffezheim()], 20).await?;
         assert_eq!(remove_unseen(&db, 20).await?, 1);
         Ok(())

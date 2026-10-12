@@ -4,6 +4,7 @@ import type { Alarm } from '@/bindings/Alarm';
 import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Favorite } from '@/bindings/Favorite';
+import type { GaugePin } from '@/bindings/GaugePin';
 import type { Health } from '@/bindings/Health';
 import type { MapIndex } from '@/bindings/MapIndex';
 import type { MapSeries } from '@/bindings/MapSeries';
@@ -170,6 +171,12 @@ export const mapSeriesQuery = (lat: number, lon: number) =>
     queryFn: () => api<MapSeries>(`/map/series?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`),
     staleTime: 5 * 60_000,
   });
+
+export const mapGaugesQuery = queryOptions({
+  queryKey: ['map', 'gauges'],
+  queryFn: () => api<GaugePin[]>('/map/gauges'),
+  refetchInterval: 5 * 60_000,
+});
 
 export const mapStationsQuery = queryOptions({
   queryKey: ['map', 'stations'],

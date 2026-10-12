@@ -10,6 +10,7 @@ use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
+use wf_core::gauge::{self, GaugePin};
 use wf_core::geo::GridPoint;
 use wf_core::observation::{self, StationWind};
 use wf_map::MapIndex;
@@ -77,6 +78,35 @@ pub async fn stations(State(s): State<AppState>) -> Result<impl IntoResponse, Ap
             observation::newest_per_station(&s.db, since)
                 .await
                 .map(Arc::new)
+        })
+        .await
+        .map_err(ApiError::internal)?;
+    Ok((
+        [(header::CACHE_CONTROL, "public, max-age=60")],
+        Json(pins.as_ref().clone()),
+    ))
+}
+
+/// The gauges on the map, built at most once a minute.
+pub type GaugePinCache = moka::future::Cache<(), Arc<Vec<GaugePin>>>;
+
+pub fn new_gauge_pin_cache() -> GaugePinCache {
+    moka::future::Cache::builder()
+        .max_capacity(1)
+        .time_to_live(std::time::Duration::from_secs(60))
+        .build()
+}
+
+/// A gauge pin shows a level up to this old; PEGELONLINE reads every 15 minutes.
+const GAUGE_MAX_AGE_S: i64 = 3 * 3_600;
+
+/// `GET /api/map/gauges`: every water gauge with its level of the last three hours.
+pub async fn gauges(State(s): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let pins = s
+        .gauge_pins
+        .try_get_with((), async {
+            let since = wf_core::time::now() - GAUGE_MAX_AGE_S;
+            gauge::pins(&s.db, since).await.map(Arc::new)
         })
         .await
         .map_err(ApiError::internal)?;
