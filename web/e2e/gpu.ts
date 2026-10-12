@@ -5,14 +5,17 @@
  *   places on the CPU (`windAt`), for `wind.spec.ts` to compare.
  * - `window.particleRun` moves particles from known places through the update pass a few times
  *   and draws the last step, for `particles.spec.ts`.
+ * - `window.scene` paints the colour field as the map does (`windField`) and particles with their
+ *   trails over it, from fixed random numbers, for `look.spec.ts` to compare with a picture.
  */
 import type { TextureMeta } from '@/bindings/TextureMeta';
 import type { WindFrame } from '@/components/map/frames';
-import { activate, bindFramebuffer, createProgram, createTexture } from '@/components/map/gl';
-import { drawParticles, moveParticles, particlePasses } from '@/components/map/particle-passes';
-import { QUAD_VERT, WIND } from '@/components/map/shaders';
+import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from '@/components/map/gl';
+import { drawParticles, moveParticles, particlePasses, screenQuad } from '@/components/map/particle-passes';
+import { COPY_FRAG, FADE_FRAG, QUAD_VERT, WIND } from '@/components/map/shaders';
 import { windAt } from '@/components/map/wind-at';
-import { bindWind, type WindLayers, windTextures } from '@/components/map/wind-gl';
+import { windField } from '@/components/map/wind-field';
+import { bindWind, WIND_UNITS, type WindLayers, windTextures } from '@/components/map/wind-gl';
 import { gustOf, type MercatorView, mercatorX, mercatorY, rampPixels } from '@/lib/wind-map';
 
 export interface Hour {
@@ -215,11 +218,149 @@ async function particleRun(
   return { states, alpha: btoa(text) };
 }
 
+/** Random numbers from a seed (mulberry32), so a scene is the same every time */
+function random(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export interface Scene {
+  width: number;
+  height: number;
+  /** West, south, east, north */
+  bounds: [number, number, number, number];
+  gusts: boolean;
+  /** Particle frames before the picture, at 60 a second; 0 for the field alone */
+  frames: number;
+  /** The map's zoom the field is told (it fades out at town zoom); 5 when not given */
+  zoom?: number;
+  /** The field's opacity; 0.9 as on the map when not given */
+  opacity?: number;
+  /** A transparent background instead of the map's dark one */
+  clear?: boolean;
+}
+
+/** Paints a scene onto a canvas `#scene`: the colour field, then particles with their trails. */
+async function scene(given: { base: Layer | null; mid: Layer | null; detail: Layer | null }, sc: Scene): Promise<void> {
+  const layers = await layersOf(given);
+  document.getElementById('scene')?.remove();
+  const canvas = document.createElement('canvas');
+  canvas.id = 'scene';
+  canvas.width = sc.width;
+  canvas.height = sc.height;
+  canvas.style.cssText = `display:block;width:${sc.width}px;height:${sc.height}px;background:#0b0d10`;
+  document.body.style.margin = '0';
+  document.body.append(canvas);
+  const gl = canvas.getContext('webgl2', { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
+  if (!gl) throw new Error('no WebGL2');
+  const [west, south, east, north] = sc.bounds;
+  const view = {
+    x: mercatorX(west),
+    y: mercatorY(north),
+    w: mercatorX(east) - mercatorX(west),
+    h: mercatorY(south) - mercatorY(north),
+  };
+  if (sc.clear) gl.clearColor(0, 0, 0, 0);
+  else gl.clearColor(0.043, 0.051, 0.063, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  // The field as the map paints it, through a stand-in for MapLibre
+  const field = windField('field', sc.opacity ?? 0.9, sc.gusts);
+  const map = { getZoom: () => sc.zoom ?? 5, triggerRepaint: () => {} };
+  field.layer.onAdd?.(map as never, gl);
+  field.show(layers);
+  const [sx, sy] = [2 / view.w, -2 / view.h];
+  const matrix = [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, -1 - view.x * sx, 1 - view.y * sy, 0, 1];
+  field.layer.render?.(gl, { defaultProjectionData: { mainMatrix: matrix } } as never);
+
+  if (sc.frames === 0) {
+    gl.finish();
+    return;
+  }
+  // Particles as particles.ts runs them: move, fade the trails, draw, for `frames` frames
+  const passes = particlePasses(gl);
+  const fade = createProgram(gl, QUAD_VERT, FADE_FRAG);
+  const copy = createProgram(gl, QUAD_VERT, COPY_FRAG);
+  const textures = windTextures(gl);
+  const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
+  const res = 70;
+  const next = random(42);
+  const seed = Uint8Array.from({ length: res * res * 4 }, () => Math.floor(next() * 256));
+  let state = [createTexture(gl, gl.NEAREST, seed, res, res), createTexture(gl, gl.NEAREST, seed, res, res)];
+  let trails = [0, 1].map(() => createTexture(gl, gl.NEAREST, null, sc.width, sc.height));
+  for (const t of trails) {
+    bindFramebuffer(gl, passes.fb, t);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  const at = { res, view, shift: [1, 1, 0, 0] as [number, number, number, number] };
+  for (let frame = 1; frame <= sc.frames; frame++) {
+    gl.disable(gl.BLEND);
+    moveParticles(gl, passes, textures, layers, state[0], state[1], at, {
+      cssWidth: sc.width,
+      cssHeight: sc.height,
+      pxPerKn: 0.08,
+      frame,
+      drop: 0.004,
+    });
+    bindFramebuffer(gl, passes.fb, trails[1]);
+    gl.viewport(0, 0, sc.width, sc.height);
+    activate(gl, fade);
+    bindTexture(gl, trails[0], WIND_UNITS);
+    gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
+    gl.uniform1f(fade.u.u_fade, 0.97);
+    screenQuad(gl, passes, fade);
+    drawParticles(gl, passes, textures, layers, state[0], state[1], at, {
+      width: sc.width,
+      height: sc.height,
+      lineWidth: 1,
+      move: 0.08,
+      ink: [1, 1, 1, 0.45],
+      ramp,
+      town: 0,
+      gusts: sc.gusts,
+    });
+    state = [state[1], state[0]];
+    trails = [trails[1], trails[0]];
+  }
+  // The trails over the field, as the particles' canvas lies over the map
+  bindFramebuffer(gl, null);
+  gl.viewport(0, 0, sc.width, sc.height);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  activate(gl, copy);
+  bindTexture(gl, trails[0], WIND_UNITS);
+  gl.uniform1i(copy.u.u_screen_tex, WIND_UNITS);
+  screenQuad(gl, passes, copy);
+  gl.finish();
+}
+
+/** The scene's pixels at (x, y) from the top left, RGBA as stored (premultiplied) */
+function pixelsAt(places: [number, number][]): number[][] {
+  const canvas = document.getElementById('scene') as HTMLCanvasElement;
+  const gl = canvas.getContext('webgl2') as WebGL2RenderingContext;
+  return places.map(([x, y]) => {
+    const px = new Uint8Array(4);
+    gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return [...px];
+  });
+}
+
 declare global {
   interface Window {
     windBoth: typeof windBoth;
     particleRun: typeof particleRun;
+    scene: typeof scene;
+    pixelsAt: typeof pixelsAt;
   }
 }
+window.pixelsAt = pixelsAt;
 window.windBoth = windBoth;
 window.particleRun = particleRun;
+window.scene = scene;

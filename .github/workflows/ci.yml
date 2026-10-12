@@ -85,6 +85,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm e2e
+      # The pictures that differed, with their diffs, to look at or to take as the new ones
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: web/test-results
+          retention-days: 7
 
   docker:
     # Build check only; release.yml publishes the images

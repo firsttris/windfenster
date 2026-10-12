@@ -431,7 +431,11 @@ pnpm build
 `pnpm e2e` renders the map's shaders on SwiftShader and compares them with what the readout
 under the pointer shows, for wind and gusts across all three models; it needs Playwright's
 Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or another one in
-`PW_CHROMIUM`. CI runs it in the official Playwright image.
+`PW_CHROMIUM`. CI runs it in the official Playwright image. Besides the blending it checks the
+particles (spread, speed, direction, no strokes when they start anew) and the colour field, and
+compares the look of three scenes (a low over all three models with wind and with gusts, calm
+air) with approved pictures in `web/e2e/look.spec.ts-snapshots`. A change meant to alter the
+look updates them with `pnpm e2e --update-snapshots`; look at them before committing.
 
 ### Layout
 
