@@ -13,19 +13,27 @@ use pmtiles::{
     AsyncBackend, AsyncPmTilesReader, BackendResponse, Compression, HashMapCache, PmtResult,
     TileCoord,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use super::spots::{self, Spot};
 
-/// A local PMTiles file, read by range.
-pub struct File(PathBuf);
+/// A local PMTiles file, read by range from the handle opened with the reader. When the file
+/// is replaced (renamed over), this reader still reads the file it opened, so its cached
+/// directories always match the data; the next check opens the new file with a new reader.
+pub struct File(Arc<std::fs::File>);
 
 impl AsyncBackend for File {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
-        let mut f = tokio::fs::File::open(&self.0).await?;
-        f.seek(std::io::SeekFrom::Start(offset as u64)).await?;
-        let mut buf = Vec::with_capacity(length);
-        f.take(length as u64).read_to_end(&mut buf).await?;
+        use std::os::unix::fs::FileExt;
+        let file = self.0.clone();
+        let buf = tokio::task::spawn_blocking(move || {
+            let mut buf = vec![0; length];
+            let n = file.read_at(&mut buf, offset as u64)?;
+            // The last range may run past the end of the file
+            buf.truncate(n);
+            Ok::<_, std::io::Error>(buf)
+        })
+        .await
+        .map_err(std::io::Error::other)??;
         Ok(BackendResponse::new(buf.into()))
     }
 }
@@ -92,7 +100,7 @@ impl Readers {
         }
         let reader = Arc::new(
             AsyncPmTilesReader::try_from_cached_source(
-                File(path.to_path_buf()),
+                File(Arc::new(std::fs::File::open(path).ok()?)),
                 HashMapCache::default(),
             )
             .await
@@ -173,5 +181,55 @@ impl Readers {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing;
+
+    /// An archive with one world tile holding a place at `x`
+    fn archive(x: u32, extra: usize) -> Vec<u8> {
+        let mut out = std::io::Cursor::new(Vec::new());
+        let mut w = pmtiles::PmTilesWriter::new(pmtiles::TileType::Mvt)
+            .tile_compression(Compression::None)
+            .metadata(&format!(r#"{{"pad":"{}"}}"#, "x".repeat(extra)))
+            .create(&mut out)
+            .unwrap();
+        w.add_raw_tile(
+            TileCoord::new(0, 0, 0).unwrap(),
+            &testing::vector_tile(&[(x, 0)]),
+        )
+        .unwrap();
+        w.finalize().unwrap();
+        out.into_inner()
+    }
+
+    #[tokio::test]
+    async fn a_replaced_archive_never_mixes_the_old_directory_with_the_new_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let main = super::super::path(dir.path());
+        std::fs::create_dir_all(main.parent().unwrap()).unwrap();
+        std::fs::write(&main, archive(1, 0)).unwrap();
+        let readers = Readers::default();
+        let place = async || testing::points_in(&readers.tile(dir.path(), 0, 0, 0).await?.data);
+        assert_eq!(place().await, Some(vec![(1.0, 0.0)]));
+
+        // Made anew as the server does: written beside it, renamed over it; laid out otherwise,
+        // so the old directory's offsets point into other bytes of the new file
+        let part = main.with_extension("part");
+        std::fs::write(&part, archive(2, 5_000)).unwrap();
+        std::fs::rename(&part, &main).unwrap();
+        // Within the recheck time the reader still reads the file it opened: the old tile, whole
+        assert_eq!(place().await, Some(vec![(1.0, 0.0)]));
+        // After it, the new one
+        readers
+            .files
+            .lock()
+            .unwrap()
+            .values_mut()
+            .for_each(|o| o.checked -= RECHECK);
+        assert_eq!(place().await, Some(vec![(2.0, 0.0)]));
     }
 }
