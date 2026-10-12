@@ -1,6 +1,8 @@
 /** The stations on the map: from afar bundled, each bundle showing the strongest wind in it;
  * a dot in the colour of the measured wind, from closer up an arrow the way it blows and the
- * value; stations without a recent measurement as grey dots. */
+ * value; stations without a recent measurement as grey dots. From near zoom each station is a
+ * badge as Windfinder's pins: a disc in the wind's colour with a light ring and a shadow, the
+ * arrow in the colour that reads on it, so a calm station stands out on a dark map too. */
 import type {
   ExpressionSpecification,
   GeoJSONSource,
@@ -17,7 +19,7 @@ import { formatWind } from '@/lib/units';
 import { windBand } from '@/ui/wind-scale';
 import type { PaintProperty } from './palette';
 
-export const PIN_LAYERS = ['pins-cluster', 'pins-idle', 'pins', 'pins-far', 'pins-arrow'];
+export const PIN_LAYERS = ['pins-cluster', 'pins', 'pins-far', 'pins-arrow', 'pins-badge'];
 
 /** Single stations, not bundles */
 const SINGLE: ExpressionSpecification = ['!', ['has', 'point_count']];
@@ -26,6 +28,20 @@ const NO_LIVE = '#52525b';
 const ARROW = 'wind-arrow';
 /** From this zoom on, stations with a direction show an arrow instead of a dot. */
 const ARROW_ZOOM = 6.5;
+/** From this zoom on, every station is a badge. */
+const BADGE_ZOOM = 8.5;
+/** The badge's radius in pixels by zoom, plus `more` */
+const badgeRadius = (more = 0): ExpressionSpecification => [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  BADGE_ZOOM,
+  10 + more,
+  12,
+  12.5 + more,
+  15,
+  14 + more,
+];
 
 /** An arrow pointing up, as a soft-edged mask: MapLibre tints it (SDF) and draws its outline. */
 function arrowImage(): ImageData {
@@ -55,6 +71,7 @@ function features(pins: readonly StationWind[], unit: WindUnit): Parameters<GeoJ
         live: p.wind !== null ? 1 : 0,
         kn: p.wind ?? NO_WIND,
         color: p.wind !== null ? windBand(p.wind).bg : '#71717a',
+        ink: p.wind !== null ? windBand(p.wind).fg : '#f4f4f5',
         // Arrows point where the wind goes.
         rotate: p.dir !== null ? (p.dir + 180) % 360 : 0,
         arrow: p.dir !== null && p.wind !== null && p.wind >= 1 ? 1 : 0,
@@ -71,11 +88,11 @@ function clusterLabel(unit: WindUnit): ExpressionSpecification {
 
 function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
   const edge = theme === 'dark' ? '#09090b' : '#ffffff';
-  const dot = (id: string, filter: ExpressionSpecification, maxzoom?: number): LayerSpecification => ({
+  const dot = (id: string, filter: ExpressionSpecification, maxzoom: number): LayerSpecification => ({
     id,
     type: 'circle',
     source: 'pins',
-    ...(maxzoom ? { maxzoom } : {}),
+    maxzoom,
     filter: ['all', SINGLE, filter],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.6, 6, 3, 8, 5, 10, 7],
@@ -114,16 +131,8 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
       },
       paint: { 'text-color': bandColor(['get', 'kn'], 'fg', '#e4e4e7') },
     },
-    {
-      id: 'pins-idle',
-      type: 'circle',
-      source: 'pins',
-      minzoom: 9,
-      filter: ['all', SINGLE, ['==', ['get', 'live'], 0]],
-      paint: { 'circle-radius': 3, 'circle-color': '#71717a', 'circle-stroke-color': edge, 'circle-stroke-width': 1 },
-    },
-    // Calm or variable: a dot at every zoom
-    dot('pins', ['all', ['==', ['get', 'live'], 1], ['==', ['get', 'arrow'], 0]]),
+    // Calm or variable: a dot up to the badges
+    dot('pins', ['all', ['==', ['get', 'live'], 1], ['==', ['get', 'arrow'], 0]], BADGE_ZOOM),
     // With a direction: a dot from afar, an arrow from closer up
     dot('pins-far', ['==', ['get', 'arrow'], 1], ARROW_ZOOM),
     {
@@ -131,6 +140,7 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
       type: 'symbol',
       source: 'pins',
       minzoom: ARROW_ZOOM,
+      maxzoom: BADGE_ZOOM,
       filter: ['all', SINGLE, ['==', ['get', 'arrow'], 1]],
       layout: {
         'icon-image': ARROW,
@@ -143,6 +153,48 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
       paint: { 'icon-color': ['get', 'color'], 'icon-halo-color': edge, 'icon-halo-width': 2 },
     },
     {
+      id: 'pins-shadow',
+      type: 'circle',
+      source: 'pins',
+      minzoom: BADGE_ZOOM,
+      filter: SINGLE,
+      paint: {
+        'circle-radius': badgeRadius(3),
+        'circle-color': 'rgba(0,0,0,0.45)',
+        'circle-blur': 0.5,
+        'circle-translate': [0, 1.5],
+      },
+    },
+    {
+      id: 'pins-badge',
+      type: 'circle',
+      source: 'pins',
+      minzoom: BADGE_ZOOM,
+      filter: SINGLE,
+      paint: {
+        'circle-radius': badgeRadius(),
+        'circle-color': ['get', 'color'],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2.5,
+      },
+    },
+    {
+      id: 'pins-badge-arrow',
+      type: 'symbol',
+      source: 'pins',
+      minzoom: BADGE_ZOOM,
+      filter: ['all', SINGLE, ['==', ['get', 'arrow'], 1]],
+      layout: {
+        'icon-image': ARROW,
+        'icon-size': ['interpolate', ['linear'], ['zoom'], BADGE_ZOOM, 0.85, 12, 1.05, 15, 1.2],
+        'icon-rotate': ['get', 'rotate'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      },
+      paint: { 'icon-color': ['get', 'ink'] },
+    },
+    {
       // From town zoom on the station's name under its value
       id: 'pins-name',
       type: 'symbol',
@@ -153,7 +205,7 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
         'text-field': ['get', 'name'],
         'text-font': ['Noto Sans Regular'],
         'text-size': 11,
-        'text-offset': [1.15, 1.7],
+        'text-offset': ['interpolate', ['linear'], ['zoom'], 9.5, ['literal', [1.4, 1.5]], 15, ['literal', [1.5, 1.6]]],
         'text-padding': 0,
         'text-anchor': 'left',
         'text-max-width': 10,
@@ -175,7 +227,17 @@ function layers(theme: Theme, unit: WindUnit): LayerSpecification[] {
         'text-field': ['get', 'label'],
         'text-font': ['Noto Sans Medium'],
         'text-size': ['interpolate', ['linear'], ['zoom'], 7, 12, 12, 14],
-        'text-offset': [1.3, 0],
+        'text-offset': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          BADGE_ZOOM - 0.01,
+          ['literal', [1.3, 0]],
+          BADGE_ZOOM,
+          ['literal', [1.4, -0.1]],
+          15,
+          ['literal', [1.5, -0.1]],
+        ],
         'text-anchor': 'left',
         'text-allow-overlap': false,
       },

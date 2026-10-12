@@ -290,7 +290,8 @@ Tap a spot for the model's wind and gusts there and its coming hours side by sid
 model while it lasts, then ECMWF; tap an hour to go there), with the timeline coloured by the
 wind at that spot; tap a station for its last measurement too;
 stations show their measured wind as a dot in the wind scale's colour, from closer up as an
-arrow with the value; from afar they are bundled, each bundle showing the strongest wind
+arrow with the value, and from zoom 8.5 on as a badge (a disc in that colour with a white ring
+and a shadow, the arrow inside), so a calm station stands out on a dark map too; from afar they are bundled, each bundle showing the strongest wind
 measured in it in that colour (tap it to zoom in). Lakes and rivers lie dark over the field. The line under the models names the model and run drawing at the spot
 picked or the middle of the view. The view stays in the address (`/map#zoom/lat/lon`), the
 hour, layer and model in its query (`?t=…&layer=gusts&model=…`), so the share button (or a
