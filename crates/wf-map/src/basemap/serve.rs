@@ -67,7 +67,7 @@ fn encoding(c: Compression) -> Option<&'static str> {
     }
 }
 
-/// Open readers, one per file and modification time, so a replaced file is read anew; and the
+/// Open readers, one per file as it is on disk, so a replaced file is read anew; and the
 /// spot files on disk. Both checked against the disk at most every `RECHECK`.
 #[derive(Default)]
 pub struct Readers {
@@ -78,8 +78,28 @@ pub struct Readers {
 /// The spot files on disk with their modification times, newest first
 type SpotList = Arc<Vec<(Spot, SystemTime)>>;
 
-struct Open {
+/// What tells a file from the one it replaced: a rename gives a new inode, and the time alone
+/// can be the same for two files written within the file system's clock tick.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Identity {
+    inode: u64,
+    len: u64,
     modified: SystemTime,
+}
+
+impl Identity {
+    fn of(meta: &std::fs::Metadata) -> Option<Self> {
+        use std::os::unix::fs::MetadataExt;
+        Some(Self {
+            inode: meta.ino(),
+            len: meta.len(),
+            modified: meta.modified().ok()?,
+        })
+    }
+}
+
+struct Open {
+    identity: Identity,
     checked: Instant,
     reader: Arc<Reader>,
 }
@@ -91,9 +111,9 @@ impl Readers {
         {
             return Some(open.reader.clone());
         }
-        let modified = tokio::fs::metadata(path).await.ok()?.modified().ok()?;
+        let identity = Identity::of(&tokio::fs::metadata(path).await.ok()?)?;
         if let Some(open) = self.files.lock().expect("readers").get_mut(path)
-            && open.modified == modified
+            && open.identity == identity
         {
             open.checked = Instant::now();
             return Some(open.reader.clone());
@@ -107,7 +127,7 @@ impl Readers {
             .ok()?,
         );
         let open = Open {
-            modified,
+            identity,
             checked: Instant::now(),
             reader: reader.clone(),
         };
