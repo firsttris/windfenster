@@ -81,7 +81,11 @@ vec4 windOf(sampler2D tex, vec4 b, vec4 r, float g, vec2 ll) {
   vec4 c = SAMPLE(tex, clampOf(b, uv));
   // Texels outside the domain are (0, 0, 0, 0): dividing by alpha leaves the valid ones.
   vec3 n = c.rgb / max(c.a, 0.004);
-  return vec4(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), g < 0.0 ? -1.0 : n.z * g, c.a * insideOf(b, uv));
+  // No gust outside the texture: the clamped edge texel's would otherwise stand in for a hour
+  // below that has none (the first hour of an ECMWF run), hundreds of km from that edge
+  float inside = insideOf(b, uv);
+  float gust = g < 0.0 || inside < 0.5 ? -1.0 : n.z * g;
+  return vec4(mix(r.x, r.y, n.x), mix(r.z, r.w, n.y), gust, c.a * inside);
 }
 
 /** a and b mixed; a gust missing on one side (negative) is taken from the other. */

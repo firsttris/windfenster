@@ -127,3 +127,14 @@ test('the coarser models alone where the finer ones are missing', async ({ page 
   const none = await both(page, { base: null, mid: null, detail: null }, [[8, 50]]);
   expect([none.gpu[0], none.cpu[0]]).toEqual([null, null]);
 });
+
+test("a finer model's gust stays inside its own domain", async ({ page }) => {
+  // ECMWF's first hour of a run has no gusts at all; ICON global's piece around the view has.
+  // Outside the piece the gust is the wind there, not the gust at the piece's edge.
+  const firstHour = hour('ecmwf_ifs025', [-180.5, -90.5, 179.5, 90.5], 1, (lon) => ecmwf(lon), false);
+  const noGusts: Layer = { a: firstHour, b: firstHour, t: 0 };
+  const { gpu, cpu } = await both(page, { base: noGusts, mid, detail }, [[-20, 45]]);
+  const speed = Math.hypot(ecmwf(-20).u, -5);
+  for (const got of [gpu, cpu]) expectWind(got[0], ecmwf(-20).u, -5, speed);
+});
+
