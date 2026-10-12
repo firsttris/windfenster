@@ -80,7 +80,7 @@ ECMWF-Packung gegen den Live-Dienst.
 
 | # | Schwere | Fund | Status |
 |---|---|---|---|
-| 2.1 | mittel–hoch, bestätigt | **Am Tag der Sommerzeit-Umstellung bleibt ein ganzer Tag leer.** `web/src/lib/forecast.ts:174-179`: `covers()` verlangt einen Wert für jede Stunde aus [2,5,…,23]; am Umstellungstag gibt es die Stunde 2 nicht, also „deckt“ kein Modell den Tag, und die Karte zeigt leere Spalten. Nachgestellt mit echtem `buildDays` (Europe/Berlin, 29.3.2026). Fix: nur die Stunden verlangen, die an dem Datum existieren. | offen, **als Nächstes** |
+| 2.1 | mittel–hoch, bestätigt | **Am Tag der Sommerzeit-Umstellung bleibt ein ganzer Tag leer.** `web/src/lib/forecast.ts:174-179`: `covers()` verlangt einen Wert für jede Stunde aus [2,5,…,23]; am Umstellungstag gibt es die Stunde 2 nicht, also „deckt“ kein Modell den Tag, und die Karte zeigt leere Spalten. Nachgestellt mit echtem `buildDays` (Europe/Berlin, 29.3.2026). Fix: nur die Stunden verlangen, die an dem Datum existieren. | **behoben**: `hoursOn` liest die Stunden des Tages aus der Uhr; am Umstellungstag 7 Spalten statt 8 |
 | 2.2 | niedrig, bestätigt | Rundung aufs 0,01°-Raster unterscheidet sich bei negativen Koordinaten auf .xx5: `favorites.ts:12` (`Math.round`, halb nach +∞) gegen `geo.rs:138` (`f64::round`, halb weg von null). Ein gemerkter Spot auf der Südhalbkugel wird auf der Punktseite dann nicht erkannt. | offen |
 | 2.4 | niedrig, bestätigt | TAF-Stunden zählen ab Ausgabezeit, nicht ab Abruf (`verification/run.rs:414-423`), anders als die Modelle. Kleine Abweichung von der eigenen Regel. | offen |
 | 2.5 | niedrig, plausibel | Verifizierter Mix ≠ gezeigter Mix: Vorlauf-Bucket und 30-Tage-Fenster werden leicht anders berechnet (`ranking.rs:140-143` gegen `run.rs:448-477`). | offen |

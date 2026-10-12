@@ -9,6 +9,7 @@ import {
   buildDays,
   compassIndex,
   defaultModel,
+  hoursOn,
   initialModel,
   isNight,
   localClock,
@@ -102,6 +103,31 @@ describe('buildDays', () => {
   it('marks hours that are over', () => {
     const cells = buildDays(fc, 'icon_d2', MIDNIGHT + 10 * HOUR)[0].cells;
     expect(cells.filter((c) => c.past).map((c) => c.hour)).toEqual([7, 8, 9]);
+  });
+
+  it("keeps the day of the spring clock change, which has no 2 o'clock", () => {
+    // ICON-D2 from 27 March 2026 00 UTC for 48 hours, ECMWF for ten days: the 29th, when the
+    // clocks go forward, lies past ICON-D2 and is ECMWF's
+    const start = Date.UTC(2026, 2, 27) / 1000;
+    const run = (id: string, hours: number): ModelSeries => ({
+      ...series(id, hours, 0),
+      runAt: start,
+      fetchedAt: start,
+      start,
+    });
+    const spring = { ...fc, series: [run('icon_d2', 48), run('ecmwf', 240)] };
+    const day = buildDays(spring, 'icon_d2', start + 10 * HOUR).find((d) => d.date === '2026-03-29');
+    expect(day?.source).toBe('ecmwf');
+    expect(day?.cells.map((c) => c.hour)).toEqual([5, 8, 11, 14, 17, 20, 23]);
+    expect(day?.cells.every((c) => c.wind !== null)).toBe(true);
+  });
+
+  it("knows the hours of a day in the place's zone", () => {
+    const berlin = localClock('Europe/Berlin');
+    expect(hoursOn('2026-03-29', berlin).has(2)).toBe(false);
+    expect(hoursOn('2026-03-29', berlin).size).toBe(23);
+    expect(hoursOn('2026-10-25', berlin).size).toBe(24);
+    expect(hoursOn('2026-10-12', localClock('Pacific/Kiritimati')).size).toBe(24);
   });
 
   it('is empty without series', () => {

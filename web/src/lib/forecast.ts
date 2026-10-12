@@ -140,6 +140,19 @@ function rainOver(s: ModelSeries, i: number | undefined, hours: number): number 
   return Math.round(sum * 10) / 10;
 }
 
+/** The local hours a date has: 0 to 23, but on the spring clock change one is missing (2 in
+ * Europe) and on the autumn one an hour repeats. Read from the clock over the day, not assumed. */
+export function hoursOn(date: string, clock: ReturnType<typeof localClock>): Set<number> {
+  const noon = Date.parse(`${date}T12:00:00Z`) / 1000;
+  const hours = new Set<number>();
+  // Every zone's midnight lies within 14 hours of UTC's
+  for (let t = noon - 27 * 3600; t <= noon + 27 * 3600; t += 3600) {
+    const c = clock(t);
+    if (c.date === date) hours.add(c.hour);
+  }
+  return hours;
+}
+
 /** Builds the table for the chosen model at `now` (Unix seconds); where it ends, `globalId`
  * (by default the first global model) takes over. `hourly`: today and tomorrow hour by hour. */
 export function buildDays(
@@ -170,7 +183,10 @@ export function buildDays(
 
   return dates.slice(0, DAYS).map((date, d) => {
     const stage = stageOf(d, hourly);
-    const hours = STAGE_HOURS[stage];
+    // A column for every hour of the stage the day has: on the spring clock change 2 o'clock
+    // does not exist, and asking a model for it would make every model miss the day
+    const exists = hoursOn(date, clock);
+    const hours = STAGE_HOURS[stage].filter((h) => exists.has(h));
     const covers = (s: Indexed | undefined): s is Indexed =>
       !!s && hours.every((h) => value(s.series.wind, s.at.get(`${date}|${h}`)) !== null);
     const first = chosen ? indexed.get(chosen.model) : undefined;
