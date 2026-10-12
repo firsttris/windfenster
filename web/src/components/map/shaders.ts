@@ -192,8 +192,8 @@ vec4 encode(vec2 p) {
  * particles outside the domain or the view, and a few at random, start anew elsewhere. When the
  * map moved (`u_shift`), the particles move with it and the view stays evenly filled: after a
  * zoom out the old view covers only part of the new one, so as many of its particles as it now
- * holds too many start anew, and new particles go where the old view was not (the strip a pan
- * uncovers, the border a zoom out adds). */
+ * holds too many start anew, and these and the ones a pan pushed out go where the old view was
+ * not (the strip a pan uncovers, the border a zoom out adds), sampled there directly. */
 export const UPDATE_FRAG = `#version 300 es
 ${PRECISION}
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
@@ -222,9 +222,22 @@ float unit(uint h) {
   return float(h >> 8u) / 16777216.0;
 }
 
-/** Within the last frame's view, in this frame's coordinates */
-bool inOld(vec2 q) {
-  return all(greaterThanEqual(q, u_shift.zw)) && all(lessThanEqual(q, u_shift.zw + u_shift.xy));
+/** A random place in what the last frame's view did not cover, chosen by area among the up to
+ * four rectangles around it (left and right strips whole, bottom and top between them); sets
+ * area to their sum (0 when the old view covers everything, as after a zoom in). Sampled
+ * directly: a thin strip after a small pan is found every time, not by luck. */
+vec2 uncovered(uint h, out float area) {
+  vec2 lo = clamp(u_shift.zw, 0.0, 1.0);
+  vec2 hi = clamp(u_shift.zw + u_shift.xy, 0.0, 1.0);
+  float width = max(hi.x - lo.x, 0.0);
+  vec4 a = vec4(lo.x, 1.0 - hi.x, width * lo.y, width * (1.0 - hi.y));
+  area = a.x + a.y + a.z + a.w;
+  float r = unit(h) * area;
+  vec2 q = vec2(unit(pcg(h ^ 0x68e31da4u)), unit(pcg(h ^ 0xb5297a4du)));
+  if (r < a.x) return vec2(q.x * lo.x, q.y);
+  if (r < a.x + a.y) return vec2(hi.x + q.x * (1.0 - hi.x), q.y);
+  if (r < a.x + a.y + a.z) return vec2(lo.x + q.x * width, q.y * lo.y);
+  return vec2(lo.x + q.x * width, hi.y + q.y * (1.0 - hi.y));
 }
 
 void main() {
@@ -237,18 +250,17 @@ void main() {
   bool lost = w.w < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
   // Calm particles would only pile up; strong ones are renewed a bit more often.
   float drop = u_drop + u_drop * 3.0 * smoothstep(0.0, 30.0, speed);
-  // Zoomed out: the old view's particles crowd into its smaller area; keep as many as it holds
-  float crowd = 1.0 - u_shift.x * u_shift.y;
-  if (lost || unit(h) < drop || unit(pcg(h ^ 0x9e3779b9u)) < crowd) {
+  // The map moved it out of the view (a pan), or zoomed out the old view's particles crowd
+  // into its smaller area (keep as many as it holds): these fill what the old view did not
+  // cover, exactly as many as it lost
+  bool shiftedOut = any(lessThan(p, vec2(0.0))) || any(greaterThan(p, vec2(1.0)));
+  bool crowded = unit(pcg(h ^ 0x9e3779b9u)) < 1.0 - u_shift.x * u_shift.y;
+  if (lost || crowded || unit(h) < drop) {
     uint hx = pcg(h);
-    next = vec2(unit(hx), unit(pcg(hx)));
-    // Where the map moved, new particles fill what the old view did not cover; when it covers
-    // everything (a zoom in) the last try stands, anywhere.
-    bool moved = u_shift != vec4(1.0, 1.0, 0.0, 0.0);
-    for (int k = 0; k < 12 && moved && inOld(next); k++) {
-      hx = pcg(pcg(hx) ^ uint(k));
-      next = vec2(unit(hx), unit(pcg(hx)));
-    }
+    float area;
+    vec2 fill = uncovered(hx, area);
+    // Renewed by chance, or where nothing is uncovered (a zoom in): anywhere
+    next = (shiftedOut || crowded) && area > 1e-6 ? fill : vec2(unit(hx), unit(pcg(hx)));
   }
   color = encode(clamp(next, 0.0, 1.0));
 }`;

@@ -287,6 +287,17 @@ test('after a zoom out or a pan the view stays evenly filled', async ({ page }) 
   const strip = density(panned.states[0], [0.8, 0, 1, 1]);
   expect(strip.inside / strip.outside).toBeGreaterThan(0.9);
   expect(strip.inside / strip.outside).toBeLessThan(1.1);
+  // A small pan, as dragging the map makes many of: a thin strip, and filled as densely too
+  // (12 random tries found it for only a few of the particles that left the view)
+  const nudged = await run(page, calm, { start, steps, shift: [1, 1, -0.02, 0.03] });
+  for (const r of [
+    [0.98, 0, 1, 1],
+    [0, 0, 1, 0.03],
+  ] as [number, number, number, number][]) {
+    const thin = density(nudged.states[0], r);
+    expect(thin.inside / thin.outside, `strip ${r}`).toBeGreaterThan(0.75);
+    expect(thin.inside / thin.outside, `strip ${r}`).toBeLessThan(1.25);
+  }
   // and the others went along with the map, not anew
   let along = 0;
   for (let i = 0; i < start.length; i += 2) {
