@@ -9,7 +9,7 @@
 import { countsAsFrame, nextBudget, particleCount, SAMPLE_FRAMES } from '@/lib/particle-budget';
 import type { Theme } from '@/lib/prefs';
 import { townness, zoomOf } from '@/lib/town-zoom';
-import { PX_PER_KN, trailFade } from '@/lib/trails';
+import { PX_PER_KN, takesStep, trailFade } from '@/lib/trails';
 import { type MercatorView, rampPixels } from '@/lib/wind-map';
 import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from './gl';
 import { drawParticles, fadeTrails, moveParticles, particlePasses, screenQuad } from './particle-passes';
@@ -65,6 +65,7 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   // Frames drawn, for the update's random numbers
   let count = Math.floor(Math.random() * 1e9);
   let last = 0;
+  let blank = false;
   // Fewer particles when the device cannot keep up
   let budget = 1;
   let measured = { ms: 0, frames: 0 };
@@ -97,6 +98,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   function step(now: number) {
     frame = requestAnimationFrame(step);
     if (!state || !trails) return;
+    // At most about 60 steps a second (lib/trails.ts)
+    if (!takesStep(last, now)) return;
     const dt = last ? Math.min(3, (now - last) / (1000 / 60)) : 1;
     if (last && countsAsFrame(now - last) && hasWind(shown)) {
       measured = { ms: measured.ms + now - last, frames: measured.frames + 1 };
@@ -112,10 +115,15 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     last = now;
     const { width, height } = canvas;
     if (!hasWind(shown)) {
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      // Cleared once, then nothing to do until there is wind again
+      if (!blank) {
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        blank = true;
+      }
       return;
     }
+    blank = false;
     textures.keep(shown);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);

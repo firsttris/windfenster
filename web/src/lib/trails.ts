@@ -13,3 +13,14 @@ export function trailFade(dt: number, shift: readonly [number, number, number, n
   const zoom = Math.abs(Math.log2(shift[0]));
   return FADE ** dt * (1 - Math.min(0.5, zoom * 4));
 }
+
+/** The shortest time between two steps of the particles, in ms: below a 60 Hz frame (16.7 ms)
+ * with room for the browser's jitter. The trails lose a byte of alpha per step whatever the
+ * time between, so on a 120 or 144 Hz screen they were half as long, and the GPU did twice the
+ * work for nothing. */
+export const MIN_STEP_MS = 13;
+
+/** Whether a screen frame at `now` takes a step, the last one having been at `last` (0: none). */
+export function takesStep(last: number, now: number): boolean {
+  return !last || now - last >= MIN_STEP_MS;
+}
