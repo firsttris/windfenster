@@ -3,6 +3,7 @@
 //! PEGELONLINE), Open-Meteo's geocoder for the search, and the scheduler that keeps it all
 //! current.
 
+pub mod climate;
 pub mod forecasts;
 pub mod geocode;
 pub mod measurements;

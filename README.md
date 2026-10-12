@@ -238,6 +238,18 @@ the TAF counts as a model of its own, from its issue time.
   windiest daytime hour of the next two days: up to 4 kn high, up to 8 kn medium, above that
   low. The trend days 8–10 show the same as a dot.
 
+### Wind statistics
+
+A station page shows the station's wind over the last ten whole years: per month a wind rose
+(16 directions, the wind scale's bands) and the share of windy days, those with at least two
+daylight hours (9 to 19 by the sun) of 12 kn or more mean wind. The hours come from an archive
+on the first request, one station at a time, in the background: airports from the
+[Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml)'s METAR
+archive (routine reports, a year per request, a pause between requests as it asks), DWD
+stations from the DWD's climate archive of hourly wind. Only the summary is kept (a few KB a
+station), and made anew once another year has ended. `GET /api/stations/{slug}/stats` answers
+`pending` until it is ready.
+
 ### Accounts and favourites
 
 Signing in works with a passkey (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
@@ -509,8 +521,10 @@ instance. Airport names and places come from [OurAirports](https://ourairports.c
 (public domain); which airports send METARs and TAFs, and the reports themselves, from the
 [Aviation Weather Center](https://aviationweather.gov/) (NOAA, public domain). Wind stations and
 their 10-minute values, and the ICON-D2 fields of the wind map, come from
-[DWD Open Data](https://opendata.dwd.de/) (CC BY 4.0, "Datenbasis: Deutscher Wetterdienst"). Water levels from
-[PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
+[DWD Open Data](https://opendata.dwd.de/) (CC BY 4.0, "Datenbasis: Deutscher Wetterdienst"), as do the DWD stations' past years for
+the wind statistics; the airports' past years come from the
+[Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/) (Iowa State University). Water
+levels from [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
 Bundes), credited on every page that shows them. The map's land, borders and places come from
 [Natural Earth](https://www.naturalearthdata.com/) (public domain) or, where installed, from
 [OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL) through Protomaps, its labels are set in Noto

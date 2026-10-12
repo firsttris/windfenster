@@ -5,6 +5,7 @@
 
 pub mod account;
 pub mod alarm;
+pub mod climate;
 pub mod db;
 pub mod favorite;
 pub mod forecast;

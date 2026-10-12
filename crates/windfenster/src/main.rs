@@ -74,7 +74,7 @@ struct DataArgs {
     #[arg(long, env = "WF_DATA_DIR", default_value = "/data")]
     data_dir: PathBuf,
     /// For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE,
-    /// OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests'
+    /// OurAirports, the Iowa Environmental Mesonet, Protomaps, Mapterhorn) under this one address, as the browser tests'
     /// stand-in serves them (web/e2e/stand-in).
     #[arg(long, env = "WF_SOURCES")]
     sources: Option<String>,
@@ -107,6 +107,16 @@ impl DataArgs {
                 pegelonline_base: self.source("pegelonline").unwrap_or_default(),
             },
             None => Urls::default(),
+        }
+    }
+
+    fn climate_urls(&self) -> wf_ingest::climate::Urls {
+        match self.source("") {
+            Some(_) => wf_ingest::climate::Urls {
+                iem: self.source("iem").unwrap_or_default(),
+                dwd_hourly: self.source("dwd-hourly").unwrap_or_default(),
+            },
+            None => wf_ingest::climate::Urls::default(),
         }
     }
 
@@ -302,6 +312,11 @@ async fn serve(args: ServeArgs) -> Result<()> {
         non_empty(&args.geocoding_url).or_else(|| args.data.source("geocoding")),
         api_key,
     ));
+    let climate = Arc::new(wf_ingest::climate::Climate::new(
+        db.clone(),
+        http.clone(),
+        args.data.climate_urls(),
+    ));
     let measurements = Arc::new(Measurements::new(
         db.clone(),
         http.clone(),
@@ -372,6 +387,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         state = state.with_map(map);
     }
     state = state.with_alarms(alarms);
+    state = state.with_climate(climate);
     let listener = TcpListener::bind(args.listen)
         .await
         .with_context(|| format!("binding {}", args.listen))?;

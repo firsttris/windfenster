@@ -15,6 +15,7 @@ mod meta;
 pub mod ranking;
 pub mod search;
 mod spa;
+pub mod stats;
 pub mod water;
 
 use std::sync::Arc;
@@ -53,6 +54,8 @@ pub struct AppState {
     pub map: Option<Arc<MapData>>,
     /// Alarms: push key, e-mail and test messages; without, no push and no e-mail.
     pub alarms: Option<Arc<wf_alarm::Alarms>>,
+    /// Wind statistics from the archives; without, stations have none.
+    pub climate: Option<Arc<wf_ingest::climate::Climate>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
@@ -93,6 +96,7 @@ impl AppState {
             measurements,
             map: None,
             alarms: None,
+            climate: None,
             passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
             password_failures: auth::password::new_failures(),
             public_url,
@@ -134,6 +138,14 @@ impl AppState {
         }
     }
 
+    /// With wind statistics from the archives.
+    pub fn with_climate(self, climate: Arc<wf_ingest::climate::Climate>) -> Self {
+        Self {
+            climate: Some(climate),
+            ..self
+        }
+    }
+
     /// Keeps a place served from the cache "hot", so the scheduler keeps refreshing it.
     async fn touch(&self, p: GridPoint, pinned: bool) {
         if self.touched.contains_key(&p) {
@@ -155,6 +167,7 @@ pub fn router(state: AppState) -> Router {
         .route("/stations/{slug}", get(forecast::station))
         .route("/stations/{slug}/live", get(live::live))
         .route("/stations/{slug}/history", get(history::history))
+        .route("/stations/{slug}/stats", get(stats::stats))
         .route("/point", get(forecast::point))
         .route("/gauges/near", get(water::near))
         .route("/map", get(map::index))
