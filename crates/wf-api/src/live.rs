@@ -12,6 +12,9 @@ use wf_core::taf::{self, Taf};
 
 use crate::{ApiError, AppState};
 
+/// How long a visitor waits for a stale station's measurements and TAF to be fetched.
+const FETCH_LIMIT: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// Measurements shown: the last 24 hours.
 const WINDOW_S: i64 = 24 * 3_600;
 
@@ -71,8 +74,12 @@ pub async fn live(
         // Once per station within the cache's lifetime, however many ask at the same time.
         s.fetched
             .get_with(id, async {
-                if let Err(e) = m.fetch_station(id, &st).await {
-                    tracing::warn!("measurements of {}: {e:#}", st.slug);
+                // The visitor waits for it: a source that hangs is given up after a while, the
+                // scheduler fetches the station on its next turn
+                match tokio::time::timeout(FETCH_LIMIT, m.fetch_station(id, &st)).await {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(e)) => tracing::warn!("measurements of {}: {e:#}", st.slug),
+                    Err(_) => tracing::warn!("measurements of {}: gave up waiting", st.slug),
                 }
             })
             .await;
