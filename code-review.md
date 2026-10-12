@@ -44,8 +44,8 @@ Nichts davon betrifft die Richtigkeit der angezeigten Windwerte, bis auf die zwe
 
 | # | Schwere | Fund | Status |
 |---|---|---|---|
-| 1.1 | mittel, bestätigt | **Ein kaputter Schritt blockiert den Rest des Laufs.** `service/icon_d2.rs:29-36`, `service/icon_global.rs:55-71`: ein Fehler bei einer Stunde (404, abgeschnittenes bz2) bricht `update_*` ab; alle späteren Stunden werden nicht geholt, `prune` läuft nicht. Alle 10 min scheitert es erneut an derselben Datei, bis der nächste Lauf kommt (3 h bei D2, 12 h bei ICON global). ECMWF (`service/ecmwf.rs:52-61`) ebenso. | **in Arbeit** (Fehler je Stunde wird geloggt, die Schleife läuft weiter; ECMWF beendet nur die Runde) |
-| 1.2 | mittel, bestätigt | **Böen fehlen, wenn die Böen-Datei des DWD später gelistet wird.** `service/icon_d2.rs:16-33`, `service/icon_global.rs:40-54`: eine Stunde gilt als fertig, sobald U und V da sind; kommt `vmax_10m` Minuten später (der DWD schreibt die Variablen nacheinander, die Testdaten zeigen 06:44 und 06:47), bleibt die Stunde für den ganzen Lauf ohne Böen (Karte zeigt „Böe = Wind“). | **in Arbeit** (`ready.rs`: eine Stunde wartet auf ihre Böe, außer Schritt 0 oder wenn eine spätere Böe schon gelistet ist) |
+| 1.1 | mittel, bestätigt | **Ein kaputter Schritt blockiert den Rest des Laufs.** `service/icon_d2.rs:29-36`, `service/icon_global.rs:55-71`: ein Fehler bei einer Stunde (404, abgeschnittenes bz2) bricht `update_*` ab; alle späteren Stunden werden nicht geholt, `prune` läuft nicht. Alle 10 min scheitert es erneut an derselben Datei, bis der nächste Lauf kommt (3 h bei D2, 12 h bei ICON global). ECMWF (`service/ecmwf.rs:52-61`) ebenso. | **behoben** (a9fa098): Fehler je Stunde wird geloggt, die Schleife läuft weiter; ECMWF beendet nur die Runde |
+| 1.2 | mittel, bestätigt | **Böen fehlen, wenn die Böen-Datei des DWD später gelistet wird.** `service/icon_d2.rs:16-33`, `service/icon_global.rs:40-54`: eine Stunde gilt als fertig, sobald U und V da sind; kommt `vmax_10m` Minuten später (der DWD schreibt die Variablen nacheinander, die Testdaten zeigen 06:44 und 06:47), bleibt die Stunde für den ganzen Lauf ohne Böen (Karte zeigt „Böe = Wind“). | **behoben** (a9fa098): `ready.rs`, eine Stunde wartet auf ihre Böe, außer Schritt 0 oder wenn eine spätere Böe schon gelistet ist |
 | 1.6 | niedrig, plausibel | Die Tabelle der nächsten Dreieckszellen (`icon_global-grid.u32`) wird nur nach Dateigröße übernommen; ändert der DWD das Gitter, sind alle Texel falsch zugeordnet. `service/icon_global.rs:91-101`. | offen; Fix: Zellenzahl in der Datei speichern und bei Abweichung neu bauen |
 | 1.7 | niedrig, plausibel | ICON-global-Ausschnitte können die Datumsgrenze nicht überspannen (`crop.rs:35-37`, `wind-map.ts:262-270`): dahinter zeichnet nur ECMWF. Für Europa egal. | offen, Hinweis |
 | 1.8 | niedrig | Ausschnitte von ICON global behalten den weltweiten Wertebereich: bei 150 kn Spanne sind 8 Bit rund 0,6 kn je Stufe, bei 10 kn bis ~3° Richtung. Abwägung, kein Fehler. | offen |
@@ -54,10 +54,10 @@ Nichts davon betrifft die Richtigkeit der angezeigten Windwerte, bis auf die zwe
 
 | # | Schwere | Fund | Status |
 |---|---|---|---|
-| 1.3 | mittel (Pi), bestätigt | **Spot-Zeitreihe: ~2000 Thread-Wechsel je Aufruf.** `series.rs:125-141`: je Stunde `tokio::fs::read` des JSON, `File::open`, 4× seek+read, alles einzeln über den Blocking-Pool, ~190 Stunden nacheinander. Wird bei jedem Tippen auf die Karte und je Alarm aufgerufen. Fix: alles in einem `spawn_blocking` mit `std::fs`, Meta-JSON je Pfad cachen (Dateien sind unveränderlich). Erwartung: 10–50× weniger Overhead. | offen (Umbau vorbereitet, noch nicht angewendet) |
+| 1.3 | mittel (Pi), bestätigt | **Spot-Zeitreihe: ~2000 Thread-Wechsel je Aufruf.** `series.rs:125-141`: je Stunde `tokio::fs::read` des JSON, `File::open`, 4× seek+read, alles einzeln über den Blocking-Pool, ~190 Stunden nacheinander. Wird bei jedem Tippen auf die Karte und je Alarm aufgerufen. Fix: alles in einem `spawn_blocking` mit `std::fs`, Meta-JSON je Pfad cachen (Dateien sind unveränderlich). Erwartung: 10–50× weniger Overhead. | **behoben** (a9fa098, in der Commit-Nachricht nicht genannt): ein `spawn_blocking` mit `std::fs`; der Meta-Cache fehlt noch |
 | 1.4 | mittel (Pi), bestätigt | **ICON global schreibt 1,5 GB `.rgba` je Lauf, hält ~3 GB.** 2880×1441×4 Byte × 93 Stunden, zwei Läufe; Alpha immer 255. Fix: nur ±80° Breite speichern (−11 %), ohne Alpha (−25 %), oder zeilenweise komprimiert; vom alten Lauf nur die Stunden behalten, die der neue noch nicht hat. | offen, Entscheidung |
 | 1.5 | niedrig, bestätigt | `texture::pixels` kopiert jedes Feld einmal mehr in Knoten: bei ICON global ~130 MB Spitze je Stunde. Umwandlung in-place halbiert das. `texture.rs:110-113` | offen |
-| 1.9 | trivial | ICON-D2 listet den Böen-Ordner, bevor klar ist, ob der Lauf überhaupt da ist (eine Anfrage je Tick zu viel). | **in Arbeit** |
+| 1.9 | trivial | ICON-D2 listet den Böen-Ordner, bevor klar ist, ob der Lauf überhaupt da ist (eine Anfrage je Tick zu viel). | **behoben** (a9fa098) |
 
 ### Als korrekt bestätigt
 
@@ -158,7 +158,7 @@ Bericht steht noch aus.
 
 ## Vorschlag für die Reihenfolge
 
-1. **Jetzt, klein und klar:** 1.1, 1.2, 1.9 (in Arbeit); 1.3; 2.1 (Sommerzeit); 3.1
+1. **Jetzt, klein und klar:** 2.1 (Sommerzeit); 3.1
    (Kachel-Cache); 2.3 (Verifikations-Scan); 3.2 (Timeouts je Schritt); 3.3 (Loops überwachen);
    3.10, 3.11 (zwei Indizes, eine Migration); 2.2, 2.4, 2.8, 2.9, 3.8 (Kleinigkeiten).
 2. **Mit Entscheidung:** 1.4 (Speicher von ICON global), 2.6 (leere Modellantwort), 3.6
