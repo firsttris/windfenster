@@ -10,6 +10,7 @@ import { withRelief } from '@/components/map/relief';
 import { ShareButton } from '@/components/map/share-button';
 import { SpotCard } from '@/components/map/spot-card';
 import { frameTime, Timeline } from '@/components/map/timeline';
+import { useGlide } from '@/components/map/use-glide';
 import { useMapKeys } from '@/components/map/use-map-keys';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
 import type { WindPair } from '@/components/map/wind-gl';
@@ -85,9 +86,11 @@ function MapPage() {
   const time = picked ?? startTime(frames, now);
   const [playing, setPlaying] = useState(false);
   usePlayback(playing, frames, time, setTime);
-  const base = useWindPair(choice.base?.frames ?? [], time, playing);
-  const mid = useWindPair(hoursAt(midFrames, time), time, playing);
-  const detail = useWindPair(hoursAt(detailFrames, time), time, playing);
+  // The wind slides to a nearby hour picked instead of jumping
+  const windTime = useGlide(time, playing);
+  const base = useWindPair(choice.base?.frames ?? [], windTime, playing);
+  const mid = useWindPair(hoursAt(midFrames, windTime), windTime, playing);
+  const detail = useWindPair(hoursAt(detailFrames, windTime), windTime, playing);
   const layers = useMemo(() => ({ base, mid, detail }), [base, mid, detail]);
   const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
   // A search result stays on the map: fly there and show the spot.
