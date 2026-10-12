@@ -5,58 +5,8 @@
  * in CI in the official Playwright image.
  */
 import { expect, test } from '@playwright/test';
-import type { Both, Hour, Layer } from './wind-gpu';
-
-const RANGE = { uMin: -40, uMax: 40, vMin: -40, vMax: 40 };
-const GUST_MAX = 60;
-
-type Value = { u: number; v: number; gust: number | null } | null;
-
-/** A texture of `step`° texels between the edges given, with `at(lon, lat)` at each texel's
- * centre (null: outside the model's domain), encoded as the server does (texture.rs). */
-function hour(
-  model: string,
-  [west, south, east, north]: [number, number, number, number],
-  step: number,
-  at: (lon: number, lat: number) => Value,
-  gusts: boolean,
-): Hour {
-  const width = Math.round((east - west) / step);
-  const height = Math.round((north - south) / step);
-  const pixels: number[] = [];
-  const byte = (x: number, min: number, max: number) => Math.round(((x - min) / (max - min)) * 255);
-  for (let j = 0; j < height; j++) {
-    for (let i = 0; i < width; i++) {
-      const w = at(west + (i + 0.5) * step, north - (j + 0.5) * step);
-      if (!w) pixels.push(0, 0, 0, 0);
-      else
-        pixels.push(
-          byte(w.u, RANGE.uMin, RANGE.uMax),
-          byte(w.v, RANGE.vMin, RANGE.vMax),
-          gusts && w.gust !== null ? byte(w.gust, 0, GUST_MAX) : 0,
-          255,
-        );
-    }
-  }
-  return {
-    meta: {
-      model,
-      runAt: 0,
-      step: 0,
-      validAt: 0,
-      west,
-      south,
-      east,
-      north,
-      width,
-      height,
-      domain: [],
-      ...RANGE,
-      gustMax: gusts ? GUST_MAX : null,
-    },
-    pixels,
-  };
-}
+import type { Both, Layer } from './gpu';
+import { hour } from './textures';
 
 const cos = (deg: number) => Math.cos((deg * Math.PI) / 180);
 
@@ -80,7 +30,7 @@ const d2 = hour('icon_d2', [5, 45, 15, 55], 0.05, (lon) => (lon < 12 ? { u: 30, 
 const detail: Layer = { a: d2, b: d2, t: 0 };
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/e2e/wind-gpu.html');
+  await page.goto('/e2e/gpu.html');
   await page.waitForFunction(() => typeof window.windBoth === 'function');
 });
 

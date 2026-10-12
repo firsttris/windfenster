@@ -9,19 +9,11 @@
 import { countsAsFrame, nextBudget, particleCount, SAMPLE_FRAMES } from '@/lib/particle-budget';
 import type { Theme } from '@/lib/prefs';
 import { townness, zoomOf } from '@/lib/town-zoom';
-import { type MercatorView, RAMP_MAX_KN, rampPixels } from '@/lib/wind-map';
-import {
-  activate,
-  bindAttribute,
-  bindFramebuffer,
-  bindTexture,
-  createBuffer,
-  createProgram,
-  createTexture,
-  type Program,
-} from './gl';
-import { COPY_FRAG, DRAW_FRAG, DRAW_VERT, FADE_FRAG, QUAD_VERT, UPDATE_FRAG } from './shaders';
-import { bindWind, hasWind, NO_WIND, WIND_UNITS, type WindLayers, windTextures } from './wind-gl';
+import { type MercatorView, rampPixels } from '@/lib/wind-map';
+import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from './gl';
+import { drawParticles, moveParticles, particlePasses, screenQuad } from './particle-passes';
+import { COPY_FRAG, FADE_FRAG, QUAD_VERT } from './shaders';
+import { hasWind, NO_WIND, WIND_UNITS, type WindLayers, windTextures } from './wind-gl';
 
 export interface Particles {
   show(layers: WindLayers): void;
@@ -57,14 +49,10 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   });
   if (!context) return null;
   const gl: WebGL2RenderingContext = context;
-  const update = createProgram(gl, QUAD_VERT, UPDATE_FRAG);
-  const draw = createProgram(gl, DRAW_VERT, DRAW_FRAG);
+  const passes = particlePasses(gl);
+  const { fb } = passes;
   const fade = createProgram(gl, QUAD_VERT, FADE_FRAG);
   const copy = createProgram(gl, QUAD_VERT, COPY_FRAG);
-  const quad = createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
-  // A particle's quad: tail (x 0) to head (x 1), both sides (y ±1)
-  const corners = createBuffer(gl, new Float32Array([0, -1, 1, -1, 0, 1, 0, 1, 1, -1, 1, 1]));
-  const fb = gl.createFramebuffer();
   const textures = windTextures(gl);
   const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
 
@@ -109,11 +97,6 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     bindFramebuffer(gl, null);
   }
 
-  function screenQuad(p: Program) {
-    bindAttribute(gl, quad, p.a.a_pos, 2);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-  }
-
   function step(now: number) {
     frame = requestAnimationFrame(step);
     if (!state || !trails) return;
@@ -141,20 +124,15 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.disable(gl.BLEND);
 
     // 1. Move the particles: state[0] → state[1]
-    bindFramebuffer(gl, fb, state[1]);
-    gl.viewport(0, 0, res, res);
-    activate(gl, update);
-    bindWind(gl, update, textures, shown, 0);
-    bindTexture(gl, state[0], WIND_UNITS);
-    gl.uniform1i(update.u.u_particles, WIND_UNITS);
-    gl.uniform4f(update.u.u_view, view.x, view.y, view.w, view.h);
-    gl.uniform4f(update.u.u_shift, ...shift);
-    gl.uniform2f(update.u.u_screen, size.w, size.h);
-    gl.uniform1f(update.u.u_px_per_kn, PX_PER_KN * dt);
+    const at = { res, view, shift };
     count = (count + 1) >>> 0;
-    gl.uniform1ui(update.u.u_frame, count);
-    gl.uniform1f(update.u.u_drop, DROP * dt);
-    screenQuad(update);
+    moveParticles(gl, passes, textures, shown, state[0], state[1], at, {
+      cssWidth: size.w,
+      cssHeight: size.h,
+      pxPerKn: PX_PER_KN * dt,
+      frame: count,
+      drop: DROP * dt,
+    });
 
     // 2. Last frame's trails, fainter: trails[0] → trails[1]
     bindFramebuffer(gl, fb, trails[1]);
@@ -163,39 +141,26 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     bindTexture(gl, trails[0], WIND_UNITS);
     gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
     gl.uniform1f(fade.u.u_fade, FADE ** dt);
-    screenQuad(fade);
+    screenQuad(gl, passes, fade);
 
     // 3. Each particle from where it was to where it is, over them
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    activate(gl, draw);
-    bindWind(gl, draw, textures, shown, 0);
-    bindTexture(gl, state[0], WIND_UNITS);
-    bindTexture(gl, state[1], WIND_UNITS + 1);
-    gl.uniform1i(draw.u.u_before, WIND_UNITS);
-    gl.uniform1i(draw.u.u_after, WIND_UNITS + 1);
-    gl.uniform4f(draw.u.u_shift, ...shift);
-    gl.uniform4f(draw.u.u_view, view.x, view.y, view.w, view.h);
-    gl.uniform2f(draw.u.u_screen, width, height);
-    gl.uniform1f(draw.u.u_res, res);
-    gl.uniform1f(draw.u.u_width, size.ratio);
-    gl.uniform1f(draw.u.u_move, PX_PER_KN * dt * size.ratio);
-    gl.uniform4f(draw.u.u_ink, ...ink);
-    bindTexture(gl, ramp, WIND_UNITS + 2);
-    gl.uniform1i(draw.u.u_ramp, WIND_UNITS + 2);
-    gl.uniform1f(draw.u.u_ramp_max, RAMP_MAX_KN);
-    gl.uniform1f(draw.u.u_town, townness(zoomOf(view.w, size.w)));
-    gl.uniform1f(draw.u.u_gusts, byGust ? 1 : 0);
-    bindAttribute(gl, corners, draw.a.a_corner, 2);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, res * res);
-    gl.disable(gl.BLEND);
+    drawParticles(gl, passes, textures, shown, state[0], state[1], at, {
+      width,
+      height,
+      lineWidth: size.ratio,
+      move: PX_PER_KN * dt * size.ratio,
+      ink,
+      ramp,
+      town: townness(zoomOf(view.w, size.w)),
+      gusts: byGust,
+    });
 
     // 4. Onto the canvas
     bindFramebuffer(gl, null);
     activate(gl, copy);
     bindTexture(gl, trails[1], WIND_UNITS);
     gl.uniform1i(copy.u.u_screen_tex, WIND_UNITS);
-    screenQuad(copy);
+    screenQuad(gl, passes, copy);
 
     state = [state[1], state[0]];
     trails = [trails[1], trails[0]];

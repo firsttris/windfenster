@@ -17,7 +17,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm exec vite --port 5199 --strictPort --host 127.0.0.1',
-    url: 'http://127.0.0.1:5199/e2e/wind-gpu.html',
+    url: 'http://127.0.0.1:5199/e2e/gpu.html',
     reuseExistingServer: !process.env.CI,
   },
 });
