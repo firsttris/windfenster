@@ -8,8 +8,9 @@ import type { Sector } from '@/bindings/Sector';
 /** A station page or a point page */
 export type FavoriteTarget = { slug: string } | { lat: number; lon: number };
 
-/** The 0.01° grid the server keeps points on */
-const grid = (x: number) => Math.round(x * 100) / 100;
+/** The 0.01° grid the server keeps points on, rounded as it rounds (wf_core::geo, f64::round:
+ * halves away from zero; Math.round alone takes -33.865 to -33.86, the server to -33.87) */
+const grid = (x: number) => (Math.sign(x) * Math.round(Math.abs(x) * 100)) / 100;
 
 /** The favourite a page shows, if it is one. */
 export function findFavorite(list: readonly Favorite[], t: FavoriteTarget): Favorite | undefined {
