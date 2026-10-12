@@ -78,6 +78,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   let state: [WebGLTexture, WebGLTexture] | null = null;
   let trails: [WebGLTexture, WebGLTexture] | null = null;
   let frame = 0;
+  // Frames drawn, for the update's random numbers
+  let count = Math.floor(Math.random() * 1e9);
   let last = 0;
   // Fewer particles when the device cannot keep up
   let budget = 1;
@@ -149,7 +151,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.uniform4f(update.u.u_shift, ...shift);
     gl.uniform2f(update.u.u_screen, size.w, size.h);
     gl.uniform1f(update.u.u_px_per_kn, PX_PER_KN * dt);
-    gl.uniform1f(update.u.u_seed, Math.random());
+    count = (count + 1) >>> 0;
+    gl.uniform1ui(update.u.u_frame, count);
     gl.uniform1f(update.u.u_drop, DROP * dt);
     screenQuad(update);
 
@@ -176,6 +179,7 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.uniform2f(draw.u.u_screen, width, height);
     gl.uniform1f(draw.u.u_res, res);
     gl.uniform1f(draw.u.u_width, size.ratio);
+    gl.uniform1f(draw.u.u_move, PX_PER_KN * dt * size.ratio);
     gl.uniform4f(draw.u.u_ink, ...ink);
     bindTexture(gl, ramp, 6);
     gl.uniform1i(draw.u.u_ramp, 6);

@@ -158,27 +158,35 @@ uniform vec4 u_view;      // visible Mercator rectangle: x, y, width, height
 uniform vec4 u_shift;     // the view moved: new = old * xy + zw
 uniform vec2 u_screen;    // view size in pixels
 uniform float u_px_per_kn;
-uniform float u_seed;
+uniform uint u_frame;
 uniform float u_drop;
 in vec2 v_pos;
 out vec4 color;
 
-float rand(vec2 co) {
-  float t = dot(vec2(12.9898, 78.233), co);
-  return fract(sin(t) * (4375.85453 + t));
+// An integer hash (PCG, Jarzynski and Olano 2020): every draw is independent of the others. The
+// sine hash of webgl-wind gave x and y from one number, so new particles gathered on a few
+// points and their first strokes formed stars there.
+uint pcg(uint v) {
+  uint s = v * 747796405u + 2891336453u;
+  uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u;
+  return (w >> 22u) ^ w;
+}
+float unit(uint h) {
+  return float(h >> 8u) / 16777216.0;
 }
 
 void main() {
   vec2 p = decode(texelFetch(u_particles, ivec2(gl_FragCoord.xy), 0)) * u_shift.xy + u_shift.zw;
-  vec2 seed = (p + v_pos) * u_seed;
+  uint h = pcg(uint(gl_FragCoord.y) * 65536u + uint(gl_FragCoord.x) ^ pcg(u_frame));
   vec4 w = wind(u_view.xy + p * u_view.zw);
   float speed = length(w.xy);
   vec2 next = p + vec2(w.x, -w.y) * u_px_per_kn / u_screen;
   bool lost = w.w < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
   // Calm particles would only pile up; strong ones are renewed a bit more often.
   float drop = u_drop + u_drop * 3.0 * smoothstep(0.0, 30.0, speed);
-  if (lost || rand(seed) > 1.0 - drop) {
-    next = vec2(rand(seed + 1.3), rand(seed + 2.1));
+  if (lost || unit(h) < drop) {
+    uint hx = pcg(h);
+    next = vec2(unit(hx), unit(pcg(hx)));
   }
   color = encode(clamp(next, 0.0, 1.0));
 }`;
@@ -196,6 +204,7 @@ uniform vec4 u_view;
 uniform vec2 u_screen;
 uniform float u_res;
 uniform float u_width;
+uniform float u_move;     // device pixels per knot this frame
 uniform float u_gusts;    // 1: the colour follows the gusts
 in vec2 a_corner;         // x: 0 at the tail, 1 at the head; y: -1 or 1 across
 out float v_alpha;
@@ -209,8 +218,10 @@ void main() {
   vec2 pb = b * u_screen;
   vec2 pa = a * u_screen;
   vec4 w = wind(u_view.xy + b * u_view.zw);
-  // A particle that started anew has no tail.
-  if (distance(pa, pb) > 40.0 || w.w < 0.5) pa = pb;
+  // A particle that started anew has no tail: it went further than the wind could take it.
+  // (A fixed limit drew strokes up to that long to every new particle in a calm.)
+  float reach = (length(w.xy) * 1.5 + 2.0) * u_move + 1.0;
+  if (distance(pa, pb) > reach || w.w < 0.5) pa = pb;
   vec2 d = pb - pa;
   float len = length(d);
   vec2 dir = len > 0.001 ? d / len : vec2(1.0, 0.0);
