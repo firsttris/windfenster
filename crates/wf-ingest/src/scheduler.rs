@@ -2,6 +2,7 @@
 //! water gauges every ten, TAFs and DWD measurements every thirty, verification and cleanup
 //! hourly.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,6 +22,23 @@ pub const KEEP_OTHERS_S: i64 = 11 * 86_400;
 pub const OPENED_WITHIN_S: i64 = 30 * 86_400;
 /// The reports' text is kept for 2 days; it is only shown for the latest.
 pub const KEEP_RAW_S: i64 = 2 * 86_400;
+
+/// The longest a step may take before the loop gives it up and goes on: one source that hangs
+/// (each request may take a minute, a step makes many) would otherwise hold up the others: no
+/// METARs, no new runs, no live values for the alarms while the DWD does not answer.
+const STATION_LISTS: Duration = Duration::from_secs(900);
+const QUICK: Duration = Duration::from_secs(120);
+const PER_STATION: Duration = Duration::from_secs(300);
+const REFRESH: Duration = Duration::from_secs(600);
+
+/// Runs `step` for at most `limit`; a step given up on is logged and left for its next turn.
+async fn bounded<T>(name: &str, limit: Duration, step: impl Future<Output = T>) -> Option<T> {
+    let out = tokio::time::timeout(limit, step).await.ok();
+    if out.is_none() {
+        tracing::warn!("{name}: gave up after {limit:?}; again next turn");
+    }
+    out
+}
 
 pub struct Scheduler {
     pub db: SqlitePool,
@@ -51,8 +69,8 @@ impl Scheduler {
                 next_import = now + 3_600;
                 match stations::due(&self.db, now).await {
                     Ok(true) => {
-                        if let Err(e) =
-                            stations::import_all(&self.db, &self.http, &self.sources).await
+                        let import = stations::import_all(&self.db, &self.http, &self.sources);
+                        if let Some(Err(e)) = bounded("station lists", STATION_LISTS, import).await
                         {
                             tracing::warn!("{e:#}");
                         }
@@ -76,37 +94,45 @@ impl Scheduler {
             if now >= next_metar {
                 // Less a minute, so a tick that runs a little early does not skip a turn.
                 next_metar = now + 540;
-                match self.measurements.import_metars().await {
-                    Ok(n) => tracing::debug!("stored {n} METARs"),
-                    Err(e) => tracing::warn!("METAR import: {e:#}"),
+                match bounded("METARs", QUICK, self.measurements.import_metars()).await {
+                    Some(Ok(n)) => tracing::debug!("stored {n} METARs"),
+                    Some(Err(e)) => tracing::warn!("METAR import: {e:#}"),
+                    None => {}
                 }
             }
             if now >= next_dwd {
                 next_dwd = now + 1_740;
-                match self.measurements.import_dwd(now - HOT_FOR_S).await {
-                    Ok(n) => tracing::debug!("stored {n} DWD measurements"),
-                    Err(e) => tracing::warn!("DWD measurements: {e:#}"),
+                let dwd = self.measurements.import_dwd(now - HOT_FOR_S);
+                match bounded("DWD measurements", PER_STATION, dwd).await {
+                    Some(Ok(n)) => tracing::debug!("stored {n} DWD measurements"),
+                    Some(Err(e)) => tracing::warn!("DWD measurements: {e:#}"),
+                    None => {}
                 }
             }
             if now >= next_taf {
                 next_taf = now + 1_740;
-                match self.measurements.import_tafs(now - HOT_FOR_S).await {
-                    Ok(n) => tracing::debug!("stored {n} TAFs"),
-                    Err(e) => tracing::warn!("TAFs: {e:#}"),
+                let tafs = self.measurements.import_tafs(now - HOT_FOR_S);
+                match bounded("TAFs", PER_STATION, tafs).await {
+                    Some(Ok(n)) => tracing::debug!("stored {n} TAFs"),
+                    Some(Err(e)) => tracing::warn!("TAFs: {e:#}"),
+                    None => {}
                 }
             }
             if now >= next_gauges {
                 // PEGELONLINE publishes every 15 minutes; every other tick.
                 next_gauges = now + 540;
-                match self.measurements.import_gauges().await {
-                    Ok(n) => tracing::debug!("stored {n} gauges"),
-                    Err(e) => tracing::warn!("gauges: {e:#}"),
+                match bounded("gauges", QUICK, self.measurements.import_gauges()).await {
+                    Some(Ok(n)) => tracing::debug!("stored {n} gauges"),
+                    Some(Err(e)) => tracing::warn!("gauges: {e:#}"),
+                    None => {}
                 }
             }
-            if let Err(e) = self.forecasts.detect_runs(now).await {
+            let runs = self.forecasts.detect_runs(now);
+            if let Some(Err(e)) = bounded("run detection", QUICK, runs).await {
                 tracing::error!("run detection: {e}");
             }
-            if let Err(e) = self.forecasts.refresh(now).await {
+            let refresh = self.forecasts.refresh(now);
+            if let Some(Err(e)) = bounded("refresh", REFRESH, refresh).await {
                 tracing::error!("refresh: {e:#}");
             }
             if now >= next_purge {
@@ -145,5 +171,18 @@ impl Scheduler {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn gives_up_a_step_that_hangs_and_keeps_one_that_answers() {
+        let hangs = std::future::pending::<u32>();
+        let short = Duration::from_millis(20);
+        assert_eq!(bounded("hangs", short, hangs).await, None);
+        assert_eq!(bounded("answers", QUICK, async { 7 }).await, Some(7));
     }
 }
