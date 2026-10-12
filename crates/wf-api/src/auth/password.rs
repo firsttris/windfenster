@@ -68,7 +68,13 @@ fn strong_enough(p: &str) -> Result<(), ApiError> {
     }
 }
 
+/// At most this many Argon2 hashes at once, each some 19 MiB and a core for a moment: a flood of
+/// sign-ins with made-up addresses (the failure limit counts per address) waits in line instead
+/// of taking every core and gigabytes of memory.
+static HASHING: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+
 async fn hash(password: String) -> Result<String, ApiError> {
+    let _turn = HASHING.acquire().await.map_err(ApiError::internal)?;
     tokio::task::spawn_blocking(move || {
         let salt = SaltString::encode_b64(&random::<16>()).expect("16 bytes of salt");
         Argon2::default()
@@ -89,6 +95,7 @@ async fn verify(password: String, stored: Option<String>) -> Result<bool, ApiErr
             .map(|h| h.to_string())
             .expect("hashing a constant")
     });
+    let _turn = HASHING.acquire().await.map_err(ApiError::internal)?;
     tokio::task::spawn_blocking(move || {
         let known = stored.is_some();
         let phc = stored.unwrap_or_else(|| STAND_IN.clone());
