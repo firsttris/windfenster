@@ -66,8 +66,9 @@ pub async fn verify_day(db: &SqlitePool, day0: i64) -> Result<usize, LoadError> 
                 }
             }
         }
+        // As for the runs: only hours after the TAF was fetched
         for t in &tafs {
-            for &(at, ow, od) in &hours {
+            for &(at, ow, od) in hours.iter().filter(|h| h.0 >= t.fetched_at) {
                 if let Some(b) = bucket(at - t.issued_at)
                     && let Some(h) = t.hours.iter().find(|h| h.at == at)
                     && let Some(fc) = h.wind
@@ -207,8 +208,34 @@ mod tests {
             };
             forecast::store_series(&db, p, model, run.id, &data, day0).await?;
         }
+        // A TAF issued at 00 UTC saying 11 kn all day, fetched at 09:30: only 10 UTC counts
+        let base = taf::TafGroup {
+            change: taf::TafChange::Base,
+            probability: None,
+            from: day0,
+            to: day0 + 86_400,
+            by: None,
+            dir: Some(230.0),
+            variable: false,
+            wind: Some(11.0),
+            gust: None,
+            visibility_m: None,
+            weather: None,
+            clouds: vec![],
+        };
+        let t = taf::Taf::new(
+            day0,
+            day0,
+            day0 + 86_400,
+            String::new(),
+            vec![base],
+            day0 + 9 * 3_600 + 1_800,
+        );
+        taf::store(&db, &[(id, t)]).await?;
         assert_eq!(verify_day(&db, day0).await?, 1);
         let s = scores(&db, id, 20261011, 20261011).await?;
+        let taf_score = s.iter().find(|x| x.model == TAF && x.bucket == 0).unwrap();
+        assert_eq!((taf_score.errors.n, taf_score.errors.mae()), (1, Some(1.0)));
         let mae = |m: &str| {
             s.iter()
                 .find(|x| x.model == m && x.bucket == 0)
