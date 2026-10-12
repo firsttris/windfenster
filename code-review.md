@@ -163,13 +163,13 @@ gegen Aufwand und Risiko)? Kein neuer Cache, wo sich Daten ändern können.
 
 | # | Stimmt? | Lohnt sich? | Begründung |
 |---|---|---|---|
-| 2.6 | ja | **ja** | Ein einmaliger Aussetzer kostet 10 Tage ohne das Modell am Ort. Fix: „leer“ gilt einen Tag, dann einmal neu fragen; kostet höchstens eine Modell-Abfrage pro Ort und Tag mehr. |
-| 3.7 | ja | **ja** (nur Live-Kachel) | Der erste Besucher einer veralteten Station wartet bis zu 2 min, wenn ein Dienst hängt. Fix: 15 s Grenze für den Abruf im Request; der Scheduler holt den Rest. Verlauf-Nachladen bleibt (große Dateien). |
-| 3.6 | ja | **ja** (öffentliche Instanz geplant) | Viele parallele Passwort-Anmeldungen belegen CPU und je 19 MiB. Fix: höchstens 4 gleichzeitige Hashes. |
-| 2.4 | ja | **ja** | Eine Zeile, macht die TAF-Wertung konsistent mit der eigenen Regel (nur Stunden nach dem Abruf). |
-| 2.7 | ja | **ja** | Zwei Zellen „14“ in verschiedenen Farben sehen nach Fehler aus. Fix: Farbe nach dem gerundeten Wert, zentral in `windBand`. |
-| 2.2 | ja | **ja** | Selten (Südhalbkugel, genau .xx5), aber eine Zeile: gleich runden wie der Server. |
-| 2.9 | ja | **ja** | Eine Zeile Schutz gegen Division durch null. |
+| 2.6 | ja | **ja, behoben** | Ein einmaliger Aussetzer kostet 10 Tage ohne das Modell am Ort. Fix: „leer“ gilt einen Tag, dann einmal neu fragen; kostet höchstens eine Modell-Abfrage pro Ort und Tag mehr. |
+| 3.7 | ja | **ja, behoben** (nur Live-Kachel) | Der erste Besucher einer veralteten Station wartet bis zu 2 min, wenn ein Dienst hängt. Fix: 15 s Grenze für den Abruf im Request; der Scheduler holt den Rest. Verlauf-Nachladen bleibt (große Dateien). |
+| 3.6 | ja | **ja, behoben** (öffentliche Instanz geplant) | Viele parallele Passwort-Anmeldungen belegen CPU und je 19 MiB. Fix: höchstens 4 gleichzeitige Hashes. |
+| 2.4 | ja | **ja, behoben** | Eine Zeile, macht die TAF-Wertung konsistent mit der eigenen Regel (nur Stunden nach dem Abruf). |
+| 2.7 | ja | **ja, behoben** | Zwei Zellen „14“ in verschiedenen Farben sehen nach Fehler aus. Fix: Farbe nach dem gerundeten Wert, zentral in `windBand`. |
+| 2.2 | ja | **ja, behoben** | Selten (Südhalbkugel, genau .xx5), aber eine Zeile: gleich runden wie der Server. |
+| 2.9 | ja | **ja, behoben** | Eine Zeile Schutz gegen Division durch null. |
 | 1.4 | ja | später, **Entscheidung** | 3 GB für ICON global sind auf einem Pi viel; `WF_ICON_GLOBAL=false` hilft schon heute. Ein anderes Speicherformat ist ein größerer Umbau. |
 | 3.9 | ja | später, **Entscheidung** | Spürbar nur für den ersten Besuch (Bundle wird live komprimiert, auf dem Pi 1–2 s). Fix braucht Vorkomprimieren im Build oder beim Start. |
 | 3.13 | ja | nein, vorerst | Betrifft nur eine offene Karte genau beim jährlichen Erneuern des Reliefs; Neuladen behebt es. |
