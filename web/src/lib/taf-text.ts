@@ -96,6 +96,19 @@ export function groupWhat(g: TafGroup, ctx: Context, prev: TafGroup | null = nul
   return parts.join(', ') || '–';
 }
 
+/** The change groups that touch a span (Unix seconds, `to` exclusive), each with the prevailing
+ * group before it: what a day's numbers do not show (showers, a temporary gust, a change). */
+export function groupsBetween(
+  groups: readonly TafGroup[],
+  from: number,
+  to: number,
+): { group: TafGroup; prev: TafGroup | null }[] {
+  const prev = prevailingBefore(groups);
+  return groups.flatMap((g, i) =>
+    g.change !== 'base' && g.from < to && g.to > from ? [{ group: g, prev: prev[i] }] : [],
+  );
+}
+
 /** The TAF's value for an hour (Unix seconds on the hour). */
 export function tafHour(taf: Taf, at: number): TafHour | null {
   return taf.hours.find((h) => h.at === at) ?? null;

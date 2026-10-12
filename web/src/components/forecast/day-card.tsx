@@ -7,7 +7,7 @@ import { barShare, type Cell, type Day, isNight } from '@/lib/forecast';
 import { compass, dayMonth, formatNumber, hour, weekday } from '@/lib/format';
 import { gearFor } from '@/lib/gear';
 import type { Measured } from '@/lib/observations';
-import { tafHour } from '@/lib/taf-text';
+import { groupsBetween, groupWhat, groupWhen, tafHour } from '@/lib/taf-text';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
@@ -220,6 +220,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
           </tbody>
         </table>
       </div>
+      {showTaf && taf && <TafNotes fc={fc} day={day} taf={taf} unit={unit} now={now} />}
     </section>
   );
 }
@@ -253,6 +254,29 @@ function GustCap({ kn, unit }: { kn: number; unit: WindUnit }) {
     >
       {formatWind(kn, unit)}
     </span>
+  );
+}
+
+/** What the TAF says for the day beyond its numbers, in sentences: showers, a temporary gust, a
+ * change of wind */
+function TafNotes({ fc, day, taf, unit, now }: { fc: Forecast; day: Day; taf: Taf; unit: WindUnit; now: number }) {
+  const step = day.stage === 'hourly' ? 3_600 : 3 * 3_600;
+  const from = day.cells[0]?.time ?? 0;
+  const notes = groupsBetween(taf.groups, from, (day.cells.at(-1)?.time ?? from) + step);
+  if (notes.length === 0) return null;
+  const timeZone = fc.timezone ?? 'UTC';
+  const ctx = { unit, at: taf.issuedAt, timeZone };
+  return (
+    <dl className="m-0 mx-4 mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-line border-t pt-2 text-[12px]">
+      {notes.map(({ group, prev }) => (
+        <div key={`${group.change}-${group.from}`} className="contents">
+          <dt className="font-mono text-[11px] text-muted-foreground">
+            {m.taf_row()} · {groupWhen(group, now, timeZone)}
+          </dt>
+          <dd className="m-0 min-w-0 first-letter:uppercase">{groupWhat(group, ctx, prev)}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

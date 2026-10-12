@@ -3,6 +3,7 @@
  * agree, and for a saved spot the hours that work there. A day leads to its card. */
 import type { Forecast } from '@/bindings/Forecast';
 import type { WindUnit } from '@/bindings/WindUnit';
+import { dayAgreement } from '@/lib/agreement';
 import type { DayGlance } from '@/lib/day-glance';
 import { barShare, type Day } from '@/lib/forecast';
 import { compass, dayMonth, weekday } from '@/lib/format';
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
-import { AgreementDot } from './shared';
+import { AGREE_DOT, AGREE_LABEL } from './shared';
 
 interface Props {
   fc: Forecast;
@@ -115,8 +116,8 @@ function DayButton({ fc, day, glance: g, unit }: { fc: Forecast; day?: Day; glan
             <span className="font-mono text-[10px] text-muted-foreground">{compass(g.main)}</span>
           </span>
         )}
-        {day && <AgreementDot fc={fc} day={day} />}
       </span>
+      {day && <Agreement fc={fc} day={day} />}
       {g.max !== null && band && (
         <span
           className="self-start rounded-[5px] px-1.5 py-0.5 font-mono font-semibold text-[11px]"
@@ -127,5 +128,24 @@ function DayButton({ fc, day, glance: g, unit }: { fc: Forecast; day?: Day; glan
       )}
       {g.works && <span className="sr-only">{m.glance_dayWorks()}</span>}
     </button>
+  );
+}
+
+/** How far the models agree on the day: a dot and a word */
+function Agreement({ fc, day }: { fc: Forecast; day: Day }) {
+  const a = dayAgreement(
+    fc,
+    day.cells.map((c) => c.time),
+  );
+  if (!a) return null;
+  return (
+    <span
+      className="flex items-center gap-1 text-[10px] text-muted-foreground"
+      title={m.agree_day({ level: AGREE_LABEL[a.level]() })}
+    >
+      <span className={cn('size-1.5 shrink-0 rounded-full', AGREE_DOT[a.level])} aria-hidden="true" />
+      <span className="sr-only">{m.glance_agree()}</span>
+      {AGREE_LABEL[a.level]()}
+    </span>
   );
 }

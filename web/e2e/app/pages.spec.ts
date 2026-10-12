@@ -82,12 +82,29 @@ test("tomorrow's table shows the chosen model hour by hour: wind, the gust under
   await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
 });
 
-test('measured values and the TAF stand under the forecast, to compare', async ({ page }) => {
+test('measured values and the TAF stand under the forecast, to compare', async ({ page, request }) => {
   await page.goto('/station/edsb');
   const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
-  await expect(today.getByRole('rowheader', { name: /Gemessen/ })).toBeVisible();
-  await expect(page.getByRole('rowheader', { name: /TAF/ }).first()).toBeVisible();
   await expect(today.getByText('Zum Vergleich')).toBeVisible();
+  const row = (name: RegExp) =>
+    today
+      .getByRole('row')
+      .filter({ has: page.getByRole('rowheader', { name }) })
+      .getByRole('cell');
+  // Measured: the hours that are over show values the station reported
+  const live = await (await request.get('/api/stations/edsb/live')).json();
+  const reported = new Set(live.observations.map((o: { wind: number }) => String(Math.round(o.wind))));
+  const measured = (await row(/Gemessen/).allInnerTexts()).map((t) => t.split('/')[0].trim()).filter(Boolean);
+  expect(measured.filter((t) => /^\d+$/.test(t)).length).toBeGreaterThan(0);
+  for (const t of measured.filter((t) => /^\d+$/.test(t))) expect(reported, `measured ${t}`).toContain(t);
+  // TAF: the prevailing 12 kn, the span TEMPO allows up to 18 kn
+  const taf = (await row(/^TAF/).allInnerTexts()).map((t) => t.trim());
+  expect(taf).toContain('12–18');
+  // and what the numbers do not show, in words: the TEMPO's showers
+  const notes = page.locator('section[id^="day-"]').getByText(/^TAF · zeitw\./);
+  await expect(notes.first()).toBeVisible();
+  const card = page.locator('section[id^="day-"]').filter({ has: page.getByText(/^TAF · zeitw\./) }).first();
+  await expect(card).toContainText(/Schauer/);
 });
 
 test('the quick view shows all ten days and leads to each one', async ({ page }) => {
@@ -98,6 +115,8 @@ test('the quick view shows all ten days and leads to each one', async ({ page })
   // Each day its strongest wind; without a saved spot no hours are marked
   await expect(days.first()).toContainText(/max \d+ kn/);
   await expect(glance).toContainText('Strich = Böe');
+  // How far the models agree, in a word
+  await expect(days.first()).toContainText(/Hoch|Mittel|Gering/);
   // A day leads to its card
   const sixth = days.nth(5).getByRole('button');
   const title = (await sixth.getAttribute('title'))?.replace(/^Zu (\S+), .* springen$/, '$1') ?? '';

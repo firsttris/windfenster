@@ -526,5 +526,6 @@
   "glance_works": "Grün: Stunden, die bei {spot} gehen",
   "glance_jump": "Zu {day} springen",
   "glance_max": "max {wind} {unit}",
-  "glance_dayWorks": "An diesem Tag gehen Stunden an deinem Spot."
+  "glance_dayWorks": "An diesem Tag gehen Stunden an deinem Spot.",
+  "glance_agree": "Einigkeit der Modelle:"
 }

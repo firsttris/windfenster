@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TafGroup } from '@/bindings/TafGroup';
-import { groupWhat, groupWhen, prevailingBefore } from './taf-text';
+import { groupsBetween, groupWhat, groupWhen, prevailingBefore } from './taf-text';
 
 // TAF EDSB 110500Z 1106/1206 22007KT CAVOK BECMG 1117/1120 VRB03KT, as aviationweather.gov
 // decodes it (2026-10-11); station time Europe/Berlin.
@@ -72,5 +72,13 @@ describe('TAF groups in words', () => {
     // After rain, NSW says it stops.
     const dry: TafGroup = { ...base, change: 'becoming', wind: null, weather: 'NSW', clouds: [] };
     expect(groupWhat(dry, ctx, { ...base, weather: 'RA' })).toBe('kein nennenswertes Wetter');
+  });
+
+  it('pick the change groups that touch a day, each with the group it changes', () => {
+    // The day the BECMG starts in: the BECMG, after the base
+    const hit = groupsBetween([base, becmg], T0 + 10 * H, T0 + 13 * H);
+    expect(hit).toEqual([{ group: becmg, prev: base }]);
+    // Before it nothing changes: the base alone is in the numbers already
+    expect(groupsBetween([base, becmg], T0, T0 + 11 * H)).toEqual([]);
   });
 });
