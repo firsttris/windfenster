@@ -424,8 +424,14 @@ cargo test --workspace     # also writes the TypeScript bindings
 pnpm lint                  # Biome
 pnpm typecheck
 pnpm test
+pnpm e2e                   # the wind map's shaders in Chromium (Playwright)
 pnpm build
 ```
+
+`pnpm e2e` renders the map's shaders on SwiftShader and compares them with what the readout
+under the pointer shows, for wind and gusts across all three models; it needs Playwright's
+Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or another one in
+`PW_CHROMIUM`. CI runs it in the official Playwright image.
 
 ### Layout
 

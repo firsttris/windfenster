@@ -47,6 +47,7 @@ cargo test --workspace
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm e2e        # the wind map's shaders in Chromium; PW_CHROMIUM=… for another Chromium
 pnpm build
 ```
 

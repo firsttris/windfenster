@@ -30,7 +30,7 @@ const layerWind = (name: string, k: string) =>
  * MapLibre's world copies show it and the seam at 180° is sampled across; a regional one is
  * placed on the copy its longitudes fall on. The colour field samples with mipmaps; the
  * particles read the full texture (`SAMPLE`). */
-const WIND = `
+export const WIND = `
 ${layerUniforms('base')}
 ${layerUniforms('mid')}
 ${layerUniforms('detail')}

@@ -6,3 +6,5 @@ node_modules/
 .env
 /.data
 /web/src/paraglide
+/web/test-results
+/web/playwright-report

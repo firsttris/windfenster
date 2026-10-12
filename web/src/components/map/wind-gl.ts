@@ -86,10 +86,13 @@ export function bindWind(
   layers: WindLayers,
   unit: number,
 ) {
+  // Every texture made first: making one binds it to the active unit, which would take another
+  // layer's place there.
+  const made = NAMES.map((name) => [layers[name]?.a, layers[name]?.b].map((f) => textures.get(f)));
   NAMES.forEach((name, k) => {
     const pair = layers[name];
     for (const [i, f] of [pair?.a, pair?.b].entries()) {
-      bindTexture(gl, textures.get(f), unit + k * 2 + i);
+      bindTexture(gl, made[k][i], unit + k * 2 + i);
       gl.uniform1i(p.u[`u_${name}${i}`], unit + k * 2 + i);
       gl.uniform4f(
         p.u[`u_${name}_bounds${i}`],

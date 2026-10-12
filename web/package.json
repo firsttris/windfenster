@@ -9,7 +9,8 @@
     "dev": "pnpm i18n && vite",
     "build": "pnpm i18n && tsc -p . && vite build",
     "typecheck": "pnpm i18n && tsc -p .",
-    "test": "pnpm i18n && vitest run"
+    "test": "pnpm i18n && vitest run",
+    "e2e": "pnpm i18n && playwright test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@inlang/paraglide-js": "^2.27.0",
     "@inlang/plugin-message-format": "^4.5.0",
+    "@playwright/test": "1.64.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.43",
     "@types/node": "^22.20.4",
