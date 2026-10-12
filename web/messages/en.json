@@ -484,7 +484,7 @@
   "sources_attributionList": "Sources and licences",
   "sources_all": "All data sources",
   "sources_openMeteo": "Forecasts of every model on station and place pages, the place search",
-  "sources_dwd": "ICON-D2 and ICON global on the wind map and in alarms, 10-minute measurements and the list of weather stations, ICON-D2 through Open-Meteo",
+  "sources_dwd": "ICON-D2 and ICON global on the wind map and in alarms, 10-minute measurements, the list of weather stations, ten years of hourly values for the wind statistics, ICON-D2 through Open-Meteo",
   "sources_ecmwf": "ECMWF IFS on the wind map worldwide and through Open-Meteo",
   "sources_meteoFrance": "AROME through Open-Meteo",
   "sources_dmi": "HARMONIE through Open-Meteo",
@@ -513,5 +513,6 @@
   "stats_main": "Main direction",
   "stats_calm": "Calm or variable",
   "stats_roseHint": "Wind rose: how often how much wind came from each direction, as a share of all hours; calm in the middle.",
-  "stats_roseLabel": "Wind rose, main direction {main}, calm {calm}"
+  "stats_roseLabel": "Wind rose, main direction {main}, calm {calm}",
+  "sources_iem": "Ten years of airport METARs for the wind statistics"
 }

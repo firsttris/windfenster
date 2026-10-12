@@ -17,7 +17,7 @@ describe('the sources page', () => {
 
   it('has every source the app shows data from', () => {
     const ids = DATA_SOURCES.map((s) => s.id);
-    for (const id of ['open-meteo', 'dwd', 'ecmwf', 'awc', 'pegelonline', 'ourairports', 'osm', 'mapterhorn'])
+    for (const id of ['open-meteo', 'dwd', 'ecmwf', 'awc', 'iem', 'pegelonline', 'ourairports', 'osm', 'mapterhorn'])
       expect(ids).toContain(id);
   });
 });

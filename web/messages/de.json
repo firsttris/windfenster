@@ -484,7 +484,7 @@
   "sources_attributionList": "Quellen und Lizenzen",
   "sources_all": "Alle Datenquellen",
   "sources_openMeteo": "Vorhersagen aller Modelle auf Stations- und Ortsseiten, die Ortssuche",
-  "sources_dwd": "ICON-D2 und ICON global auf der Windkarte und in den Alarmen, 10-Minuten-Messwerte und Liste der Wetterstationen, ICON-D2 über Open-Meteo",
+  "sources_dwd": "ICON-D2 und ICON global auf der Windkarte und in den Alarmen, 10-Minuten-Messwerte, Liste der Wetterstationen, zehn Jahre Stundenwerte für die Windstatistik, ICON-D2 über Open-Meteo",
   "sources_ecmwf": "ECMWF IFS auf der Windkarte weltweit und über Open-Meteo",
   "sources_meteoFrance": "AROME über Open-Meteo",
   "sources_dmi": "HARMONIE über Open-Meteo",
@@ -513,5 +513,6 @@
   "stats_main": "Hauptrichtung",
   "stats_calm": "Flaute oder umlaufend",
   "stats_roseHint": "Windrose: aus welcher Richtung wie oft wie viel Wind kam, als Anteil aller Stunden; innen der Anteil Flaute.",
-  "stats_roseLabel": "Windrose, Hauptrichtung {main}, Flaute {calm}"
+  "stats_roseLabel": "Windrose, Hauptrichtung {main}, Flaute {calm}",
+  "sources_iem": "Zehn Jahre METAR der Flughäfen für die Windstatistik"
 }

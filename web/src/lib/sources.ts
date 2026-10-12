@@ -85,6 +85,15 @@ export const DATA_SOURCES: readonly Source[] = [
     licence: PUBLIC_DOMAIN_US,
   },
   {
+    id: 'iem',
+    name: 'Iowa Environmental Mesonet',
+    url: 'https://mesonet.agron.iastate.edu/',
+    use: m.sources_iem,
+    // mesonet.agron.iastate.edu/disclaimer.php: public domain, a credit appreciated
+    licence: { name: 'Public Domain', url: 'https://mesonet.agron.iastate.edu/disclaimer.php' },
+    credit: 'Iowa Environmental Mesonet of Iowa State University',
+  },
+  {
     id: 'pegelonline',
     name: 'PEGELONLINE (WSV)',
     url: 'https://www.pegelonline.wsv.de/',
