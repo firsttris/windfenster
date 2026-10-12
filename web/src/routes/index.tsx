@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
+import { FavoriteList } from '@/components/favorite-list';
 import { Page } from '@/components/page';
 import { SearchButton } from '@/components/search';
 import { useTitle } from '@/lib/use-title';
@@ -30,6 +31,7 @@ function Home() {
         <p className="m-0 max-w-2xl text-lg text-subtle leading-relaxed">{m.home_lead()}</p>
         <SearchButton large className="max-w-2xl" />
       </section>
+      <FavoriteList />
       <section aria-labelledby="examples" className="flex flex-col gap-3">
         <h2 id="examples" className="m-0 font-medium text-[13px] text-muted-foreground">
           {m.home_examples()}

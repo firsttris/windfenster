@@ -381,5 +381,21 @@
   "account_passwordNone": "Bisher meldest du dich nur mit Passkey an. Mit E-Mail und Passwort kommst du auch ohne Passkey ins Konto.",
   "account_current": "Jetziges Passwort",
   "account_newPassword": "Neues Passwort",
-  "account_setPassword": "Passwort speichern"
+  "account_setPassword": "Passwort speichern",
+  "favorite_add": "Als Spot merken",
+  "favorite_saved": "Gemerkt",
+  "favorite_title": "Dein Spot",
+  "favorite_lead": "Gib ihm einen eigenen Namen und sag, bei welchen Windrichtungen es hier geht.",
+  "favorite_name": "Name",
+  "favorite_directions": "Windrichtungen, die hier gehen",
+  "favorite_anyDirection": "Jede Richtung geht",
+  "favorite_from": "Von",
+  "favorite_to": "Bis (im Uhrzeigersinn)",
+  "favorite_sectorText": "Wind aus {from} bis {to}",
+  "favorite_remove": "Nicht mehr merken",
+  "favorite_save": "Speichern",
+  "home_favorites": "Deine Spots",
+  "home_favoritesEdit": "Bearbeiten",
+  "home_station": "Station",
+  "home_point": "Punkt"
 }

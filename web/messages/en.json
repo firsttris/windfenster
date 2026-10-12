@@ -381,5 +381,21 @@
   "account_passwordNone": "So far you sign in with a passkey only. With e-mail and password you get in without a passkey too.",
   "account_current": "Current password",
   "account_newPassword": "New password",
-  "account_setPassword": "Save password"
+  "account_setPassword": "Save password",
+  "favorite_add": "Save as spot",
+  "favorite_saved": "Saved",
+  "favorite_title": "Your spot",
+  "favorite_lead": "Give it a name of your own and say which wind directions work here.",
+  "favorite_name": "Name",
+  "favorite_directions": "Wind directions that work here",
+  "favorite_anyDirection": "Any direction works",
+  "favorite_from": "From",
+  "favorite_to": "To (clockwise)",
+  "favorite_sectorText": "Wind from {from} to {to}",
+  "favorite_remove": "Forget this spot",
+  "favorite_save": "Save",
+  "home_favorites": "Your spots",
+  "home_favoritesEdit": "Edit",
+  "home_station": "Station",
+  "home_point": "Point"
 }

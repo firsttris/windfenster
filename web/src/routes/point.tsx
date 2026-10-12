@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
+import { FavoriteButton } from '@/components/favorite';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { Failed, Loading, Page } from '@/components/page';
 import { WaterTile } from '@/components/water-tile';
@@ -43,7 +44,10 @@ function PointPage() {
   return (
     <Page>
       <section className="flex flex-col gap-2.5">
-        <h1 className="m-0 font-bold text-[40px] leading-none tracking-[-0.05em] sm:text-6xl">{title}</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="m-0 font-bold text-[40px] leading-none tracking-[-0.05em] sm:text-6xl">{title}</h1>
+          <FavoriteButton target={{ lat, lon }} lat={lat} lon={lon} name={title} />
+        </div>
         <p className="m-0 font-mono text-muted-foreground text-[13px]">{coordinates(lat, lon)}</p>
         {nearest && (
           <Link

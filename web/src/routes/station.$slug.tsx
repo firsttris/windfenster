@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { FavoriteButton } from '@/components/favorite';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { HistoryCard } from '@/components/live/history-card';
 import { LiveTile } from '@/components/live/live-tile';
@@ -42,12 +43,15 @@ function StationPage() {
           ))}
           <Badge className={place.length ? 'ml-1.5' : ''}>{SOURCE[st.source]()}</Badge>
         </div>
-        <h1 className="m-0 font-bold text-[40px] leading-none tracking-[-0.05em] sm:text-6xl">
-          {st.name}{' '}
-          <span className="whitespace-nowrap font-mono font-semibold text-muted-foreground text-xl tracking-normal sm:text-[28px]">
-            {st.code}
-          </span>
-        </h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="m-0 font-bold text-[40px] leading-none tracking-[-0.05em] sm:text-6xl">
+            {st.name}{' '}
+            <span className="whitespace-nowrap font-mono font-semibold text-muted-foreground text-xl tracking-normal sm:text-[28px]">
+              {st.code}
+            </span>
+          </h1>
+          <FavoriteButton target={{ slug: st.slug }} lat={st.lat} lon={st.lon} name={st.municipality ?? st.name} />
+        </div>
         <p className="m-0 font-mono text-muted-foreground text-[13px]">
           {coordinates(st.lat, st.lon)}
           {st.elevationM !== null && ` · ${formatNumber(st.elevationM)} m`}
