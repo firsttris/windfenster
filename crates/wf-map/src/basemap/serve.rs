@@ -7,10 +7,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
 use pmtiles::{
-    AsyncBackend, AsyncPmTilesReader, BackendResponse, Compression, PmtResult, TileCoord,
+    AsyncBackend, AsyncPmTilesReader, BackendResponse, Compression, HashMapCache, PmtResult,
+    TileCoord,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
@@ -29,7 +30,13 @@ impl AsyncBackend for File {
     }
 }
 
-type Reader = AsyncPmTilesReader<File>;
+/// With its directories cached: a tile is one read then, not a leaf directory read and
+/// unpacked every time (Protomaps' leaves are tens to hundreds of KB).
+type Reader = AsyncPmTilesReader<File, HashMapCache>;
+
+/// How long the list of spot files and a file's modification time are trusted before the disk
+/// is asked again: a map pan asks for 20 to 40 tiles, each up to 7 levels deep.
+const RECHECK: Duration = Duration::from_secs(10);
 
 /// Deepest tile served; the map enlarges it from there (as it does past a source's maxzoom).
 const MAX_ZOOM: u8 = 16;
@@ -52,28 +59,72 @@ fn encoding(c: Compression) -> Option<&'static str> {
     }
 }
 
-/// Open readers, one per file and modification time, so a replaced file is read anew.
+/// Open readers, one per file and modification time, so a replaced file is read anew; and the
+/// spot files on disk. Both checked against the disk at most every `RECHECK`.
 #[derive(Default)]
-pub struct Readers(Mutex<HashMap<PathBuf, (SystemTime, Arc<Reader>)>>);
+pub struct Readers {
+    files: Mutex<HashMap<PathBuf, Open>>,
+    spots: Mutex<Option<(Instant, SpotList)>>,
+}
+
+/// The spot files on disk with their modification times, newest first
+type SpotList = Arc<Vec<(Spot, SystemTime)>>;
+
+struct Open {
+    modified: SystemTime,
+    checked: Instant,
+    reader: Arc<Reader>,
+}
 
 impl Readers {
     async fn get(&self, path: &Path) -> Option<Arc<Reader>> {
-        let modified = tokio::fs::metadata(path).await.ok()?.modified().ok()?;
-        if let Some((t, r)) = self.0.lock().expect("readers").get(path)
-            && *t == modified
+        if let Some(open) = self.files.lock().expect("readers").get(path)
+            && open.checked.elapsed() < RECHECK
         {
-            return Some(r.clone());
+            return Some(open.reader.clone());
+        }
+        let modified = tokio::fs::metadata(path).await.ok()?.modified().ok()?;
+        if let Some(open) = self.files.lock().expect("readers").get_mut(path)
+            && open.modified == modified
+        {
+            open.checked = Instant::now();
+            return Some(open.reader.clone());
         }
         let reader = Arc::new(
-            AsyncPmTilesReader::try_from_source(File(path.to_path_buf()))
-                .await
-                .ok()?,
+            AsyncPmTilesReader::try_from_cached_source(
+                File(path.to_path_buf()),
+                HashMapCache::default(),
+            )
+            .await
+            .ok()?,
         );
-        self.0
+        let open = Open {
+            modified,
+            checked: Instant::now(),
+            reader: reader.clone(),
+        };
+        self.files
             .lock()
             .expect("readers")
-            .insert(path.to_path_buf(), (modified, reader.clone()));
+            .insert(path.to_path_buf(), open);
         Some(reader)
+    }
+
+    /// The spot files on disk, listed at most every `RECHECK`.
+    async fn spots(&self, root: &Path) -> SpotList {
+        if let Some((at, list)) = self.spots.lock().expect("spots").as_ref()
+            && at.elapsed() < RECHECK
+        {
+            return list.clone();
+        }
+        let list = Arc::new(spots::on_disk(root).await);
+        *self.spots.lock().expect("spots") = Some((Instant::now(), list.clone()));
+        list
+    }
+
+    /// Spots were made or removed: list them again on the next tile.
+    pub fn forget_spots(&self) {
+        *self.spots.lock().expect("spots") = None;
     }
 
     /// The tile from the spot that holds it, else from the main archive; past what they hold,
@@ -84,7 +135,7 @@ impl Readers {
             return None;
         }
         TileCoord::new(z, x, y).ok()?;
-        let spots = spots::on_disk(root).await;
+        let spots = self.spots(root).await;
         for dz in 0..=z {
             let (az, ax, ay) = (z - dz, x >> dz, y >> dz);
             let coord = TileCoord::new(az, ax, ay).ok()?;

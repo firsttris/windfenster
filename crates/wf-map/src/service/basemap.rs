@@ -128,6 +128,7 @@ impl MapData {
         // Just past the world's zoom: in the region the main file has those too, elsewhere only
         // the spot
         let from_zoom = cut.world_zoom + 1;
+        let missing_is_empty = missing.is_empty();
         for spot in missing {
             let n = spots::make(
                 &self.root,
@@ -147,8 +148,12 @@ impl MapData {
         for spot in touch {
             spots::touch(&self.root, spot).await?;
         }
+        let changed = !missing_is_empty || !remove.is_empty();
         for spot in remove {
             tokio::fs::remove_file(spots::path(&self.root, spot)).await?;
+        }
+        if changed {
+            self.readers.forget_spots();
         }
         Ok(())
     }
