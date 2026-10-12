@@ -397,5 +397,9 @@
   "home_favorites": "Deine Spots",
   "home_favoritesEdit": "Bearbeiten",
   "home_station": "Station",
-  "home_point": "Punkt"
+  "home_point": "Punkt",
+  "spot_gusts": "Böen {gust}",
+  "spot_measured": "gemessen {ago}",
+  "spot_strongest": "Am stärksten:",
+  "spot_from": "aus {dir}"
 }

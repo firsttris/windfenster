@@ -1,14 +1,13 @@
-/** The signed-in user's spots on the start page: each opens its station or point page; the pen
- * opens its settings. Nothing without an account or spots. */
+/** The signed-in user's spots on the start page, each as a card at a glance (spot-card.tsx)
+ * leading to its page; the pen opens its settings. Nothing without an account or spots. */
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { Pencil, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useState } from 'react';
 import type { Favorite } from '@/bindings/Favorite';
 import { favoritesQuery, meQuery } from '@/lib/api';
-import { compass, coordinates } from '@/lib/format';
 import { m } from '@/paraglide/messages';
 import { FavoriteDialog } from './favorite';
+import { SpotCard } from './spot-card';
 
 export function FavoriteList() {
   const me = useQuery(meQuery);
@@ -21,33 +20,10 @@ export function FavoriteList() {
         <Star aria-hidden="true" className="size-3.5 fill-current text-amber-500" />
         {m.home_favorites()}
       </h2>
-      <ul className="m-0 grid list-none gap-3 p-0 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
+      <ul className="m-0 grid list-none gap-3 p-0 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
         {favorites.data.map((f) => (
-          <li key={f.id} className="relative">
-            <Link
-              {...(f.slug
-                ? { to: '/station/$slug', params: { slug: f.slug } }
-                : { to: '/point', search: { lat: f.lat, lon: f.lon, name: f.name } })}
-              className="flex h-full flex-col gap-1 rounded-xl border bg-card p-4 pr-12 text-foreground no-underline transition-colors hover:border-border-strong"
-            >
-              <span className="truncate font-bold text-lg tracking-[-0.03em]">{f.name}</span>
-              <span className="font-mono text-muted-foreground text-xs">
-                {f.slug ? `${m.home_station()} ${f.slug.toUpperCase()}` : coordinates(f.lat, f.lon)}
-              </span>
-              {f.sector && (
-                <span className="text-muted-foreground text-xs">
-                  {m.favorite_sectorText({ from: compass(f.sector.from), to: compass(f.sector.to) })}
-                </span>
-              )}
-            </Link>
-            <button
-              type="button"
-              aria-label={`${m.home_favoritesEdit()}: ${f.name}`}
-              onClick={() => setEditing(f)}
-              className="absolute top-3 right-3 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-            >
-              <Pencil aria-hidden="true" className="size-4" />
-            </button>
+          <li key={f.id}>
+            <SpotCard favorite={f} onEdit={() => setEditing(f)} />
           </li>
         ))}
       </ul>

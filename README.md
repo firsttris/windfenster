@@ -236,7 +236,10 @@ by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain lat
 useless, so set it before the first sign-up. A session is a random token in an HTTP-only cookie
 (half a year, renewed while used; only its SHA-256 is stored). Signed in, a user keeps up to 100
 favourites: stations or points, each with an own name and optionally the wind directions that
-work there.
+work there. The start page shows each
+spot at a glance, with nothing to set: the wind measured there now (stations), the coming days as
+one band in the wind scale's colours from the map's data (hours from directions that do not work
+there faded) and the strongest hour.
 
 API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signup/password`,
 `POST /api/auth/signin/password`, `PUT /api/me/password`, `POST /api/auth/signin` and

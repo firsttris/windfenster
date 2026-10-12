@@ -397,5 +397,9 @@
   "home_favorites": "Your spots",
   "home_favoritesEdit": "Edit",
   "home_station": "Station",
-  "home_point": "Point"
+  "home_point": "Point",
+  "spot_gusts": "gusts {gust}",
+  "spot_measured": "measured {ago}",
+  "spot_strongest": "Strongest:",
+  "spot_from": "from {dir}"
 }
