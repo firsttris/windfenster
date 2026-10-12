@@ -103,7 +103,10 @@ test('measured values and the TAF stand under the forecast, to compare', async (
   // and what the numbers do not show, in words: the TEMPO's showers
   const notes = page.locator('section[id^="day-"]').getByText(/^TAF · zeitw\./);
   await expect(notes.first()).toBeVisible();
-  const card = page.locator('section[id^="day-"]').filter({ has: page.getByText(/^TAF · zeitw\./) }).first();
+  const card = page
+    .locator('section[id^="day-"]')
+    .filter({ has: page.getByText(/^TAF · zeitw\./) })
+    .first();
   await expect(card).toContainText(/Schauer/);
 });
 
