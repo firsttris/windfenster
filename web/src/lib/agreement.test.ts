@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Forecast } from '@/bindings/Forecast';
 import type { ModelSeries } from '@/bindings/ModelSeries';
-import { bestTime, dayAgreement, levelOf, spreadAt } from './agreement';
+import { bestTime, dayAgreement, levelOf, spreadAt, stripTop } from './agreement';
 
 const MIDNIGHT = 1_791_669_600; // 2026-10-11 00:00 in Berlin
 const H = 3600;
@@ -52,5 +52,14 @@ describe('agreement', () => {
       [9, 12, 15, 18].map((h) => MIDNIGHT + h * H),
     );
     expect(day).toMatchObject({ time: MIDNIGHT + 15 * H, spread: 15, level: 'low' });
+  });
+});
+
+describe('the agreement strip', () => {
+  it('reaches 30 kn, further when a model says more', () => {
+    expect(stripTop([8, 12])).toBe(30);
+    expect(stripTop([30])).toBe(30);
+    expect(stripTop([36, 44, 46])).toBe(50);
+    expect(stripTop([])).toBe(30);
   });
 });

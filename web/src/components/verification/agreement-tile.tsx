@@ -1,6 +1,6 @@
 import type { Forecast } from '@/bindings/Forecast';
 import { AGREE_LABEL, modelColor, modelName } from '@/components/forecast/shared';
-import { bestTime, spreadAt } from '@/lib/agreement';
+import { bestTime, spreadAt, stripTop } from '@/lib/agreement';
 import { localClock } from '@/lib/forecast';
 import { intlLocale } from '@/lib/i18n';
 import { useUnit } from '@/lib/prefs';
@@ -11,10 +11,8 @@ import { m } from '@/paraglide/messages';
 import { Card, CardHeader, CardMeta, CardTitle } from '@/ui/card';
 
 const TEXT = { high: 'text-agree-high', medium: 'text-agree-medium', low: 'text-agree-low' } as const;
-/** The scale of the strip, kn */
-const SCALE_KN = 30;
-
-/** Do the models agree at the best time ahead? Their spread, and each model on a 0–30 kn strip. */
+/** Do the models agree at the best time ahead? Their spread, and each model on a strip from 0 to
+ * 30 kn, or further in a storm. */
 export function AgreementTile({ fc }: { fc: Forecast }) {
   const [unit] = useUnit();
   const now = useNow();
@@ -30,7 +28,8 @@ export function AgreementTile({ fc }: { fc: Forecast }) {
         : new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', timeZone: tz }).format(new Date(time * 1000));
     return `${day} ${String(clock(time).hour).padStart(2, '0')}:00`;
   })();
-  const pct = (kn: number) => `${Math.min(100, (kn / SCALE_KN) * 100).toFixed(1)}%`;
+  const top = stripTop(s?.values.map((v) => v.wind) ?? []);
+  const pct = (kn: number) => `${Math.min(100, (kn / top) * 100).toFixed(1)}%`;
   return (
     <Card aria-labelledby="agree-title">
       <CardHeader>
@@ -58,7 +57,7 @@ export function AgreementTile({ fc }: { fc: Forecast }) {
               className="absolute top-3 h-2.5 rounded-full bg-border-strong"
               style={{
                 left: pct(Math.min(...s.values.map((v) => v.wind))),
-                width: `${Math.min(100, (s.spread / SCALE_KN) * 100).toFixed(1)}%`,
+                width: pct(s.spread),
               }}
             />
             {s.values.map((v) => (
@@ -71,10 +70,10 @@ export function AgreementTile({ fc }: { fc: Forecast }) {
             ))}
           </div>
           <div className="flex justify-between font-mono text-[11px] text-dim" aria-hidden="true">
-            {[0, 10, 20, 30].map((kn) => (
+            {Array.from({ length: top / (top > 50 ? 20 : 10) + 1 }, (_, i) => i * (top > 50 ? 20 : 10)).map((kn) => (
               <span key={kn}>
                 {formatWind(kn, unit)}
-                {kn === 30 ? ` ${UNIT_LABEL[unit]}` : ''}
+                {kn === top ? ` ${UNIT_LABEL[unit]}` : ''}
               </span>
             ))}
           </div>
