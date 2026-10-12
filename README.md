@@ -509,7 +509,7 @@ instance. Airport names and places come from [OurAirports](https://ourairports.c
 (public domain); which airports send METARs and TAFs, and the reports themselves, from the
 [Aviation Weather Center](https://aviationweather.gov/) (NOAA, public domain). Wind stations and
 their 10-minute values, and the ICON-D2 fields of the wind map, come from
-[DWD Open Data](https://opendata.dwd.de/). Water levels from
+[DWD Open Data](https://opendata.dwd.de/) (CC BY 4.0, "Datenbasis: Deutscher Wetterdienst"). Water levels from
 [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
 Bundes), credited on every page that shows them. The map's land, borders and places come from
 [Natural Earth](https://www.naturalearthdata.com/) (public domain) or, where installed, from

@@ -1,7 +1,8 @@
 /**
  * Every outside source Windfenster shows data from, with its licence and the credit it asks
  * for, for the sources page. Licences as the providers state them: Open-Meteo's for itself and
- * the models it serves (open-meteo.com/en/licence); DWD and PEGELONLINE link their own terms.
+ * the models it serves (open-meteo.com/en/licence), the DWD's on dwd.de/copyright; PEGELONLINE
+ * links its own terms.
  */
 import { m } from '@/paraglide/messages';
 
@@ -40,7 +41,8 @@ export const DATA_SOURCES: readonly Source[] = [
     name: 'Deutscher Wetterdienst (DWD)',
     url: 'https://opendata.dwd.de/',
     use: m.sources_dwd,
-    licence: { name: m.sources_termsOf, url: 'https://www.dwd.de/copyright' },
+    // dwd.de/copyright: open geodata under CC BY 4.0 with a source note
+    licence: { ...CC_BY, url: 'https://www.dwd.de/copyright' },
     credit: 'Datenbasis: Deutscher Wetterdienst, eigene Berechnungen',
   },
   {
