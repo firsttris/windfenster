@@ -152,6 +152,16 @@ void main() {
   gl_Position = vec4(2.0 * a_pos - 1.0, 0.0, 1.0);
 }`;
 
+/** How fast particles run, in knots' worth of the screen speed: as the wind from about 5 kn
+ * up, faster below, so light air still flows in long lines instead of crawling as specks (the
+ * colour and the readout keep the true speed); below 1 kn, calm, they slow to a stop, so the
+ * texture's rounding never sets still air drifting. */
+const PACE = `
+float pace(float kn) {
+  return max(kn, 2.2 * sqrt(kn)) * smoothstep(0.3, 1.0, kn);
+}
+`;
+
 /** Particle positions are kept relative to the visible map (0…1 from the top left), two
  * bytes per axis: red and blue for x, green and alpha for y. */
 const STATE = `
@@ -163,7 +173,7 @@ vec4 encode(vec2 p) {
 }
 `;
 
-/** Moves every particle along the wind, `u_px_per_kn` screen pixels per knot and frame;
+/** Moves every particle along the wind, `u_px_per_kn` screen pixels per knot of `pace` and frame;
  * particles outside the domain or the view, and a few at random, start anew elsewhere. When the
  * map moved (`u_shift`), the particles move with it and the view stays evenly filled: after a
  * zoom out the old view covers only part of the new one, so as many of its particles as it now
@@ -174,6 +184,7 @@ precision highp float;
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
 ${WIND}
 ${STATE}
+${PACE}
 uniform sampler2D u_particles;
 uniform vec4 u_view;      // visible Mercator rectangle: x, y, width, height
 uniform vec4 u_shift;     // the view moved: new = old * xy + zw
@@ -206,7 +217,8 @@ void main() {
   uint h = pcg(uint(gl_FragCoord.y) * 65536u + uint(gl_FragCoord.x) ^ pcg(u_frame));
   vec4 w = wind(u_view.xy + p * u_view.zw);
   float speed = length(w.xy);
-  vec2 next = p + vec2(w.x, -w.y) * u_px_per_kn / u_screen;
+  vec2 dir = speed > 0.0 ? w.xy / speed : vec2(0.0);
+  vec2 next = p + vec2(dir.x, -dir.y) * pace(speed) * u_px_per_kn / u_screen;
   bool lost = w.w < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
   // Calm particles would only pile up; strong ones are renewed a bit more often.
   float drop = u_drop + u_drop * 3.0 * smoothstep(0.0, 30.0, speed);
@@ -226,12 +238,14 @@ void main() {
   color = encode(clamp(next, 0.0, 1.0));
 }`;
 
-/** One quad per particle from where it was to where it is, `u_width` pixels wide. */
+/** One quad per particle from where it was to where it is, `u_width` pixels wide plus a pixel of
+ * soft edge on either side, so slanted lines are smooth instead of stair-stepped. */
 export const DRAW_VERT = `#version 300 es
 precision highp float;
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
 ${WIND}
 ${STATE}
+${PACE}
 uniform sampler2D u_before;
 uniform sampler2D u_after;
 uniform vec4 u_shift;
@@ -244,6 +258,7 @@ uniform float u_gusts;    // 1: the colour follows the gusts
 in vec2 a_corner;         // x: 0 at the tail, 1 at the head; y: -1 or 1 across
 out float v_alpha;
 out float v_kn;
+out float v_across;       // pixels from the line's middle
 
 void main() {
   int i = gl_InstanceID;
@@ -255,16 +270,24 @@ void main() {
   vec4 w = wind(u_view.xy + b * u_view.zw);
   // A particle that started anew has no tail: it went further than the wind could take it.
   // (A fixed limit drew strokes up to that long to every new particle in a calm.)
-  float reach = (length(w.xy) * 1.5 + 2.0) * u_move + 1.0;
-  if (distance(pa, pb) > reach || w.w < 0.5) pa = pb;
+  float speed = length(w.xy);
+  float reach = (pace(speed) * 1.5 + 2.0) * u_move + 1.0;
+  // Nor does it draw a dot: it would stay on the trails as a speck.
+  bool shown = distance(pa, pb) <= reach && w.w >= 0.5;
+  if (!shown) pa = pb;
   vec2 d = pb - pa;
   float len = length(d);
   vec2 dir = len > 0.001 ? d / len : vec2(1.0, 0.0);
   vec2 across = vec2(-dir.y, dir.x);
-  float half_w = u_width * 0.5;
-  vec2 p = mix(pa - dir * half_w, pb + dir * half_w, a_corner.x) + across * half_w * a_corner.y;
-  v_alpha = w.w < 0.5 ? 0.0 : mix(0.3, 0.85, smoothstep(2.0, 25.0, length(w.xy)));
-  v_kn = mix(length(w.xy), w.z, u_gusts);
+  // Segments of one trail meet end to end: overlapping ends would draw beads along it. Only a
+  // particle that barely moved is stretched to a pixel.
+  float ext = max(0.0, (u_width - len) * 0.5);
+  float side = u_width * 0.5 + 1.0;
+  vec2 p = mix(pa - dir * ext, pb + dir * ext, a_corner.x) + across * side * a_corner.y;
+  v_across = side * a_corner.y;
+  // Fainter in light wind, gone in calm, where particles would only stand as dots
+  v_alpha = shown ? mix(0.3, 0.85, smoothstep(2.0, 25.0, speed)) * smoothstep(0.3, 1.0, speed) : 0.0;
+  v_kn = mix(speed, w.z, u_gusts);
   gl_Position = vec4(p / u_screen * 2.0 - 1.0, 0.0, 1.0);
   gl_Position.y = -gl_Position.y;
 }`;
@@ -277,13 +300,18 @@ uniform vec4 u_ink;       // the theme's ink and how far to lean towards it
 uniform sampler2D u_ramp;
 uniform float u_ramp_max;
 uniform float u_town;
+uniform highp float u_width;
 in float v_alpha;
 in float v_kn;
+in float v_across;
 out vec4 color;
 void main() {
+  // How much of this pixel the line covers across it
+  float cover = clamp(u_width * 0.5 + 0.5 - abs(v_across), 0.0, 1.0);
+  if (cover <= 0.0) discard;
   vec3 ramp = texture(u_ramp, vec2(clamp(v_kn / u_ramp_max, 0.0, 1.0), 0.5)).rgb;
   vec3 c = mix(vec3(1.0), mix(ramp, u_ink.rgb, u_ink.a), u_town);
-  float a = min(1.0, v_alpha * (1.0 + 0.4 * u_town));
+  float a = min(1.0, v_alpha * (1.0 + 0.4 * u_town)) * cover;
   color = vec4(c * a, a);
 }`;
 

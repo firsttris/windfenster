@@ -211,33 +211,56 @@ function strokes(alpha: Uint8Array, width: number, height: number): { pixels: nu
 const DRAW = { width: 1000, height: 800, lineWidth: 1, move: PX_PER_KN };
 
 async function drawn(page: Page, layers: Parameters<typeof run>[1], drop: number) {
-  // Few particles, so their strokes rarely touch
+  // Few particles on a grid some 30 px apart, so their strokes never touch
   const res = 24;
-  const start = Array.from({ length: res * res * 2 }, (_, i) => 0.05 + 0.9 * ((i * 0.618034) % 1));
+  const start: number[] = [];
+  for (let j = 0; j < res; j++)
+    for (let i = 0; i < res; i++) start.push(0.05 + (0.9 * (i + 0.5)) / res, 0.05 + (0.9 * (j + 0.5)) / res);
   const r = await run(page, layers, { res, start, steps: [{ pxPerKn: PX_PER_KN, drop, frame: 9 }], draw: DRAW });
   const alpha = Uint8Array.from(Buffer.from(r.alpha ?? '', 'base64'));
   return strokes(alpha, DRAW.width, DRAW.height);
 }
 
-test('a particle starting anew draws no stroke to its new place', async ({ page }) => {
-  // Every particle jumps somewhere new, in calm air and in a gale: dots only
-  for (const layers of [calm, { base: steady(30, 0), mid: null, detail: null }]) {
-    const all = await drawn(page, layers, 1);
-    expect(all.length).toBeGreaterThan(400);
-    expect(Math.max(...all.map((s) => s.extent)), 'longest stroke').toBeLessThanOrEqual(4);
+test('a particle starting anew draws nothing, neither a stroke nor a dot', async ({ page }) => {
+  // Every particle jumps somewhere new, in a breeze and in a gale: a dot would stay on the
+  // trails as a speck, a stroke to the new place would draw stars
+  for (const layers of [
+    { base: steady(5, 0), mid: null, detail: null },
+    { base: steady(30, 0), mid: null, detail: null },
+  ]) {
+    expect(await drawn(page, layers, 1)).toEqual([]);
   }
 });
 
-test('moving particles draw a short stroke along the wind', async ({ page }) => {
+test('moving particles draw a short stroke along the wind, none in calm air', async ({ page }) => {
   // 30 kn east: 2.4 px a frame
   const all = await drawn(page, { base: steady(30, 0), mid: null, detail: null }, 0);
+  expect(all.length).toBe(24 * 24);
   const lengths = all.map((s) => s.extent).sort((a, b) => a - b);
   const median = lengths[Math.floor(lengths.length / 2)];
   expect(median).toBeGreaterThanOrEqual(3);
-  expect(median).toBeLessThanOrEqual(5);
-  // In calm air: dots
-  const still = await drawn(page, calm, 0);
-  expect(Math.max(...still.map((s) => s.extent))).toBeLessThanOrEqual(2);
+  expect(median).toBeLessThanOrEqual(4);
+  // In calm air: nothing, not dots
+  expect(await drawn(page, calm, 0)).toEqual([]);
+});
+
+test('light air flows faster than it blows, calm stands still', async ({ page }) => {
+  // The screen speed in knots' worth (UPDATE_FRAG's pace): the wind itself from 5 kn up
+  const start = grid(0.2);
+  const pace = async (kn: number) => {
+    const { states } = await run(
+      page,
+      { base: steady(kn, 0), mid: null, detail: null },
+      { start, steps: [{ pxPerKn: PX_PER_KN, drop: 0, frame: 2 }] },
+    );
+    return ((states[0][0] - start[0]) * CSS.cssWidth) / PX_PER_KN;
+  };
+  expect(await pace(20)).toBeCloseTo(20, 0);
+  expect(await pace(3)).toBeCloseTo(2.2 * Math.sqrt(3), 0);
+  expect(await pace(0.5)).toBeLessThan(0.45);
+  // Within the positions' rounding
+  expect(Math.abs(await pace(0.3))).toBeLessThan(0.2);
+  expect(Math.abs(await pace(0))).toBeLessThan(0.2);
 });
 
 /** Particles per area inside and outside a rectangle (x0, y0, x1, y1) of the view */

@@ -9,7 +9,7 @@
 import { countsAsFrame, nextBudget, particleCount, SAMPLE_FRAMES } from '@/lib/particle-budget';
 import type { Theme } from '@/lib/prefs';
 import { townness, zoomOf } from '@/lib/town-zoom';
-import { trailFade } from '@/lib/trails';
+import { PX_PER_KN, trailFade } from '@/lib/trails';
 import { type MercatorView, rampPixels } from '@/lib/wind-map';
 import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from './gl';
 import { drawParticles, fadeTrails, moveParticles, particlePasses, screenQuad } from './particle-passes';
@@ -27,8 +27,6 @@ export interface Particles {
   destroy(): void;
 }
 
-/** Screen pixels per knot and frame (at 60 frames a second) */
-const PX_PER_KN = 0.08;
 /** Over the field the particles are white; over the town map their colour leans this far
  * towards the theme's ink: light lines on the dark map, dark ones on the light. */
 const INK: Record<Theme, [number, number, number, number]> = {

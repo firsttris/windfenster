@@ -17,6 +17,8 @@ import { COPY_FRAG, QUAD_VERT, WIND } from '@/components/map/shaders';
 import { windAt } from '@/components/map/wind-at';
 import { windField } from '@/components/map/wind-field';
 import { bindWind, WIND_UNITS, type WindLayers, windTextures } from '@/components/map/wind-gl';
+import { particleCount } from '@/lib/particle-budget';
+import { FADE, PX_PER_KN } from '@/lib/trails';
 import { gustOf, type MercatorView, mercatorX, mercatorY, rampPixels } from '@/lib/wind-map';
 
 export interface Hour {
@@ -293,7 +295,8 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
   const copy = createProgram(gl, QUAD_VERT, COPY_FRAG);
   const textures = windTextures(gl);
   const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
-  const res = 70;
+  // As many particles as the map has on a view this size
+  const res = Math.ceil(Math.sqrt(particleCount(sc.width, sc.height, 1)));
   const next = random(42);
   const seed = Uint8Array.from({ length: res * res * 4 }, () => Math.floor(next() * 256));
   let state = [createTexture(gl, gl.NEAREST, seed, res, res), createTexture(gl, gl.NEAREST, seed, res, res)];
@@ -309,16 +312,16 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
     moveParticles(gl, passes, textures, layers, state[0], state[1], at, {
       cssWidth: sc.width,
       cssHeight: sc.height,
-      pxPerKn: 0.08,
+      pxPerKn: PX_PER_KN,
       frame,
       drop: 0.004,
     });
-    fadeTrails(gl, passes, trails[0], trails[1], { width: sc.width, height: sc.height, fade: 0.97, shift: at.shift });
+    fadeTrails(gl, passes, trails[0], trails[1], { width: sc.width, height: sc.height, fade: FADE, shift: at.shift });
     drawParticles(gl, passes, textures, layers, state[0], state[1], at, {
       width: sc.width,
       height: sc.height,
       lineWidth: 1,
-      move: 0.08,
+      move: PX_PER_KN,
       ink: [1, 1, 1, 0.45],
       ramp,
       town: 0,
