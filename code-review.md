@@ -93,7 +93,7 @@ ECMWF-Packung gegen den Live-Dienst.
 
 | # | Schwere | Fund | Status |
 |---|---|---|---|
-| 2.3 | mittel, bestätigt | **Die Verifikation scannt dreimal die Stunde die ganze `observation`-Tabelle.** `verification/run.rs:364-371`: `WHERE observed_at >= ? AND < ?` ohne Index auf `observed_at` (PK ist `station_id, observed_at`); bei 15 Mio. Zeilen Sekunden Sperre, dreimal pro Stunde. Fix: von den Stationen mit gespeicherten Serien ausgehen und je Station über den PK prüfen. | offen, **als Nächstes** |
+| 2.3 | ~~mittel~~ **kein Fehler** | Die Verifikation scannt **nicht** die ganze `observation`-Tabelle: EXPLAIN QUERY PLAN zeigt Stationen-Scan mit Primärschlüssel-Abfrage je Station. Die zusätzlichen Abfragen für Stationen ohne Vorhersage sind je ein Index-Treffer ins Leere (~0,3 s pro Stunde). Eine Abkürzung über die `place`-Tabelle wurde verworfen: Serien hängen nicht zwingend an einem `place`-Eintrag (Test `verifies_a_day`). | **erledigt, nichts zu tun** |
 
 ### Hinweise (keine Fehler)
 
