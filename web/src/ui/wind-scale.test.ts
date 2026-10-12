@@ -15,13 +15,16 @@ function contrast(a: string, b: string): number {
 }
 
 describe('windBand', () => {
-  it('uses inclusive lower edges, a step per 2 kn', () => {
-    expect(windBand(1.9)).toBe(WIND_SCALE[0]);
+  it('uses inclusive lower edges, a step per 2 kn, on the whole knots a cell shows', () => {
+    expect(windBand(1.4)).toBe(WIND_SCALE[0]);
     expect(windBand(2)).toBe(WIND_SCALE[1]);
-    expect(windBand(15.99)).toBe(WIND_SCALE[7]);
+    expect(windBand(15.4)).toBe(WIND_SCALE[7]);
     expect(windBand(16)).toBe(WIND_SCALE[8]);
-    expect(windBand(51.9)).toBe(WIND_SCALE[25]);
+    expect(windBand(51.4)).toBe(WIND_SCALE[25]);
     expect(windBand(52)).toBe(WIND_SCALE[26]);
+    // A cell reading "14" (13.6 rounded) has 14's colour, not 12's
+    expect(windBand(13.6)).toBe(windBand(14));
+    expect(windBand(13.4)).toBe(WIND_SCALE[6]);
     expect(windBand(80)).toBe(WIND_SCALE[26]);
     expect(WIND_SCALE.every((b, i) => b.from === i * 2)).toBe(true);
   });

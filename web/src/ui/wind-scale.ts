@@ -47,10 +47,12 @@ export const WIND_SCALE: readonly WindBand[] = [
   { from: 52, bg: '#cb0078', fg: '#ffffff' },
 ];
 
-/** The band a wind speed in knots falls into; calm or invalid values get the first band. */
+/** The band a wind speed in knots falls into, rounded to whole knots as the cells show it (13.6
+ * reads "14" and takes 14's colour); calm or invalid values get the first band. */
 export function windBand(kn: number): WindBand {
+  const whole = Math.round(kn);
   for (let i = WIND_SCALE.length - 1; i > 0; i--) {
-    if (kn >= WIND_SCALE[i].from) return WIND_SCALE[i];
+    if (whole >= WIND_SCALE[i].from) return WIND_SCALE[i];
   }
   return WIND_SCALE[0];
 }
