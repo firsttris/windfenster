@@ -245,6 +245,9 @@ export interface Scene {
   gusts: boolean;
   /** Particle frames before the picture, at 60 a second; 0 for the field alone */
   frames: number;
+  /** Each frame's length in frames at 60 a second, as particles.ts takes it: 0.42 at 144 Hz;
+   * 1 when not given */
+  dt?: number;
   /** The map's zoom the field is told (it fades out at town zoom); 5 when not given */
   zoom?: number;
   /** The field's opacity; 0.9 as on the map when not given */
@@ -300,28 +303,34 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
   const next = random(42);
   const seed = Uint8Array.from({ length: res * res * 4 }, () => Math.floor(next() * 256));
   let state = [createTexture(gl, gl.NEAREST, seed, res, res), createTexture(gl, gl.NEAREST, seed, res, res)];
-  let trails = [0, 1].map(() => createTexture(gl, gl.NEAREST, null, sc.width, sc.height));
+  let trails = [0, 1].map(() => createTexture(gl, gl.LINEAR, null, sc.width, sc.height));
   for (const t of trails) {
     bindFramebuffer(gl, passes.fb, t);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
   const at = { res, view, shift: [1, 1, 0, 0] as [number, number, number, number] };
+  const dt = sc.dt ?? 1;
   for (let frame = 1; frame <= sc.frames; frame++) {
     gl.disable(gl.BLEND);
     moveParticles(gl, passes, textures, layers, state[0], state[1], at, {
       cssWidth: sc.width,
       cssHeight: sc.height,
-      pxPerKn: PX_PER_KN,
+      pxPerKn: PX_PER_KN * dt,
       frame,
-      drop: 0.004,
+      drop: 0.004 * dt,
     });
-    fadeTrails(gl, passes, trails[0], trails[1], { width: sc.width, height: sc.height, fade: FADE, shift: at.shift });
+    fadeTrails(gl, passes, trails[0], trails[1], {
+      width: sc.width,
+      height: sc.height,
+      fade: FADE ** dt,
+      shift: at.shift,
+    });
     drawParticles(gl, passes, textures, layers, state[0], state[1], at, {
       width: sc.width,
       height: sc.height,
       lineWidth: 1,
-      move: PX_PER_KN,
+      move: PX_PER_KN * dt,
       ink: [1, 1, 1, 0.45],
       ramp,
       town: 0,
