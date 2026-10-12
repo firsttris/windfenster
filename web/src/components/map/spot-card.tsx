@@ -64,8 +64,9 @@ export function SpotCard({
     <section
       aria-label={station?.name ?? m.map_spot()}
       className={cn(
-        'flex flex-col rounded-xl border bg-card/95 backdrop-blur',
-        compact ? 'gap-2 p-3 pt-1' : 'gap-3 p-4',
+        'flex flex-col rounded-xl border',
+        // A sheet over the map on phones; inside the floating panel on wider screens
+        compact ? 'glass gap-2 p-3 pt-1' : 'gap-3 bg-card/60 p-4',
         sheet.dy === 0 && 'transition-transform duration-200',
         className,
       )}

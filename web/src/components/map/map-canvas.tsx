@@ -287,7 +287,7 @@ export function MapCanvas({
       {/* MapLibre makes it position: relative, so it is sized, not inset */}
       <div ref={container} className="h-full w-full" />
       {ready && map.current && <HoverReadout map={map.current} layers={layers} unit={unit} gusts={gusts} />}
-      <div className="absolute top-3 right-3 flex flex-col gap-2">
+      <div className="absolute top-[78px] right-3 flex flex-col gap-2">
         <Button variant="outline" size="icon" aria-label={m.map_zoomIn()} onClick={() => map.current?.zoomIn()}>
           <Plus aria-hidden="true" />
         </Button>

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
 import { meQuery } from '@/lib/api';
 import { watchTheme } from '@/lib/prefs';
+import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { LanguageSwitch } from '@/ui/language-switch';
@@ -20,12 +21,12 @@ const REPO = 'https://github.com/firsttris/windfenster';
 
 function RootLayout() {
   useEffect(() => watchTheme(), []);
-  // The map fills the window below the header; its sources stand on the map itself.
+  // The map fills the whole window, the header floats over it; its sources stand on the map itself.
   const fullscreen = useRouterState({ select: (s) => s.location.pathname === '/map' });
   return (
     <SearchProvider>
-      <div className={fullscreen ? 'flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'}>
-        <Header />
+      <div className={fullscreen ? 'relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'}>
+        <Header over={fullscreen} />
         <Outlet />
         {!fullscreen && <Footer />}
       </div>
@@ -80,11 +81,15 @@ function Footer() {
   );
 }
 
-function Header() {
+/** The site's header; `over` the map it floats, see-through, 64 px high (the map's panels start
+ * below it, routes/map.tsx). */
+function Header({ over }: { over: boolean }) {
   const openSearch = useOpenSearch();
   return (
-    <header className="border-line border-b">
-      <div className="mx-auto flex max-w-[1360px] items-center gap-3 px-4 py-3 sm:gap-7 sm:px-6">
+    <header className={over ? 'glass-bar absolute inset-x-0 top-0 z-40 border-b' : 'border-line border-b'}>
+      <div
+        className={cn('mx-auto flex max-w-[1360px] items-center gap-3 px-4 sm:gap-7 sm:px-6', over ? 'h-16' : 'py-3')}
+      >
         <Link to="/" aria-label={m.nav_home()} className="text-foreground no-underline">
           <Logo />
         </Link>

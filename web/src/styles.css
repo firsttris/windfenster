@@ -202,3 +202,38 @@
 .wf-chart .u-hz .u-cursor-x {
   border-right: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
 }
+
+/* Surfaces over the wind map: the map shows through, blurred. On phones nearly solid (a blur
+   over particles at 60 frames a second costs too much there), and solid where the system asks
+   for less transparency. */
+@utility glass {
+  background-color: color-mix(in oklab, var(--card) 74%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  @media (min-width: 768px) {
+    backdrop-filter: blur(18px) saturate(1.5);
+  }
+  @media (max-width: 767px) {
+    background-color: color-mix(in oklab, var(--card) 95%, transparent);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--card);
+    backdrop-filter: none;
+  }
+}
+
+/* The header over the map: lighter than the panels, the map runs on under it */
+@utility glass-bar {
+  background-color: color-mix(in oklab, var(--background) 62%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  @media (min-width: 768px) {
+    backdrop-filter: blur(18px) saturate(1.5);
+  }
+  @media (max-width: 767px) {
+    background-color: color-mix(in oklab, var(--background) 95%, transparent);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--background);
+    backdrop-filter: none;
+  }
+}

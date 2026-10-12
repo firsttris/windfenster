@@ -130,3 +130,32 @@ test('the water gauges with their levels, from town zoom on', async ({ page }) =
   await expect(page.getByText(/blau normal, gelb niedrig, rot hoch/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeVisible();
 });
+
+test('the map fills the window under a floating header; the panel folds away, a spot opens it', async ({ page }) => {
+  await page.goto('/map#7/48.5/9');
+  const map = page.locator('.maplibregl-canvas');
+  await expect(map).toBeVisible();
+  // From the window's top edge to its bottom, under the header
+  const box = await map.boundingBox();
+  const size = page.viewportSize();
+  expect(box?.y).toBe(0);
+  expect(box?.height).toBe(size?.height);
+  await expect(page.getByRole('banner')).toBeVisible();
+  // Folded away, and so after a reload
+  const title = page.getByRole('heading', { name: 'Wind weltweit' });
+  await expect(title).toBeVisible();
+  await page.getByRole('button', { name: 'Seitenleiste einklappen' }).click();
+  await expect(title).toBeHidden();
+  await page.reload();
+  const open = page.getByRole('button', { name: 'Seitenleiste zeigen' });
+  await expect(open).toBeVisible();
+  await expect(title).toBeHidden();
+  // A place picked on the map opens it with the spot
+  await texture(page, 'icon_global');
+  const now = await map.boundingBox();
+  if (!now) throw new Error('no map');
+  await page.mouse.click(now.x + now.width / 2, now.y + now.height / 2);
+  await expect(title).toBeVisible();
+  await expect(page.getByRole('region').filter({ hasText: '° N' }).first()).toBeVisible();
+  await expect(open).toBeHidden();
+});

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
 import { basemapFor } from '@/components/map/basemap';
@@ -36,6 +37,7 @@ import {
   startTime,
 } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
+import { Button } from '@/ui/button';
 
 const NO_DETAIL: [number, number, number, number][] = [];
 
@@ -70,6 +72,9 @@ function MapPage() {
   const [initial] = useState(() => parseMapState(window.location.search));
   const [layerPref, setLayerPref] = usePref('wf.mapLayer');
   const [modelPref, setModelPref] = usePref('wf.mapModel');
+  // The desktop panel, folded away to see the whole map; a spot picked opens it again
+  const [panelPref, setPanel] = usePref('wf.mapPanel');
+  const panelOpen = panelPref !== 'closed';
   const [chosen, setChosenState] = useState<string | null>(initial.model ?? modelPref);
   const setChosen = (model: string) => {
     setChosenState(model);
@@ -93,7 +98,11 @@ function MapPage() {
   const mid = useWindPair(hoursAt(midFrames, windTime), windTime, playing);
   const detail = useWindPair(hoursAt(detailFrames, windTime), windTime, playing);
   const layers = useMemo(() => ({ base, mid, detail }), [base, mid, detail]);
-  const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
+  const [pick, setPickState] = useState<Pick | null>(() => parseSpot(window.location.search));
+  const setPick = (p: Pick | null) => {
+    setPickState(p);
+    if (p && panelPref === 'closed') setPanel(null);
+  };
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
   // A place looked at gets detail on the server within a minute or two: ask again then.
@@ -243,15 +252,41 @@ function MapPage() {
   );
 
   return (
-    <main className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)]">
-      {desktop && (
-        <aside className="flex min-h-0 flex-col gap-6 overflow-y-auto border-line border-r p-5">
+    // The map fills the window; header, panel and timeline float over it (styles.css, glass)
+    <main className="relative min-h-0 flex-1">
+      {desktop && !panelOpen && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="glass absolute top-[78px] left-3.5 z-20"
+          aria-label={m.map_panelOpen()}
+          aria-expanded={false}
+          onClick={() => setPanel(null)}
+        >
+          <PanelLeftOpen aria-hidden="true" />
+        </Button>
+      )}
+      {desktop && panelOpen && (
+        // Below the 64 px header (routes/__root.tsx), above the timeline
+        <aside className="glass absolute top-[78px] left-3.5 z-20 flex max-h-[calc(100%-240px)] w-[300px] flex-col gap-5 overflow-y-auto rounded-2xl border p-[18px]">
           <div className="flex flex-col gap-1">
             <div className="-my-2 flex items-center justify-between gap-2">
               <p className="m-0 font-mono text-muted-foreground text-xs uppercase tracking-[0.08em]">
                 {m.map_eyebrow()}
               </p>
-              <ShareButton className="-mr-2 size-8 shrink-0" />
+              <div className="-mr-2 flex shrink-0">
+                <ShareButton className="size-8" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  aria-label={m.map_panelClose()}
+                  aria-expanded={true}
+                  onClick={() => setPanel('closed')}
+                >
+                  <PanelLeftClose aria-hidden="true" />
+                </Button>
+              </div>
             </div>
             <h1 className="m-0 font-bold text-[32px] leading-tight tracking-[-0.04em]">{m.map_title()}</h1>
             {timeLabel && <p className="m-0 font-mono text-muted-foreground text-sm">{timeLabel}</p>}
@@ -268,11 +303,10 @@ function MapPage() {
             )}
           </div>
           {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
-          <p className="m-0 mt-auto text-[11px] text-muted-foreground leading-snug">{m.map_keys()}</p>
-          <Attribution osm={!!index.data?.basemap} relief={relief} />
+          <p className="m-0 text-[11px] text-muted-foreground leading-snug">{m.map_keys()}</p>
         </aside>
       )}
-      <div className="relative min-h-[420px]">
+      <div className="absolute inset-0">
         {index.isPending ? (
           <div className="h-full w-full animate-pulse bg-muted" />
         ) : (
@@ -291,7 +325,7 @@ function MapPage() {
           />
         )}
         {!desktop && (
-          <div className="absolute top-3 left-3 flex w-[min(300px,calc(100%-76px))] flex-col gap-2 rounded-xl border bg-card/95 p-2.5 backdrop-blur">
+          <div className="glass absolute top-[76px] left-3 flex w-[min(300px,calc(100%-76px))] flex-col gap-2 rounded-xl border p-2.5">
             <h1 className="sr-only">{m.map_title()}</h1>
             <div className="flex items-center gap-2">
               <p className="m-0 min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">{runLine}</p>
@@ -334,7 +368,7 @@ function MapPage() {
         {empty && (
           <p
             role="status"
-            className="absolute top-1/2 left-1/2 m-0 w-[min(420px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card/95 p-5 text-center text-sm backdrop-blur"
+            className="absolute top-1/2 left-1/2 m-0 w-[min(420px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 glass rounded-xl border p-5 text-center text-sm"
           >
             {m.map_empty()}
           </p>
@@ -353,7 +387,11 @@ function MapPage() {
               loading={loading && !playing}
             />
           )}
-          {!desktop && <Attribution osm={!!index.data?.basemap} relief={relief} className="text-right" />}
+          <Attribution
+            osm={!!index.data?.basemap}
+            relief={relief}
+            className="glass ml-auto w-fit max-w-full rounded-md border px-2 py-1 text-right shadow-none"
+          />
         </div>
       </div>
     </main>

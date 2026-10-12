@@ -50,7 +50,7 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, band, loa
   const nowInRange = now >= from && now <= to;
 
   return (
-    <div className={cn('flex items-center gap-3 rounded-xl border bg-card/95 p-3 backdrop-blur', className)}>
+    <div className={cn('glass flex items-center gap-3 rounded-xl border p-3', className)}>
       <Button
         size="icon"
         aria-label={playing ? m.map_pause() : m.map_play()}
