@@ -1,0 +1,32 @@
+/* Colours of the web app (web/src/styles.css): near-black with the water blue of its charts */
+:root {
+  --md-primary-fg-color: #18181b;
+  --md-primary-fg-color--light: #3f3f46;
+  --md-primary-fg-color--dark: #09090b;
+  --md-accent-fg-color: #0284c7;
+  --md-typeset-a-color: #0284c7;
+}
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #09090b;
+  --md-accent-fg-color: #38bdf8;
+  --md-typeset-a-color: #38bdf8;
+}
+/* Screenshots: rounded corners and a shadow, never wider than the text */
+.md-typeset img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+/* The wind scale as a strip of swatches (docs/user-guide.md) */
+.wind-scale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-family: var(--md-code-font-family);
+  font-size: 0.7rem;
+}
+.wind-scale span {
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+}

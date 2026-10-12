@@ -1,544 +1,203 @@
 <div align="center">
 
-<img src="web/public/favicon.svg" alt="Windfenster logo" width="64">
+<img src="web/public/favicon.svg" alt="Windfenster logo" width="72">
 
-<h1>Windfenster</h1>
+<h1>Windfenster: open-source wind forecast and live wind map for kitesurfing, windsurfing and wing foiling</h1>
 
-**Open-source wind forecast for water sports.**<br>
-Every station shows what it measures right now, what the models predict, and which model
-was closest to the measurements there recently.
+**Self-hosted wind forecast for water sports: measured wind, five weather models and an animated wind map, for every wind station and any spot on earth.**<br>
+Each station shows what it measures now, what the models predict for ten days, and which model was closest to the measurements there.<br>
+An open-source alternative to Windfinder and Windy: one Docker container, no cloud, no tracking, no API key.
 
 [![CI](https://github.com/firsttris/windfenster/actions/workflows/ci.yml/badge.svg)](https://github.com/firsttris/windfenster/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/firsttris/windfenster?logo=github&label=release)](https://github.com/firsttris/windfenster/releases/latest)
+[![Docker pulls](https://img.shields.io/docker/pulls/tristanteu/windfenster?logo=docker&logoColor=white)](https://hub.docker.com/r/tristanteu/windfenster)
+[![Docs](https://img.shields.io/badge/docs-firsttris.github.io%2Fwindfenster-4f46e5?logo=materialformkdocs&logoColor=white)](https://firsttris.github.io/windfenster/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+![Rust](https://img.shields.io/badge/built_with-Rust-b7410e?logo=rust)
+
+```bash
+curl -O https://raw.githubusercontent.com/firsttris/windfenster/main/compose.yaml && docker compose up -d
+```
+
+[Install](#-install) •
+[Features](#-features) •
+[Screenshots](#-screenshots) •
+[Alternatives](#-windfenster-and-the-alternatives) •
+[FAQ](#-faq) •
+[Documentation](https://firsttris.github.io/windfenster/)
+
+<img src="docs/screenshot.png" alt="Windfenster wind map: a low west of Ireland as a colour field with moving wind particles over Europe, the models ICON-D2, ICON global and ECMWF IFS, and a spot card with the coming hours at Karlsruhe Baden-Baden Airport" width="900">
 
 </div>
 
-> **Status:** early development. Station and point pages with forecasts from five models work
-> (Phase 1). Phase 2 adds live measurements from METAR and DWD stations, airport forecasts
-> (TAF), water gauges, the measurements of the last ten days, the model ranking per station,
-> the Windfenster mix and the comparison chart. Phase 3, under way: the wind map with ICON-D2
-> as colour field and moving particles, a timeline and the stations' live wind.
+## 💡 Why Windfenster?
 
-## What v1 will do
+Kiters and windsurfers check three apps before every session: one for the forecast, one for the
+live wind at the spot, one for the map. None of them says which weather model is actually right
+at *your* spot, and none runs on your own server.
 
-- A page for every METAR and DWD station: live measurement, the ten days at a glance (wind
-  every 3 hours, main direction, strongest wind, model agreement, the hours that work at a
-  saved spot), then a card per day (wind, gusts, direction, measured and TAF to compare,
-  weather, temperature, rain) in kn, m/s or km/h
-- A forecast for any point by map click or search, with the nearest station
-- Superforecast / Forecast plus a free choice of at least five models
-- A model ranking per station from 30 days of verification, and the automatic model choice
-  that follows from it
-- The Windfenster mix: a forecast per station, weighted by how well each model hit there
-- Water levels and estimated current on rivers (PEGELONLINE)
-- An animated wind map, favourites, the best window for wing or kite size, alarms via web push
-- Self-hosting as a single Docker container; an Open-Meteo API key is optional
+- **Know which model to trust**: every model is checked against the station's measurements every
+  hour; the page opens with the one that was closest there in the last 30 days.
+- **Forecast, measured and TAF in one table**: see at a glance whether today's forecast is
+  holding, hour by hour.
+- **A wind map that is fine where it matters**: ICON-D2 at 2.2 km blended into ICON global and
+  ECMWF without an edge, worldwide, ten days ahead.
+- **"It works from 2 to 5 pm"**: your spot's wind directions and your kites and wings turn the
+  forecast into a window, with a push or e-mail when it comes.
 
-## Quick start
+Runs on a Linux server, a NAS (Synology, Unraid) or a Raspberry Pi 4/5, amd64 and arm64; used in
+any browser on desktop and phone, installable as an app.
+
+## 🚀 Install
+
+With Docker Compose:
 
 ```bash
+mkdir windfenster && cd windfenster
 curl -O https://raw.githubusercontent.com/firsttris/windfenster/main/compose.yaml
 docker compose up -d
 ```
 
-Open http://localhost:8080. The database lives in `./data`. The image is
-[`tristanteu/windfenster`](https://hub.docker.com/r/tristanteu/windfenster) (also
-`ghcr.io/firsttris/windfenster`), for amd64 and arm64; to build it yourself instead, run
-`docker compose up --build` in a checkout.
+Open `http://localhost:8080`. The first station lists, measurements and model runs come within
+minutes; the map's basemap and relief follow in the background. Podman Quadlet, a reverse proxy or
+Cloudflare Tunnel, settings, disk space and backups are in the
+[installation guide](https://firsttris.github.io/windfenster/installation.html).
 
-### On a server with Podman
+## ✨ Features
 
-Step by step, as a normal user with [Podman](https://podman.io/) 4.4 or newer (Quadlet), for a
-server with room to spare (the example: a Xeon with 32 GB RAM and a large SSD; Windfenster needs
-no memory setting).
+### 🌬️ Forecast for every station and spot
 
-**1. Folders and the unit.** The data folder must exist before the start (Podman refuses to mount
-a missing one).
+- **Every METAR airport in the world and every DWD wind station**, plus any point by map click or
+  search.
+- **The ten days at a glance**: three-hourly wind bars with gusts, main direction, strongest
+  wind and the models' agreement per day.
+- **Day cards**: wind as a growing bar with the gust under it, direction, your gear, measured and
+  TAF to compare, weather; hourly for today and tomorrow.
+- **Five models** (ICON-D2, AROME, HARMONIE, ECMWF, GFS) and the **Windfenster mix**, weighted by
+  how well each model hit at the station.
+- **Knots, m/s or km/h**, German and English, light and dark.
 
-```bash
-mkdir -p ~/.config/containers/systemd ~/windfenster/data
-curl -o ~/.config/containers/systemd/windfenster.container \
-  https://raw.githubusercontent.com/firsttris/windfenster/main/windfenster.container
-```
+### 📈 Measured and verified
 
-**2. The settings.** Open `~/.config/containers/systemd/windfenster.container` and set the
-`[Container]` part to this, with your own address:
+- **Live wind** every 10 minutes, the raw METAR translated, the **TAF in plain words**.
+- **Model ranking per station** ("Who hits here?") and automatic model choice from 30 days of
+  verification.
+- **History** of the last ten days and **ten years of wind statistics** per month (wind rose,
+  windy days).
+- **Water levels** from PEGELONLINE and the estimated current on the Rhine.
 
-```ini
-[Container]
-Image=docker.io/tristanteu/windfenster:latest
-ContainerName=windfenster
-AutoUpdate=registry
-# Only the reverse proxy on this host reaches it; 8080 taken (haul, say)? 127.0.0.1:8081:8080
-PublishPort=127.0.0.1:8080:8080
-Volume=%h/windfenster/data:/data:Z
+### 🗺️ Animated wind map
 
-# The public address: canonical links and meta tags of the station pages
-Environment=WF_PUBLIC_URL=https://windfenster.example
-# Basemap: the world to zoom 8 (estimated 500 MB), Europe to zoom 12 with every town's streets
-# (about 7 GB, an hour or so the first time)
-Environment=WF_BASEMAP_WORLD_ZOOM=8
-Environment=WF_BASEMAP_ZOOM=12
-# Full detail (zoom 14) kept for up to 500 spots where people look (2 to 17 MB each)
-Environment=WF_BASEMAP_SPOTS=500
-# Relief, the whole world, to zoom 8 (estimated 3 to 4 GB; zoom 7 is 948 MB and each level
-# about three to four times the one before, so 10 would be some 50 GB and hours to fetch)
-Environment=WF_TERRAIN_ZOOM=8
-# Stations kept current and verified even when nobody opens them: add your own spots' stations
-Environment=WF_TRACKED_STATIONS=edsb,lgrp
-# Alarm e-mails (alarms go by push without): your mail provider's SMTP, e.g. port 465 with TLS
-# Environment=WF_SMTP_URL=smtps://alarm%40example.org:PASSWORD@smtp.example.org:465
-# Environment=WF_MAIL_FROM=Windfenster <alarm@example.org>
-Environment=RUST_LOG=info
-# Only for commercial use: a key for Open-Meteo's customer API
-# Environment=OPEN_METEO_API_KEY=
-```
+- **Three models at once**, the finest on top, blended without seams; wind or gusts.
+- **WebGL particles** that move with the map when you pan and zoom, colour field in the
+  Windfinder scale.
+- **Stations with their live wind**, water gauges, a spot card with the coming hours, timeline,
+  keyboard shortcuts, shareable links.
+- **Own basemap from OpenStreetMap** with relief, cut by the server itself: no map service, no
+  key.
 
-Everything else stays at its default (see [Configuration](#configuration)). Leave `[Service]` and
-`[Install]` as they are.
+### 🔔 Spots, gear and alarms
 
-**3. Start it, and at boot.** Quadlet units are not enabled with `systemctl enable`; the
-`[Install]` part starts them at boot once the user's services run without a login:
+- **Passkeys** or e-mail and password.
+- **Saved spots** with the wind directions that work there.
+- **Your kites, wings, sails**: the forecast shows what fits each hour.
+- **Wind alarms** ahead from the forecast or live from the station, by Web Push and e-mail.
 
-```bash
-systemctl --user daemon-reload
-systemctl --user start windfenster
-loginctl enable-linger $USER                               # start at boot without a login
-systemctl --user enable --now podman-auto-update.timer     # pull new releases daily
-```
+## 📸 Screenshots
 
-**4. Check it.**
+<table>
+  <tr>
+    <td><img src="docs/screenshot-station.png" alt="Station page of Karlsruhe Baden-Baden Airport: model chips, live METAR wind of 16 knots with gusts, the Rhine's water level, model agreement and the airport forecast (TAF) in plain words"></td>
+    <td><img src="docs/screenshot-forecast.png" alt="Ten-day wind forecast: quick view with three-hourly wind bars per day and day cards with wind, gusts, direction, measured values, TAF and weather"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-map-gusts.png" alt="Wind map with the gust layer: a storm over the British Isles in yellow, orange and red with moving particles"></td>
+    <td><img src="docs/screenshot-models.png" alt="Weather models compared with the measured wind at the station, and the model ranking card"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-phone-map.png" alt="The wind map on a phone with the spot sheet showing the coming hours" width="390"></td>
+    <td><img src="docs/screenshot-day-dark.png" alt="A forecast day card in dark mode, hour by hour with wind bars and gusts"></td>
+  </tr>
+</table>
 
-```bash
-curl http://127.0.0.1:8080/api/health    # {"version":…,"schemaVersion":…,"stations":…}
-journalctl --user -u windfenster -f      # or: podman logs -f windfenster
-```
+## 🔀 Windfenster and the alternatives
 
-**5. Reach it from outside.** A reverse proxy terminates TLS, e.g. Caddy (`/etc/caddy/Caddyfile`):
+Windfenster is made for riders who want the forecast, the measurements and the map in one place,
+on their own server.
 
-```
-windfenster.example {
-    reverse_proxy 127.0.0.1:8080
-}
-```
-
-What follows:
-
-- **First start:** the server creates the database and fetches the station lists, measurements
-  and the newest model runs right away; the map's first hours are there once ICON-D2 and ECMWF
-  are downloaded (about 150 and 115 MB per run). A minute after the start it cuts the basemap
-  and then the relief; at the zoom levels above that takes a while, and the map shows Natural
-  Earth and coarser tiles until then. Detail spots come a minute or two after a place is opened.
-- **Disk:** with the settings above roughly 18 GB at most: the basemap (7 GB and the world),
-  relief (about 4 GB), spots (a few GB once many are used), the map's runs (two per model: about
-  230 MB each for ICON-D2 and ECMWF, 1.5 GB each for ICON global) and the database (up to about
-  1 GB after a year). With the defaults it is about 6 GB (basemap 323 MB, relief 948 MB, runs
-  about 4 GB, spots up to 600 MB).
-- **Downloads:** ICON global is the big one, about 1.1 GB per run at 00 and 12 UTC (2.2 GB a
-  day); `WF_ICON_GLOBAL=false` leaves the world to ECMWF.
-- **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
-  container; the database migrates itself on start. With Compose:
-  `docker compose pull && docker compose up -d`.
-- **Backup:** only `windfenster.db` matters; the map data comes back by itself. Copy it while the
-  server runs with `sqlite3 ~/windfenster/data/windfenster.db "VACUUM INTO 'windfenster-backup.db'"`,
-  or stop the container and copy `windfenster.db*`.
-- As root instead: put the unit into `/etc/containers/systemd/`, use a path like
-  `Volume=/srv/windfenster:/data:Z` and `systemctl` without `--user`; linger is not needed. On a
-  data disk of its own, see the commented `Volume=` lines in the unit.
-
-### Configuration
-
-| Variable | Default | |
+| | What it is | Where Windfenster differs |
 |---|---|---|
-| `WF_DATA_DIR` | `/data` | Database and map textures |
-| `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
-| `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages and the passkeys' domain; without it passkeys work on `http://localhost:8080` only |
-| `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
-| `OPEN_METEO_BASE_URL` | | Own Open-Meteo instance |
-| `OPEN_METEO_GEOCODING_URL` | | Own Open-Meteo geocoding instance (place search) |
-| `WF_OPEN_METEO_DAILY_BUDGET` | 9,000 without key | Open-Meteo calls per day |
-| `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
-| `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
-| `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
-| `WF_SOURCES` | – | For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE, OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests' stand-in serves them |
-| `WF_MAP` | `true` | The wind map: ICON-D2 and ICON global from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
-| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF |
-| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
-| `WF_BASEMAP_WORLD_ZOOM` | `7` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, 7 about 150 MB, every level roughly three to four times more |
-| `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
-| `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
-| `WF_BASEMAP_SPOTS` | `60` | Spots with detail to zoom 14 kept at most (where people look), 2 to 17 MB each; `0` makes none |
-| `WF_SMTP_URL` | | SMTP server for alarm e-mails: `smtps://user:password@host:465` (TLS) or `smtp://user:password@host:587?tls=required` (STARTTLS); an `@` in the user name is written `%40`. Without it alarms go by push only |
-| `WF_MAIL_FROM` | | Sender of alarm e-mails, e.g. `Windfenster <alarm@example.org>`; needed with `WF_SMTP_URL` |
-| `WF_TERRAIN_ZOOM` | `7` | How deep the relief goes, the whole world (1 to 12): 6 is 278 MB, 7 is 948 MB, every level roughly three to four times more; `0` turns it off |
-| `RUST_LOG` | `info,sqlx=warn` | Log level |
+| [Windfinder](https://www.windfinder.com/) | wind forecasts and live stations, app and website | open source and self-hosted; shows which model was right at each station; measured and TAF in the forecast table |
+| [Windy](https://www.windy.com/) | weather map with many models and layers | focused on wind for water sports; ICON-D2 blended into the global models; spot alarms with your gear |
+| [Windguru](https://www.windguru.cz/) | forecast tables per spot | model ranking from verification instead of choosing by hand; live wind and history next to it |
+| [Open-Meteo](https://open-meteo.com/) | open weather API | Windfenster is an app on top of it, adding measurements, verification, a map and alarms |
 
-Commands of the binary:
+## ❓ FAQ
 
-- `windfenster serve` (default): migrates the database, serves the API and the web app, keeps
-  station lists and forecasts current
-- `windfenster migrate`: migrates and exits
-- `windfenster import-stations`: fetches the station lists and the water gauges now
-- `windfenster probe --lat 48.78 --lon 8.08`: asks Open-Meteo for every model at a point and
-  prints what comes back
+### Is there an open-source alternative to Windfinder and Windy?
+Yes: Windfenster is AGPL-licensed, runs as one Docker container and uses only open data. More in
+the [FAQ](https://firsttris.github.io/windfenster/faq.html).
 
-### How forecasts are fetched
+### Which weather model is best for kitesurfing at my spot?
+Windfenster tells you: it compares every model with the station's measurements every hour and
+ranks them per station. [How it works](https://firsttris.github.io/windfenster/forecasts.html#verification-and-ranking).
 
-Requests go to Open-Meteo only from the server. A place (a station or a point rounded to
-0.01°) is fetched when someone opens it, once per model run. Places opened within the last
-seven days are refreshed after every new run; free points are dropped two days after the last
-request. The free API allows about 10,000 calls a day, which covers a few hundred places
-that people look at regularly; larger instances need a key or an own Open-Meteo.
+### Can I get a wind alarm for my spot?
+Yes, by push and e-mail, ahead from the forecast or when the station measures it, optionally only
+when your gear fits. [Alarms](https://firsttris.github.io/windfenster/accounts.html#alarms).
 
-### How measurements are fetched
+### Does it work outside Germany?
+Yes: the map and the global models cover the world, and every airport with METAR reports is a
+station. The 1.5–2.2 km models cover Europe.
 
-Every ten minutes the server reads aviationweather.gov's cache of all current METARs (one
-file of about 250 KB) and keeps the reports of its stations: every airfield in the world that
-sends METARs (from OurAirports' list and aviationweather.gov's station list, refreshed weekly). DWD stations deliver 10-minute
-values; they are fetched every 30 minutes for the tracked stations and those opened within
-the last seven days, and right away when someone opens a station whose values are stale.
-TAFs (airport forecasts) of the same stations come from aviationweather.gov's TAF API every 30
-minutes, with the change groups already decoded; Windfenster turns them into an hourly
-series with the span that TEMPO, PROB and a change in progress allow. Measurements and TAFs
-are kept for 13 months, for the verification of the models, at tracked stations, stations
-opened within the last 30 days and anyone's favourites; all other stations keep 11 days (the
-history chart's reach), and the reports' text goes after 2 days. Worldwide a year of every
-station's half-hourly METARs would come to many gigabytes.
+### Is it free?
+Yes, for private use. Open-Meteo's free API is non-commercial; commercial instances need an
+Open-Meteo subscription or their own Open-Meteo.
 
-Each station page shows its measurements over a day, as Windfinder does: the last 24 hours
-and the ten days before, with mean wind, gusts and direction. When a station's past days
-are thin, the server fills them in once: the METAR API keeps about eight days, the DWD's
-archive of 10-minute values about a year and a half (kept here for 13 months).
+## 📚 Documentation
 
-Water gauges come from PEGELONLINE: one request every 10 minutes brings all of them (about 730
-with coordinates) with level, flow, water temperature and the official flood states. A
-station or point within 15 km of a gauge shows it, the map shows all of them, with the last seven days fetched from
-PEGELONLINE when the page is opened. The current on the Rhine is estimated from the flow and
-a blanket cross-section (300 m × 6 m, surface 1.3 times the mean) and labelled as an estimate.
+The full documentation, with search, is at **[firsttris.github.io/windfenster](https://firsttris.github.io/windfenster/)**.
 
-### How models are verified
+| | |
+|---|---|
+| [User guide](https://firsttris.github.io/windfenster/user-guide.html) | station pages, the forecast, the map, spots and alarms |
+| [Installation](https://firsttris.github.io/windfenster/installation.html) | Docker Compose, Podman Quadlet, reverse proxy, Cloudflare Tunnel, backups |
+| [Configuration](https://firsttris.github.io/windfenster/configuration.html) | every setting |
+| [Architecture](https://firsttris.github.io/windfenster/architecture.html) | how the pieces fit together |
+| [The wind map](https://firsttris.github.io/windfenster/wind-map.html) | from GRIB2 to WebGL particles |
+| [Forecasts and models](https://firsttris.github.io/windfenster/forecasts.html) | models, verification, ranking, the mix |
+| [API](https://firsttris.github.io/windfenster/api.html) | the JSON API |
+| [Development](https://firsttris.github.io/windfenster/development.html) | building, checks, tests, releases |
 
-Every hour Windfenster compares, for each station with measurements and stored forecasts,
-every forecast hour with the measurement closest to it (within 20 minutes): the mean wind
-(absolute error and bias in kn), the direction (angle, from 5 kn measured on) and whether
-both said "14 kn or more". A run counts only for the hours after Windfenster fetched it, so
-a model that arrives late gains nothing from hours that had passed. Errors are kept per
-station, model and UTC day, split by lead time (0–24, 24–48 and 48–72 hours after the run);
-the TAF counts as a model of its own, from its issue time.
+## 🛠️ Development
 
-- **Ranking** ("Who hits here?"): the mean absolute error of the first day ahead over the
-  last 30 days. A point takes the ranking of a station at most 5 km away.
-- **Auto choice**: from 14 days of data the page opens with the regional model of the lowest
-  error (0–24 h), and Forecast takes the global model of the lowest error (48–72 h). Before
-  that, a fixed order decides.
-- **Windfenster mix**: per hour the weighted mean of every model with a value, weights 1/MAE²
-  of the model at the station for that lead time (all alike before 14 days); the direction is
-  that of the mean wind vector. It is computed when a page is served and verified like a
-  model, as it stood each time new runs came in. It opens the page only where it beat the best
-  single model.
-- **Do the models agree?** The spread (highest minus lowest mean wind) of the models at the
-  windiest daytime hour of the next two days: up to 4 kn high, up to 8 kn medium, above that
-  low. The trend days 8–10 show the same as a dot.
-
-### Wind statistics
-
-A station page shows the station's wind over the last ten whole years: per month a wind rose
-(16 directions, the wind scale's bands) and the share of windy days, those with at least two
-daylight hours (9 to 19 by the sun) of 12 kn or more mean wind. The hours come from an archive
-on the first request, one station at a time, in the background: airports from the
-[Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml)'s METAR
-archive (routine reports, a year per request, a pause between requests as it asks), DWD
-stations from the DWD's climate archive of hourly wind. Only the summary is kept (a few KB a
-station), and made anew once another year has ended. `GET /api/stations/{slug}/stats` answers
-`pending` until it is ready.
-
-### Accounts and favourites
-
-Signing in works with a passkey (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
-on the server, OpenSSL built into the binary) or with e-mail and password (Argon2id, at most
-ten failed attempts per address in 15 minutes). Sign-up asks for a name and then either a
-passkey or an address and a password (at least 10 characters); either can be added later on the
-account page. Passkeys are made discoverable, so the browser offers them in the sign-in field
-by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain later makes them
-useless, so set it before the first sign-up. A session is a random token in an HTTP-only cookie
-(half a year, renewed while used; only its SHA-256 is stored). Signed in, a user keeps up to 100
-favourites: stations or points, each with an own name and optionally the wind directions that
-work there. The start page shows each
-spot at a glance, with nothing to set: the wind measured there now (stations), the coming days as
-one band in the wind scale's colours from the map's data (hours from directions that do not work
-there faded) and the strongest hour.
-
-Under "Mein Material" (`/gear`) a user enters each kite, wing, windsurf sail and parawing with
-the mean wind (kn) they ride it in, or starts from a template per kind and level (rough values
-for about 80 kg). The forecast table then has a row with what fits each hour (the piece whose
-range the wind sits in most centrally, marked when the gusts go past its top), and the spot
-cards name it for the strongest hour. Signed in, the list is kept on the server; without an
-account in the browser, and it moves to the account at the first sign-in.
-
-Each saved spot has a bell for its alarm: from how much mean wind, optionally only hours some
-piece of "Mein Material" fits, told ahead from the forecast (the best window of today and
-tomorrow, at least two hours in a row, from the spot's directions, in daylight; again when it
-moves by two hours or 4 kn, and when it falls through) and/or live when the station measures it
-twice in a row (once a day); nothing goes out between 21 and 7 local time. The server checks
-every alarm every ten minutes against the wind map's fields and the latest measurements, and
-sends push messages (Web Push with its own VAPID key, `vapid.pem` in the data directory, made on
-first start; keep it with the database, a new key makes every browser subscribe again) and
-e-mails when `WF_SMTP_URL` and `WF_MAIL_FROM` are set. Messages are written in the user's
-language, time zone and wind unit. Push works on Android and desktop browsers right away, on an
-iPhone or iPad once Windfenster is added to the home screen (iOS 16.4 and later); the account
-page turns it on per device and sends a test.
-
-API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signup/password`,
-`POST /api/auth/signin/password`, `PUT /api/me/password`, `POST /api/auth/signin` and
-`/signin/finish`, `POST /api/auth/passkeys` (another passkey) and `/passkeys/finish`,
-`POST /api/auth/signout`; `GET`, `PATCH`, `DELETE /api/me`; `GET`, `POST /api/favorites`,
-`PUT`, `DELETE /api/favorites/{id}`, `PUT /api/favorites/order`; `GET`, `PUT /api/gear` (the
-whole list, at most 30 pieces). `GET /api/alarms`, `PUT`, `DELETE /api/alarms/{favorite}`,
-`POST /api/alarms/test`, `GET /api/push` (the push key, whether e-mail is set up), `POST`,
-`DELETE /api/push/subscriptions`.
-
-### How the wind map is fed
-
-The map draws the model fields themselves, not Open-Meteo's point series. Every 10 minutes
-Windfenster looks for the newest ICON-D2 run on [DWD Open Data](https://opendata.dwd.de/)
-(2.2 km, Germany and the Alps, a run every 3 hours, 48 hours ahead) and fetches the wind at
-10 m (U and V, GRIB2) and the gusts (`vmax_10m`) for the hours that are out and not on disk yet.
-Each hour becomes a PNG texture in kn (red U, green V, as in
-[mapbox/webgl-wind](https://github.com/mapbox/webgl-wind), blue the gusts) with a JSON file for
-its extent, value ranges and the model's domain, under
-`{WF_DATA_DIR}/map/icon_d2/{run}/{hour}`. Under it, for the whole world and beyond ICON-D2's 48
-hours, lies ECMWF's IFS from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
-(0.25°, a run every 6 hours): Windfenster reads each step's index and fetches only the wind at
-10 m and the gusts (`10fg`) by byte range (2.8 MB per step), for 0 to 120 hours every 3 hours,
-for the whole world (1440 × 721 points, a PNG of 1 to 1.5 MB per hour; it wraps at 180°, so the
-map, a tapped spot and the readout under the pointer read across the date line). When ECMWF's portal is busy
-(HTTP 429) it waits 20 seconds and asks again, a few times, then leaves the rest to the next
-round. Next to each PNG the texels lie uncompressed (`.rgba`), so one place can be read over
-every hour in milliseconds. The newest run and the one before are kept per model: for ICON-D2
-about 150 MB of downloads and 230 MB on disk per run, for ECMWF about 115 MB and 220 MB. Hours
-without gusts (ECMWF's first, and late hours of some runs) show the wind on the gust layer, with
-a note.
-
-Between the two, ICON global (13 km, the DWD's 00 and 12 UTC runs, hourly to +78 h and every
-3 hours to +120 h) comes as one bz2-compressed GRIB2 file per hour and quantity on the model's
-own grid of 2,949,120 triangles. Windfenster puts it on a regular 0.125° grid (2880 × 1441
-points), each point taking the value of the nearest triangle's centre; the table of nearest
-centres is made once from the run's `CLAT` and `CLON` (about 10 seconds) and kept as
-`{WF_DATA_DIR}/map/icon_global-grid.u32`. Its own loop fetches the hours (about 1.1 GB per run, a
-minute or so per ten hours), so it holds up neither ICON-D2 nor ECMWF. A whole hour would be a
-PNG of 4 to 5 MB, too much for a phone; the app asks instead for the piece around what it shows,
-`GET /api/map/icon_global/{run}/{hour}/{west}_{south}_{east}_{north}.png` and `.json` (edges on
-whole 10°, at most 100° × 80°, 100 to 500 KB), cut from the texels and kept in memory a while.
-From further out than such a piece, ECMWF draws alone.
-
-`GET /api/map` lists the hours, each from the newest run that has it, with each model's area and
-whether it comes in pieces;
-`GET /api/map/series?lat=&lon=` gives a place's wind, gusts and direction over all of them.
-
-The map page (`/map`) draws all three models at once, the finest on top, without an edge to
-see: ICON-D2 inside its domain, fading over the last 30 to 60 km to its edge into ICON global,
-which fades over the outer 4 % of its piece into ECMWF; each ends with its hours, and from
-further out than a piece ECMWF draws alone. Picking a model draws it and the coarser ones only.
-A spot's hours, the spot cards and the alarms take each model while it has hours there, the
-finest first. It draws the field, wind or gusts, as a colour layer under coastlines and labels and
-the particles on a canvas of their own, after mapbox/webgl-wind: a shader moves them along the
-wind of the hour shown, blended between two model hours while the timeline plays; fewer of them
-when the device cannot keep up. From town zoom on (zoom 9.5 to 11.5) the field fades out and
-the map comes forward, with forests, meadows, water, industry, airfields and buildings; the
-particles then take the field's colours, so the wind's strength stays readable on the map.
-Tap a spot for the model's wind and gusts there and its coming hours side by side (the finer
-model while it lasts, then ECMWF; tap an hour to go there), with the timeline coloured by the
-wind at that spot; tap a station for its last measurement too;
-stations show their measured wind as a dot in the wind scale's colour, from closer up as an
-arrow with the value, and from zoom 8.5 on as a badge (a disc in that colour with a white ring
-and a shadow, the arrow inside), so a calm station stands out on a dark map too; from afar they are bundled, each bundle showing the strongest wind
-measured in it in that colour (tap it to zoom in). From zoom 8.5 on the water gauges show
-their level beside a dot (blue normal, amber low, red high, grey without a fresh reading), from
-town zoom with the gauge's name and water. Lakes and rivers lie dark over the field. The line under the models names the model and run drawing at the spot
-picked or the middle of the view. The view stays in the address (`/map#zoom/lat/lon`), the
-hour, layer and model in its query (`?t=…&layer=gusts&model=…`), so the share button (or a
-copied link) opens the same picture; layer and model are also remembered in the browser. With a
-mouse the wind and gusts under the pointer show without a click. The timeline jumps by day
-(tap a day, or Page up/down), marks now and goes back to it in one tap. Keys: ←/→ an hour (with
-Shift a day), Space plays, G switches wind and gusts, N goes to now, Escape closes the spot. A
-search result stays on the map: it flies there and opens the spot. "Auf Karte anzeigen" on a
-station or point page opens the map there at zoom 12 with the spot picked
-(`/map?spot=lat,lon&station=slug#12/lat/lon`). From town zoom on stations
-carry their name; a tapped station shows its last six hours measured as a small curve. While an
-hour's texture is on its way the timeline says so. On phones the spot is a sheet: folded it shows the coming hours, pulled up
-the measurement and the link too; swiping down folds and then closes it. With
-"reduce motion" set in the system, arrows that stand still take the particles' place. The land, water, borders and places under it come from
-the detailed basemap if one is installed, else from
-[Natural Earth](https://www.naturalearthdata.com/) (`web/scripts/natural-earth.mjs` builds that).
-
-### The detailed basemap
-
-Towns, roads and lakes from close up come from [Protomaps](https://protomaps.com/), vector
-tiles of OpenStreetMap, drawn in Windfenster's own style, light and dark, with names in the
-viewer's language. Without them the map shows the world from
-[Natural Earth](https://www.naturalearthdata.com/) (Europe finer).
-
-By default (`WF_BASEMAP=auto`) the server makes the basemap itself, a minute after the start and
-then checked daily: from Protomaps' newest daily build it takes, by byte range, the whole world
-up to zoom 7 (coasts, countries, towns) and a region deeper, Europe up to zoom 8 by default
-(main roads), into one file (together 323 MB, 24,752 tiles, about 13 minutes on 11 October),
-`{WF_DATA_DIR}/map/basemap.pmtiles`. A note next to it (`basemap.json`) says what it was made
-from; it is made again after 120 days, or when the settings change.
-
-Detail (streets, lakes, beaches, up to zoom 14) comes where people look, anywhere in the world:
-around each tracked station (`WF_TRACKED_STATIONS`), each place opened in the last week and each
-spot tapped on the map, the server cuts 20 km from the newest build into a file of its own,
-`{WF_DATA_DIR}/map/basemap-spots/{lat}_{lon}.pmtiles` (2 to 17 MB; spots are snapped to a 0.2°
-grid, so places close together share one). It checks every minute and makes two at a time, so a
-tapped spot has its detail within a minute or two, and the open map shows it without reloading.
-At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go.
-
-The map gets every tile from the server, at `/api/map/basemap/{z}/{x}/{y}`: from the spot that
-holds it, else from the main file, and where neither goes that deep, cut out of the deepest tile
-above it (scaled and clipped, as MapLibre does past a source's last zoom). So the map is one
-source with no seams and never blank; it is only coarser where nobody looked yet. With room to
-spare, set `WF_BASEMAP_WORLD_ZOOM` and `WF_BASEMAP_ZOOM` higher (the region with
-`WF_BASEMAP_REGION`), and `WF_TERRAIN_ZOOM` for finer relief.
-
-Relief comes from [Mapterhorn](https://mapterhorn.com/) (elevation from national surveys and
-other open data, [sources](https://mapterhorn.com/attribution)): the server cuts the whole world
-to zoom 7 from its planet archive into `{WF_DATA_DIR}/map/terrain.pmtiles` (948 MB, 13,522 tiles, about 7 minutes on 11 October; renewed
-yearly, served at `/api/map/terrain.pmtiles`), and the map draws it as hillshade over the colour
-field and under water, roads and labels, softer from town zoom on.
-
-A file you put there yourself (no note next to it) is never replaced. To cover more, cut one
-with the [pmtiles CLI](https://docs.protomaps.com/pmtiles/cli) (or its Docker image
-`protomaps/go-pmtiles`):
+Requires Rust (stable), Node.js 22.12 or newer and pnpm.
 
 ```bash
-pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pmtiles \
-  --bbox=-25,27,45,72 --maxzoom=12
-```
-
-Europe to zoom 12 is about 7 GB; the Upper Rhine to zoom 15 about 210 MB. `WF_BASEMAP=off`
-leaves the file to you; the server cuts its tiles the same way where it stops.
-OpenStreetMap is credited on the map.
-
-## Development
-
-Requirements: Rust (stable), Node.js 22.12 or newer, pnpm.
-
-```bash
+git clone https://github.com/firsttris/windfenster && cd windfenster
 pnpm install
-pnpm dev
+pnpm dev     # server on :8080, web app with hot reload on :5173
 ```
 
-`pnpm dev` creates `.env` from [`.env.example`](.env.example) on the first run, then starts
-the server on :8080 and the web app with hot reload on :5173 (it proxies `/api`). Open
-http://localhost:5173. Data goes to `./.data`.
+Rust (axum, SQLite, sqlx) with the React app (Vite, TanStack Router and Query, Tailwind, MapLibre,
+WebGL2) built into one binary. Architecture, tests and releases:
+[Development](https://firsttris.github.io/windfenster/development.html).
 
-Checks, as CI runs them:
+## 🤝 Contributing
 
-```bash
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace     # also writes the TypeScript bindings
-pnpm lint                  # Biome
-pnpm typecheck
-pnpm test
-pnpm build
-cargo build -p windfenster # the server the browser tests run against
-pnpm e2e                   # browser tests (Playwright): the map's shaders and the whole app
-```
+Issues and pull requests are welcome. A good bug report names the station or place, the time and
+what you expected; for the map, the browser and graphics card. Please run the checks listed in
+[Development](https://firsttris.github.io/windfenster/development.html) before opening a pull
+request.
 
-`pnpm e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
-Playwright's Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or
-another one in `PW_CHROMIUM`. CI runs them in the official Playwright image, in about four
-minutes.
+## 📡 Data sources
 
-- **gpu** (`web/e2e/*.spec.ts`): the map's shaders in a test page. How the three models lie over
-  one another, compared with what the readout under the pointer shows, for wind and gusts; the
-  particles (spread, speed, direction, no strokes when they start anew); the colour field; and
-  the look of three scenes (a low over all three models with wind and with gusts, calm air)
-  against approved pictures in `web/e2e/look.spec.ts-snapshots`. A change meant to alter the
-  look updates them with `pnpm e2e --update-snapshots`; look at them before committing.
-- **app** (`web/e2e/app/*.spec.ts`): the whole app against the real server (the debug build, or
-  `WF_BIN`), started on a fresh data directory with `WF_SCHEDULER=false` and `WF_SOURCES`
-  pointing every outside source at a local stand-in (`web/e2e/app/stand-in.mjs`: Open-Meteo,
-  the place search, aviationweather.gov, the DWD, OurAirports, in their own formats); the map's
-  textures are written in before it starts. Nothing is downloaded. Station pages, the forecast
-  table against the API, a DWD station, the search, the map (all three models, ICON global in
-  pieces, a spot's hours against the API, picking an hour and a place, the model and the gust
-  layer), a passkey account (Chrome's virtual authenticator, sign-in by autofill) with a saved
-  spot and its alarm, and an account with e-mail and password. Any error in the browser or from
-  the server fails the test it happens in.
-
-### Layout
-
-```
-crates/
-  wf-core/       models, units, stations, forecast series, measurements, TAF, gauges,
-                 verification and the mix, accounts, favourites, gear, alarms, database
-  wf-ingest/     Open-Meteo, station lists, measurements (METAR, TAF, DWD, PEGELONLINE),
-                 geocoding, scheduler
-  wf-map/        wind map: GRIB2 (ICON-D2, ICON global, ECMWF) to PNG textures, runs on disk
-  wf-alarm/      alarms: windows from the map's fields, live from measurements, push and e-mail
-  wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
-  windfenster/   the binary: serve | migrate | import-stations | probe
-migrations/      sqlx migrations (SQLite)
-web/
-  src/routes/    pages (TanStack Router, file-based): start, station, point
-  src/components/ forecast view and table, live and water tiles, verification (comparison
-                 chart, ranking, agreement), search, map (colour field, particles, pins)
-  src/lib/       logic without UI: forecast table, model choice, agreement, METAR decoder, TAF
-                 texts, units, formats, API
-  src/ui/        shadcn/ui components, wind colour scale
-  messages/      texts in German and English (Paraglide)
-  public/glyphs/ map label fonts (Noto Sans, OFL)
-  public/sw.js   service worker that shows the alarms' push messages
-  scripts/       builds the map's Natural Earth basemap
-  src/bindings/  types generated by ts-rs; do not edit
-Dockerfile       web app → binary → slim runtime image
-compose.yaml     Docker Compose with the published image
-windfenster.container  Podman Quadlet unit
-```
-
-### Releases
-
-The version lives in `Cargo.toml`. **Actions → Bump version** (pick patch, minor or major)
-raises it there and in `Cargo.lock`, commits, tags `vX.Y.Z` and starts the release; a tag pushed
-from a checkout does the same for the version already in `Cargo.toml`. The release runs the CI,
-then the shared Docker release from [firsttris/workflows](https://github.com/firsttris/workflows):
-amd64 and arm64 as `:x.y.z`, `:x.y` and `:latest` to Docker Hub (`tristanteu/windfenster`) and
-ghcr.io, and the GitHub release. It needs the `DOCKER_PAT` secret (a Docker Hub access token
-of `tristanteu`). Servers with `podman auto-update` pick up the new `:latest` within a day.
-**Actions → Release**, run by hand on main, publishes `:edge` and releases nothing.
-
-### Shared types
-
-API types are Rust structs deriving `ts_rs::TS`. `cargo test` writes them to
-`web/src/bindings`, and the web app imports them from there. After changing such a struct,
-run `cargo test --workspace` and commit the generated files; CI fails if they are out of
-date.
-
-## Data sources
-
-Weather data by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Open-Meteo's free API
-is for non-commercial use only. Running Windfenster commercially needs your own
-[Open-Meteo subscription](https://open-meteo.com/en/pricing) or a self-hosted Open-Meteo
-instance. Airport names and places come from [OurAirports](https://ourairports.com/data/)
-(public domain); which airports send METARs and TAFs, and the reports themselves, from the
-[Aviation Weather Center](https://aviationweather.gov/) (NOAA, public domain). Wind stations and
-their 10-minute values, and the ICON-D2 fields of the wind map, come from
-[DWD Open Data](https://opendata.dwd.de/) (CC BY 4.0, "Datenbasis: Deutscher Wetterdienst"), as do the DWD stations' past years for
-the wind statistics; the airports' past years come from the
-[Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/) (Iowa State University). Water
-levels from [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
-Bundes), credited on every page that shows them. The map's land, borders and places come from
-[Natural Earth](https://www.naturalearthdata.com/) (public domain) or, where installed, from
-[OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL) through Protomaps, its labels are set in Noto
-Sans ([OFL](web/public/glyphs/OFL.txt), glyphs from
-[protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). The map's
-global wind comes from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
-(CC BY 4.0), its relief from [Mapterhorn](https://mapterhorn.com/attribution) (open elevation
-data of many national surveys, mostly CC BY; credited on the map). The app lists every source with
-what it is used for, its licence and the credit it asks for on its sources page (`/sources`,
-linked from the footer and the map).
+Weather data by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0), [DWD Open Data](https://opendata.dwd.de/)
+(CC BY 4.0) and [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data) (CC BY 4.0);
+METAR and TAF from the [Aviation Weather Center](https://aviationweather.gov/); water levels from
+[PEGELONLINE](https://www.pegelonline.wsv.de/); map data © [OpenStreetMap](https://www.openstreetmap.org/copyright)
+contributors via [Protomaps](https://protomaps.com/); relief from [Mapterhorn](https://mapterhorn.com/attribution).
+Every source with its licence: [Data sources](https://firsttris.github.io/windfenster/data-sources.html).
 
 ---
 
@@ -549,6 +208,6 @@ linked from the footer and the map).
 
 <sub>License: <a href="LICENSE">AGPL-3.0</a> · © Tristan Teufel and contributors<br>
 Changed versions you pass on or run for others must offer their source code under the AGPL; a commercial license without these obligations is available via <a href="https://teufel-it.de">teufel-it.de</a>.<br>
-Windfenster is not affiliated with Windfinder, Windy, Open-Meteo, the Deutscher Wetterdienst or any other weather service.</sub>
+Windfenster is not affiliated with Windfinder, Windy, Windguru, Open-Meteo, the Deutscher Wetterdienst or any other weather service.</sub>
 
 </div>

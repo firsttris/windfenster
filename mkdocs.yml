@@ -1,0 +1,118 @@
+# Documentation as a website: https://firsttris.github.io/windfenster/
+# Source is docs/, built with MkDocs Material (.github/workflows/docs.yml).
+# Locally: pip install -r requirements-docs.txt && mkdocs serve
+site_name: Windfenster
+site_description: >-
+  Open-source wind forecast and live wind map for kitesurfing, windsurfing and wing foiling:
+  measured wind, five weather models, model ranking per station, alarms. Self-hosted.
+site_url: https://firsttris.github.io/windfenster/
+repo_url: https://github.com/firsttris/windfenster
+repo_name: firsttris/windfenster
+edit_uri: edit/main/docs/
+copyright: >-
+  License AGPL-3.0 · © Tristan Teufel and contributors ·
+  Windfenster is not affiliated with Windfinder, Windy, Open-Meteo or any weather service.
+
+docs_dir: docs
+# Pages as installation.html instead of installation/: this keeps the relative image paths
+# working, which also have to work on GitHub
+use_directory_urls: false
+exclude_docs: |
+  README.md
+
+nav:
+  - Home: index.md
+  - User guide: user-guide.md
+  - Installation: installation.md
+  - Configuration: configuration.md
+  - How it works:
+      - Architecture: architecture.md
+      - Forecasts and models: forecasts.md
+      - Measurements, TAF and gauges: measurements.md
+      - The wind map: wind-map.md
+      - The basemap and relief: basemap.md
+      - Accounts, spots and alarms: accounts.md
+  - API: api.md
+  - Development: development.md
+  - Data sources: data-sources.md
+  - FAQ: faq.md
+
+theme:
+  name: material
+  language: en
+  logo: assets/icon.svg
+  favicon: assets/icon.svg
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    # Follows the system setting, switchable like in the app
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      type: date
+      fallback_to_build_date: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/firsttris/windfenster
+      name: Source code on GitHub
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/tristanteu/windfenster
+      name: Image on Docker Hub

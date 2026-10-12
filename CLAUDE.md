@@ -2,14 +2,17 @@
 
 ## Documentation
 
-There is no `docs/` site yet (it comes with Phase 5). Until then:
-
+- The documentation is in `docs/` (MkDocs Material, <https://firsttris.github.io/windfenster/>).
+  Read the pages that touch the change before starting: `architecture.md` for how the pieces fit,
+  `wind-map.md` and `basemap.md` for the map, `forecasts.md` and `measurements.md` for the data.
+  Links in the README and the docs point to the GitHub Pages site, not to `docs/*.md`.
 - The plan, a Claude Doc in German: https://claude.ai/code/artifact/7ee0f1ac-b9dd-426a-afd7-5e8d2e919a22.
   Read the section of the phase you work on before starting, and keep it current: tick finished
   items, write down every decision that changes it (data model, sources, stack).
 - The mockup, the reference for look and flow: https://claude.ai/artifact/6JLKw5J5fu7dGV8L4ZLvrx
   (station page desktop and mobile, alarm set-up, lock screen, wind map).
-- `README.md` for running, configuration and the repository layout.
+- `README.md` sells and gets people started (firsttris/workflows `templates/README.template.md`);
+  details belong in the docs.
 
 ## Reference implementations
 
@@ -33,7 +36,9 @@ Update what the change affects, in the same commit, and only that:
 - the TypeScript bindings: `cargo test` writes them to `web/src/bindings`; commit them;
 - the texts in `web/messages/de.json` and `en.json`, both languages, for every text the UI or the
   station pages show;
-- the README when configuration or a feature a user sees changes;
+- the docs in `docs/` that describe it, and the README when a feature a user sees changes;
+- the screenshots after a change to the look: **Actions → Update screenshots → Run workflow**
+  (`pnpm screenshots` locally);
 - the plan when a decision or a phase item changes.
 
 ## Checks
@@ -50,6 +55,7 @@ pnpm test
 pnpm build
 cargo build -p windfenster
 pnpm e2e        # browser tests: map shaders and the whole app; PW_CHROMIUM=… for another Chromium
+mkdocs build --strict    # when docs/ or mkdocs.yml changed
 ```
 
 CI runs on the newest stable Rust, which can bring new clippy lints: run clippy with
@@ -67,7 +73,7 @@ CI runs on the newest stable Rust, which can bring new clippy lints: run clippy 
 - Ask before changing anything the tech stack decides (libraries, tooling, delivery).
 - Commands as root (`sudo`, `pkexec`) are run by the user; don't work around that.
 - The user's running processes are not stopped; use other ports for tests.
-- Language: code, comments, README, commits in English; the plan in German; the interface in
+- Language: code, comments, README, docs, commits in English; the plan in German; the interface in
   German (base) and English, through Paraglide.
 - Cloud sessions may not reach the data sources (Open-Meteo, DWD, aviationweather.gov,
   PEGELONLINE). Never fill in made-up data; build against the documented format, test with local

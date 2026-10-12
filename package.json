@@ -14,7 +14,8 @@
     "bindings": "cargo test --workspace export_bindings",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "e2e": "pnpm --filter @windfenster/web e2e"
+    "e2e": "pnpm --filter @windfenster/web e2e",
+    "screenshots": "pnpm --filter @windfenster/web screenshots"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

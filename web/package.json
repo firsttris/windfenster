@@ -10,7 +10,8 @@
     "build": "pnpm i18n && tsc -p . && vite build",
     "typecheck": "pnpm i18n && tsc -p .",
     "test": "pnpm i18n && vitest run",
-    "e2e": "pnpm i18n && playwright test"
+    "e2e": "pnpm i18n && playwright test --grep-invert @screenshots",
+    "screenshots": "pnpm i18n && playwright test --project=app --grep @screenshots"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

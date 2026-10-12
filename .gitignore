@@ -8,3 +8,4 @@ node_modules/
 /web/src/paraglide
 /web/test-results
 /web/playwright-report
+site/
