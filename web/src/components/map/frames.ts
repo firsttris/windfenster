@@ -1,6 +1,7 @@
 /** The model hours as the wind layers use them: description plus decoded texture, loaded once
  * and kept for the last few hours shown. */
 import type { TextureMeta } from '@/bindings/TextureMeta';
+import { lru } from '@/lib/lru';
 
 export interface WindFrame {
   /** `{model}/{run}/{step}`, unique per texture */
@@ -47,7 +48,11 @@ export function loadFrame(path: string): Promise<WindFrame> {
   return p;
 }
 
-const pixelCache = new Map<string, Uint8ClampedArray>();
+/** Decoded textures for reading the wind at a spot: the two hours of each of the three models
+ * the readout blends (six), and the next hour's while the timeline moves on. A hit counts as a
+ * use; with a plain queue of four, six frames read in turn never hit and every readout decoded
+ * every texture anew. */
+const pixelCache = lru<string, Uint8ClampedArray>(8);
 
 /** The texture's RGBA bytes, for reading the wind at a spot. */
 export function framePixels(frame: WindFrame): Uint8ClampedArray {
@@ -59,8 +64,6 @@ export function framePixels(frame: WindFrame): Uint8ClampedArray {
   if (!ctx) throw new Error('no 2d context');
   ctx.drawImage(frame.image, 0, 0);
   const data = ctx.getImageData(0, 0, width, height, { colorSpace: 'srgb' }).data;
-  // The two hours of the two models being blended
-  if (pixelCache.size >= 4) pixelCache.delete(pixelCache.keys().next().value as string);
   pixelCache.set(frame.path, data);
   return data;
 }
