@@ -30,7 +30,8 @@ test('a METAR station: measured now, the TAF, the forecast of every model', asyn
   const chooser = page.getByRole('region', { name: 'Wettermodell wählen' });
   for (const model of station.forecast.models)
     await expect(chooser.getByRole('button', { name: new RegExp(`^${model.name} `) })).toBeVisible();
-  await expect(page.getByRole('table', { name: /Vorhersage pro Tag und Uhrzeit/ })).toBeVisible();
+  // Ten days, each a table of its own
+  await expect(page.getByRole('table', { name: /^Vorhersage für / })).toHaveCount(10);
   await expect(page.getByRole('heading', { name: 'Messwerte' })).toBeVisible();
 });
 
@@ -54,29 +55,39 @@ function tomorrowAt(hour: number): number {
   throw new Error('no such hour');
 }
 
-test("the table shows the chosen model's forecast hour by hour, wind and gusts", async ({ page, request }) => {
+test("tomorrow's table shows the chosen model hour by hour: wind, the gust under it", async ({ page, request }) => {
   await page.goto('/station/edsb');
   const station = await (await request.get('/api/stations/edsb')).json();
   const d2 = station.forecast.series.find((s: { model: string }) => s.model === 'icon_d2');
-  const table = page.getByRole('table', { name: /Vorhersage pro Tag und Uhrzeit/ });
-  const row = (name: string) =>
+  // Tomorrow, the second day
+  const table = page.getByRole('table', { name: /^Vorhersage für / }).nth(1);
+  const row = (name: RegExp) =>
     table
       .getByRole('row')
       .filter({ has: page.getByRole('rowheader', { name }) })
       .getByRole('cell');
-  // Tomorrow 07 to 19 o'clock, the second day's 13 columns (ICON-D2, hourly)
-  for (const [name, values] of [
-    ['Vorhersagekn', d2.wind],
-    ['Böen', d2.gust],
-  ] as const) {
-    // Ten days of columns: wait for all of them, the table fills in as the data comes
-    await expect.poll(() => row(name).count()).toBeGreaterThan(40);
-    const cells = await row(name).allInnerTexts();
-    for (let h = 7; h <= 19; h++) {
-      const want = values[(tomorrowAt(h) - d2.start) / d2.step];
-      expect(cells[13 + h - 7].trim(), `${name} at ${h}:00 tomorrow`).toBe(String(Math.round(want)));
-    }
+  // 07 to 19 o'clock, ICON-D2 hourly; the gust shown is never below the wind
+  await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(13);
+  const winds = await row(/^Wind\s*kn$/).allInnerTexts();
+  const gusts = await row(/^Böen$/).allInnerTexts();
+  for (let h = 7; h <= 19; h++) {
+    const i = (tomorrowAt(h) - d2.start) / d2.step;
+    expect(winds[h - 7].trim(), `wind at ${h}:00 tomorrow`).toBe(String(Math.round(d2.wind[i])));
+    expect(gusts[h - 7].trim(), `gust at ${h}:00 tomorrow`).toBe(String(Math.round(Math.max(d2.gust[i], d2.wind[i]))));
   }
+  // Every 3 hours instead: 8 columns, kept after a reload
+  await page.getByRole('group', { name: 'Heute und morgen' }).getByRole('button', { name: '3 h' }).click();
+  await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
+  await page.reload();
+  await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
+});
+
+test('measured values and the TAF stand under the forecast, to compare', async ({ page }) => {
+  await page.goto('/station/edsb');
+  const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
+  await expect(today.getByRole('rowheader', { name: /Gemessen/ })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: /TAF/ }).first()).toBeVisible();
+  await expect(today.getByText('Zum Vergleich')).toBeVisible();
 });
 
 test('a DWD station: ten-minute values', async ({ page, request }) => {

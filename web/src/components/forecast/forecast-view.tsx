@@ -11,15 +11,14 @@ import { autoModel, buildDays, initialModel, MIX, type Mode, modeOf } from '@/li
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
 import type { Measured } from '@/lib/observations';
-import { useUnit } from '@/lib/prefs';
+import { usePref, useUnit } from '@/lib/prefs';
 import { UNIT_LABEL, WIND_UNITS } from '@/lib/units';
 import { useGear } from '@/lib/use-gear';
 import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { m } from '@/paraglide/messages';
 import { Segmented } from '@/ui/segmented';
-import { ForecastList } from './forecast-list';
-import { ForecastTable } from './forecast-table';
+import { ForecastDays } from './forecast-days';
 import { ModelChips } from './model-chips';
 import { modelName, ScaleLegend } from './shared';
 
@@ -27,9 +26,9 @@ interface Props {
   fc: Forecast;
   /** Cards between the models and the table, e.g. the live measurement. */
   tiles?: ReactNode;
-  /** Measured values for the row under the forecast (desktop). */
+  /** Measured values, to check the forecast against */
   measured?: Measured;
-  /** The station's TAF, for its row (desktop). */
+  /** The station's TAF, for its row */
   taf?: Taf | null;
   /** "Who hits here?": the station's, or for a point the nearest station's within 5 km */
   ranking?: Ranking | null;
@@ -48,9 +47,12 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
   const selected = picked && fc.series.some((s) => s.model === picked) ? picked : initialModel(fc, ranking);
   const now = useNow();
   const { gear } = useGear();
+  // Today and tomorrow hour by hour, or every 3 hours like the rest (kept in the browser)
+  const [step, setStep] = usePref('wf.forecastStep');
+  const hourly = step !== '3';
   const days = useMemo(
-    () => (selected ? buildDays(fc, selected, now, globalModel) : []),
-    [fc, selected, now, globalModel],
+    () => (selected ? buildDays(fc, selected, now, globalModel, hourly) : []),
+    [fc, selected, now, globalModel, hourly],
   );
   const desktop = useMedia('(min-width: 768px)', true);
   const series = fc.series.find((s) => s.model === selected);
@@ -121,21 +123,28 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
               </h2>
               <p className="m-0 mt-1 text-muted-foreground text-[13px]">
                 {m.forecast_note()}
-                {taf && desktop && ` · ${m.taf_row()}: ${m.taf_legend()}`}
+                {taf && ` · ${m.taf_row()}: ${m.taf_legend()}`}
                 {' · '}
                 <Link to="/gear" className="text-foreground underline underline-offset-2">
                   {gear.length > 0 ? m.gear_edit() : m.gear_hint()}
                 </Link>
               </p>
             </div>
-            <ScaleLegend unit={unit} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Segmented
+                label={m.forecast_step()}
+                value={hourly ? '1' : '3'}
+                options={[
+                  { value: '1', label: m.forecast_stepHourly() },
+                  { value: '3', label: m.forecast_stepThree() },
+                ]}
+                onChange={(v) => setStep(v === '3' ? '3' : null)}
+              />
+              <ScaleLegend unit={unit} />
+            </div>
           </div>
-          <div className={desktop ? 'pb-3' : ''}>
-            {desktop ? (
-              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
-            ) : (
-              <ForecastList fc={fc} days={days} unit={unit} gear={gear} />
-            )}
+          <div className="sm:p-3">
+            <ForecastDays fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
           </div>
         </section>
       ) : (

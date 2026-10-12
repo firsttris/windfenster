@@ -40,7 +40,7 @@ export function stageLabel(fc: Forecast, day: Day): string {
 const AGREE_LABEL = { high: m.agree_high, medium: m.agree_medium, low: m.agree_low } as const;
 const AGREE_DOT = { high: 'bg-agree-high', medium: 'bg-agree-medium', low: 'bg-agree-low' } as const;
 
-/** The trend days' light: how far apart the models are at the day's windiest hour. */
+/** How far apart the models are at the day's windiest hour, as a dot. */
 export function AgreementDot({ fc, day }: { fc: Forecast; day: Day }) {
   const a = dayAgreement(
     fc,
@@ -87,14 +87,15 @@ export function ScaleLegend({ unit }: { unit: WindUnit }) {
     <div className="flex items-center gap-2.5">
       <span className="text-muted-foreground text-xs">{m.scale_windIn({ unit: UNIT_LABEL[unit] })}</span>
       <div className="flex overflow-hidden rounded-[7px]">
-        {WIND_SCALE.map((b, i) => (
+        {/* Every other step: fourteen marks for the scale's 27 */}
+        {WIND_SCALE.filter((_, i) => i % 2 === 0).map((b, i, shown) => (
           <span
             key={b.from}
-            className="px-1.5 py-1 font-mono font-semibold text-[11px] sm:px-2"
+            className="px-1 py-1 font-mono font-semibold text-[10px] sm:px-1.5 sm:text-[11px]"
             style={{ background: b.bg, color: b.fg }}
           >
             {formatWind(b.from, unit)}
-            {i === WIND_SCALE.length - 1 ? '+' : ''}
+            {i === shown.length - 1 ? '+' : ''}
           </span>
         ))}
       </div>

@@ -5,10 +5,12 @@ import type { ModelSeries } from '@/bindings/ModelSeries';
 import type { Ranking } from '@/bindings/Ranking';
 import {
   autoModel,
+  barShare,
   buildDays,
   compassIndex,
   defaultModel,
   initialModel,
+  isNight,
   localClock,
   modeOf,
   weatherOf,
@@ -54,7 +56,7 @@ const fc: Forecast = {
 };
 
 describe('buildDays', () => {
-  it('lays out ten days in three stages', () => {
+  it('lays out ten whole days in three stages', () => {
     const days = buildDays(fc, 'icon_d2', MIDNIGHT + 10 * HOUR);
     expect(days).toHaveLength(10);
     expect(days.map((d) => d.stage)).toEqual([
@@ -71,8 +73,16 @@ describe('buildDays', () => {
     ]);
     expect(days[0].date).toBe('2026-10-11');
     expect(days[0].cells.map((c) => c.hour)).toEqual([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
-    expect(days[2].cells.map((c) => c.hour)).toEqual([6, 9, 12, 15, 18, 21]);
-    expect(days[9].cells.map((c) => c.hour)).toEqual([6, 12, 18]);
+    // Every 3 hours around the clock, the trend days as full
+    expect(days[2].cells.map((c) => c.hour)).toEqual([2, 5, 8, 11, 14, 17, 20, 23]);
+    expect(days[9].cells.map((c) => c.hour)).toEqual([2, 5, 8, 11, 14, 17, 20, 23]);
+  });
+
+  it('lays out today and tomorrow every 3 hours too when not asked hourly', () => {
+    const days = buildDays(fc, 'icon_d2', MIDNIGHT + 10 * HOUR, undefined, false);
+    expect(days.slice(0, 3).map((d) => d.stage)).toEqual(['threeHourly', 'threeHourly', 'threeHourly']);
+    expect(days[0].cells.map((c) => c.hour)).toEqual([2, 5, 8, 11, 14, 17, 20, 23]);
+    expect(days[0].cells.filter((c) => c.past).map((c) => c.hour)).toEqual([2, 5]);
   });
 
   it('takes the chosen model while it lasts, then the best global one', () => {
@@ -86,7 +96,7 @@ describe('buildDays', () => {
     const days = buildDays(fc, 'ecmwf', MIDNIGHT);
     expect(days[0].cells[0].rain).toBe(0.1);
     expect(days[3].cells[0].rain).toBe(0.3);
-    expect(days[8].cells[0].rain).toBe(0.6);
+    expect(days[8].cells[0].rain).toBe(0.3);
   });
 
   it('marks hours that are over', () => {
@@ -162,5 +172,21 @@ describe('model choice', () => {
   it('lets the chosen global model take over after the regional one', () => {
     const days = buildDays(withMix, 'icon_d2', MIDNIGHT + 10 * HOUR, 'gfs');
     expect(days[2].source).toBe('gfs');
+  });
+});
+
+describe('bar heights and night hours', () => {
+  it('grows faster in light wind and is full from 28 kn', () => {
+    expect(barShare(0)).toBe(0);
+    expect(barShare(-3)).toBe(0);
+    expect(barShare(28)).toBe(1);
+    expect(barShare(40)).toBe(1);
+    // 7 kn stands at 44 % rather than a quarter
+    expect(barShare(7)).toBeCloseTo(0.435, 2);
+    expect(barShare(14)).toBeGreaterThan(barShare(7));
+  });
+
+  it('takes the hours before 7 and after 20 for night', () => {
+    expect([2, 5, 8, 11, 14, 17, 20, 23].filter(isNight)).toEqual([2, 5, 23]);
   });
 });

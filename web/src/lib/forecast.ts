@@ -1,8 +1,9 @@
 /**
- * The forecast table: ten days in three stages, as in the plan. Days 1–2 hourly from the
- * chosen model (a regional one for Superforecast), days 3–7 every 3 hours, days 8–10 every
- * 6 hours as a paler trend. Where the chosen model ends, the best global model takes over.
- * Times are the place's local time.
+ * The forecast table: ten days, each one whole, as in the redesign of 12.10.2026 (after
+ * Windfinder). Every day every 3 hours around the clock; today and tomorrow hourly from the
+ * chosen model when asked for (a regional one for Superforecast); from day 8 the same columns as
+ * a paler trend. Where the chosen model ends, the best global model takes over. Times are the
+ * place's local time.
  */
 import type { Forecast } from '@/bindings/Forecast';
 import type { ModelSeries } from '@/bindings/ModelSeries';
@@ -13,18 +14,31 @@ export type Stage = 'hourly' | 'threeHourly' | 'trend';
 
 export const DAYS = 10;
 
-/** Local hours shown per stage: daytime, when people are on the water. */
+/** Local hours shown per stage: hourly over the day, when people are on the water; every
+ * 3 hours around the clock (as Windfinder), the night paler. */
 export const STAGE_HOURS: Record<Stage, readonly number[]> = {
   hourly: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-  threeHourly: [6, 9, 12, 15, 18, 21],
-  trend: [6, 12, 18],
+  threeHourly: [2, 5, 8, 11, 14, 17, 20, 23],
+  trend: [2, 5, 8, 11, 14, 17, 20, 23],
 };
 
 /** Hours a cell stands for (rain is summed over them). */
-export const STAGE_STEP: Record<Stage, number> = { hourly: 1, threeHourly: 3, trend: 6 };
+export const STAGE_STEP: Record<Stage, number> = { hourly: 1, threeHourly: 3, trend: 3 };
 
-export function stageOf(dayIndex: number): Stage {
-  return dayIndex <= 1 ? 'hourly' : dayIndex <= 6 ? 'threeHourly' : 'trend';
+/** Day 1 and 2 hourly when `hourly`, days 3–7 every 3 hours, from day 8 the trend. */
+export function stageOf(dayIndex: number, hourly = true): Stage {
+  return dayIndex <= 1 && hourly ? 'hourly' : dayIndex <= 6 ? 'threeHourly' : 'trend';
+}
+
+/** Hours before the day's first light and after its end, shown paler */
+export function isNight(hour: number): boolean {
+  return hour < 7 || hour > 20;
+}
+
+/** How tall a wind's bar stands, 0…1 of the full height: more room between 5 and 20 kn, where
+ * the decisions are, than a straight line would give; full from 28 kn. */
+export function barShare(kn: number): number {
+  return Math.min(1, Math.max(0, kn) / 28) ** 0.6;
 }
 
 export interface Cell {
@@ -127,12 +141,13 @@ function rainOver(s: ModelSeries, i: number | undefined, hours: number): number 
 }
 
 /** Builds the table for the chosen model at `now` (Unix seconds); where it ends, `globalId`
- * (by default the first global model) takes over. */
+ * (by default the first global model) takes over. `hourly`: today and tomorrow hour by hour. */
 export function buildDays(
   fc: Forecast,
   selected: string,
   now: number,
   globalId: string | null = defaultModel(fc, 'global'),
+  hourly = true,
 ): Day[] {
   const clock = localClock(fc.timezone ?? 'UTC');
   const bySource = new Map(fc.series.map((s) => [s.model, s]));
@@ -154,7 +169,7 @@ export function buildDays(
   dates.sort();
 
   return dates.slice(0, DAYS).map((date, d) => {
-    const stage = stageOf(d);
+    const stage = stageOf(d, hourly);
     const hours = STAGE_HOURS[stage];
     const covers = (s: Indexed | undefined): s is Indexed =>
       !!s && hours.every((h) => value(s.series.wind, s.at.get(`${date}|${h}`)) !== null);
