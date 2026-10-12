@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 mod alarms;
+mod supervise;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -18,6 +19,8 @@ use wf_ingest::openmeteo::{self, OpenMeteo};
 use wf_ingest::scheduler::Scheduler;
 use wf_ingest::stations::{self, Sources};
 use wf_map::MapData;
+
+use crate::supervise::supervise;
 
 /// Windfenster: wind forecast for water sports. Without a command, `serve` runs.
 #[derive(Parser)]
@@ -362,27 +365,33 @@ async fn serve(args: ServeArgs) -> Result<()> {
         .filter(|s| !s.is_empty())
         .collect();
     if let (true, Some(map)) = (args.scheduler, &map) {
-        tokio::spawn(map.clone().keep_current());
+        let m = map.clone();
+        supervise("map", move || m.clone().keep_current());
         if args.icon_global {
-            tokio::spawn(map.clone().keep_icon_global());
+            let m = map.clone();
+            supervise("map icon_global", move || m.clone().keep_icon_global());
         }
         if args.basemap == "auto" {
-            tokio::spawn(map.clone().keep_basemap(db.clone()));
+            let (m, db) = (map.clone(), db.clone());
+            supervise("basemap", move || m.clone().keep_basemap(db.clone()));
         }
     }
     if args.scheduler {
-        tokio::spawn(alarms.clone().run());
-        tokio::spawn(
+        let a = alarms.clone();
+        supervise("alarms", move || a.clone().run());
+        let (db, forecasts, measurements) = (db.clone(), forecasts.clone(), measurements.clone());
+        let sources = args.data.station_sources();
+        supervise("scheduler", move || {
             Scheduler {
                 db: db.clone(),
-                http,
+                http: http.clone(),
                 forecasts: forecasts.clone(),
                 measurements: measurements.clone(),
-                sources: args.data.station_sources(),
-                tracked,
+                sources: sources.clone(),
+                tracked: tracked.clone(),
             }
-            .run(),
-        );
+            .run()
+        });
     }
     let mut state = wf_api::AppState::new(
         db,

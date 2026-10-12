@@ -115,6 +115,11 @@ and `.json`, plus the basemap and relief as PMTiles. See [The wind map](wind-map
 | a minute | detail basemap spots around places people look at, two at a time |
 | weekly | the station lists |
 
+Each step of the scheduler has a time limit (2 minutes for one file like the METARs, 5 for the
+per-station fetches, 10 for the forecast refresh): a source that hangs is given up and tried
+again next turn, so it cannot hold up the others. Every loop runs under a supervisor that
+starts it again a minute after a panic.
+
 Details per source: [Forecasts and models](forecasts.md), [Measurements](measurements.md),
 [The wind map](wind-map.md), [The basemap](basemap.md), [Accounts and alarms](accounts.md).
 
