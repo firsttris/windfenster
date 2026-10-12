@@ -201,17 +201,33 @@ describe('layers', () => {
 
   it('shows the base alone when picked, and whatever has hours', () => {
     const c = chooseLayers([icon, ecmwf], 'ecmwf_ifs025');
-    expect([c.detail, c.base?.model]).toEqual([null, 'ecmwf_ifs025']);
+    expect([c.detail, c.mid, c.base?.model]).toEqual([null, null, 'ecmwf_ifs025']);
     const d = chooseLayers([icon, at('ecmwf_ifs025', [])], null);
     expect([d.detail?.model, d.base]).toEqual(['icon_d2', null]);
     expect(chooseLayers([], null).selected).toBeNull();
   });
 
-  it('takes the finest model where the map is, unless one is picked', () => {
+  it('draws the model picked over every coarser one', () => {
     const layers = [icon, global, ecmwf];
-    expect(chooseLayers(layers, null, { lon: 8.1, lat: 48.8 }).detail?.model).toBe('icon_d2');
-    expect(chooseLayers(layers, null, { lon: 28.1, lat: 36.4 }).detail?.model).toBe('icon_global');
-    expect(chooseLayers(layers, 'icon_global', { lon: 8.1, lat: 48.8 }).detail?.model).toBe('icon_global');
+    const all = chooseLayers(layers, null);
+    expect([all.selected?.model, all.detail?.model, all.mid?.model, all.base?.model]).toEqual([
+      'icon_d2',
+      'icon_d2',
+      'icon_global',
+      'ecmwf_ifs025',
+    ]);
+    // Each hour once, the finest model's first
+    expect(all.frames.map((f) => f.path.split('/')[0])).toEqual([
+      'icon_d2',
+      'icon_d2',
+      'icon_d2',
+      'icon_global',
+      'ecmwf_ifs025',
+    ]);
+    const g = chooseLayers(layers, 'icon_global');
+    expect([g.detail, g.mid?.model, g.base?.model]).toEqual([null, 'icon_global', 'ecmwf_ifs025']);
+    const e = chooseLayers(layers, 'ecmwf_ifs025');
+    expect([e.detail, e.mid, e.base?.model]).toEqual([null, null, 'ecmwf_ifs025']);
   });
 
   it('takes a model sent in pieces around the view', () => {

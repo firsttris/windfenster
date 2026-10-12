@@ -320,11 +320,12 @@ From further out than such a piece, ECMWF draws alone.
 whether it comes in pieces;
 `GET /api/map/series?lat=&lon=` gives a place's wind, gusts and direction over all of them.
 
-The map page (`/map`) draws the finer model over ECMWF, blended over the last 30 to 60 km to its
-domain's edge, and ECMWF alone where and when it has nothing: unless a model is picked, ICON-D2
-when the map's middle is in its domain, else ICON global. A spot's hours, the spot cards and the
-alarms take each model while it has hours there, the finest first. The other model can be picked
-instead. It draws the field, wind or gusts, as a colour layer under coastlines and labels and
+The map page (`/map`) draws all three models at once, the finest on top, without an edge to
+see: ICON-D2 inside its domain, fading over the last 30 to 60 km to its edge into ICON global,
+which fades over the outer 4 % of its piece into ECMWF; each ends with its hours, and from
+further out than a piece ECMWF draws alone. Picking a model draws it and the coarser ones only.
+A spot's hours, the spot cards and the alarms take each model while it has hours there, the
+finest first. It draws the field, wind or gusts, as a colour layer under coastlines and labels and
 the particles on a canvas of their own, after mapbox/webgl-wind: a shader moves them along the
 wind of the hour shown, blended between two model hours while the timeline plays; fewer of them
 when the device cannot keep up. From town zoom on (zoom 9.5 to 11.5) the field fades out and

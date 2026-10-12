@@ -5,7 +5,16 @@ import { townness } from '@/lib/town-zoom';
 import { MAX_LAT, mercatorX, mercatorY, RAMP_MAX_KN, rampPixels, wrapsAround } from '@/lib/wind-map';
 import { activate, bindAttribute, bindTexture, createBuffer, createProgram, createTexture, type Program } from './gl';
 import { FIELD_FRAG, FIELD_VERT } from './shaders';
-import { bindWind, framesOf, hasWind, NO_WIND, type WindLayers, type WindTextures, windTextures } from './wind-gl';
+import {
+  bindWind,
+  framesOf,
+  hasWind,
+  NO_WIND,
+  WIND_UNITS,
+  type WindLayers,
+  type WindTextures,
+  windTextures,
+} from './wind-gl';
 
 /** World copies drawn east and west of the world: as many as fit beside it when zoomed out */
 const WORLD_COPIES = 2;
@@ -83,8 +92,8 @@ export function windField(id: string, opacity: number, gusts: boolean): WindFiel
       bindAttribute(g, quad as WebGLBuffer, program.a.a_merc, 2);
       g.uniformMatrix4fv(program.u.u_matrix, false, Float32Array.from(options.defaultProjectionData.mainMatrix));
       bindWind(g, program, textures, shown, 0);
-      bindTexture(g, ramp, 4);
-      g.uniform1i(program.u.u_ramp, 4);
+      bindTexture(g, ramp, WIND_UNITS);
+      g.uniform1i(program.u.u_ramp, WIND_UNITS);
       g.uniform1f(program.u.u_ramp_max, RAMP_MAX_KN);
       g.uniform1f(program.u.u_gusts, byGust ? 1 : 0);
       g.uniform1f(program.u.u_opacity, alpha * (1 - town));

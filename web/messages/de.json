@@ -326,7 +326,7 @@
   "map_forecastHere": "Vorhersage für diesen Ort",
   "map_attribution": "Daten:",
   "history_hint": "Zeigen oder tippen: Werte zu jedem Messzeitpunkt",
-  "map_layered": "{fine} in seinem Rechengebiet, sonst {base}",
+  "map_layered": "{models}: das feinste Modell, wo es rechnet, nahtlos übergeblendet",
   "title_login": "Anmelden | Windfenster",
   "title_account": "Konto | Windfenster",
   "nav_signIn": "Anmelden",

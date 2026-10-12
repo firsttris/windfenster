@@ -75,17 +75,20 @@ function MapPage() {
   };
   // The map's middle and view, after each move
   const [center, setCenter] = useState<(Place & { view: [number, number, number, number] }) | null>(null);
-  const choice = chooseLayers(index.data?.layers ?? [], chosen, center);
+  const choice = chooseLayers(index.data?.layers ?? [], chosen);
   // A model sent in pieces (ICON global): the piece around the view
-  const detailFrames = framesFor(choice.detail, center ? pieceFor(center.view) : null);
+  const piece = center ? pieceFor(center.view) : null;
+  const midFrames = framesFor(choice.mid, piece);
+  const detailFrames = framesFor(choice.detail, piece);
   const frames = choice.frames;
   const [picked, setTime] = useState<number | null>(initial.time ?? null);
   const time = picked ?? startTime(frames, now);
   const [playing, setPlaying] = useState(false);
   usePlayback(playing, frames, time, setTime);
   const base = useWindPair(choice.base?.frames ?? [], time, playing);
+  const mid = useWindPair(hoursAt(midFrames, time), time, playing);
   const detail = useWindPair(hoursAt(detailFrames, time), time, playing);
-  const layers = useMemo(() => ({ base, detail }), [base, detail]);
+  const layers = useMemo(() => ({ base, mid, detail }), [base, mid, detail]);
   const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
@@ -130,7 +133,9 @@ function MapPage() {
   // The place picked over the coming hours, from the map's own fields
   const series = useQuery({ ...mapSeriesQuery(pick?.lat ?? 0, pick?.lon ?? 0), enabled: pick !== null });
   const hours = series.data
-    ? spotHours(series.data, [choice.detail?.model, choice.base?.model]).filter((h) => h.validAt >= now - 3_600)
+    ? spotHours(series.data, [choice.detail?.model, choice.mid?.model, choice.base?.model]).filter(
+        (h) => h.validAt >= now - 3_600,
+      )
     : series.isError
       ? []
       : undefined;
@@ -139,10 +144,13 @@ function MapPage() {
     if (time === null || list.length === 0) return false;
     return pair?.a.path !== list[positionAt(list, time).i]?.path;
   };
-  const loading = behind(base, choice.base?.frames ?? []) || behind(detail, hoursAt(detailFrames, time));
+  const loading =
+    behind(base, choice.base?.frames ?? []) ||
+    behind(mid, hoursAt(midFrames, time)) ||
+    behind(detail, hoursAt(detailFrames, time));
   // A model hour without gusts (ECMWF's first, some late ones) shows the wind instead.
   const gustless = gusts
-    ? [detail, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
+    ? [detail, mid, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
     : null;
 
   const modelOf = (id: string | undefined) =>
@@ -150,10 +158,15 @@ function MapPage() {
   const nameOf = (id: string) => modelOf(id)?.name ?? id;
   const ready = index.data?.layers.filter((l) => l.frames.length > 0) ?? [];
   // The model that draws the hour shown at the spot picked or else in the middle of the view,
-  // for its run: the detail inside its domain, the base around it.
+  // for its run: the finest whose texture holds the place.
   const where = pick ?? center;
-  const inDetail = detail !== null && (where === null || covers(detail.a.meta, where));
-  const drawing = inDetail || !choice.base ? choice.detail : choice.base;
+  const drawing =
+    (
+      [
+        [detail, choice.detail],
+        [mid, choice.mid],
+      ] as const
+    ).find(([pair]) => pair !== null && (where === null || covers(pair.a.meta, where)))?.[1] ?? choice.base;
   const drawingFrames = drawing?.frames ?? [];
   const frame = time !== null && drawingFrames.length ? drawingFrames[positionAt(drawingFrames, time).i] : null;
   const station = pick?.slug ? (pins.data?.find((p) => p.slug === pick.slug) ?? null) : null;
@@ -194,14 +207,14 @@ function MapPage() {
     </fieldset>
   );
 
+  // The models drawn, finest first
+  const stack = [choice.detail, choice.mid, choice.base].flatMap((l) => (l ? [nameOf(l.model)] : []));
   const modelInfo = ready.length > 0 && (
     <div className="flex flex-col gap-2">
       <h2 className="m-0 font-semibold text-sm">{m.map_model()}</h2>
       {chips}
-      {choice.detail && choice.base && (
-        <p className="m-0 text-muted-foreground text-xs">
-          {m.map_layered({ fine: nameOf(choice.detail.model), base: nameOf(choice.base.model) })}
-        </p>
+      {stack.length > 1 && (
+        <p className="m-0 text-muted-foreground text-xs">{m.map_layered({ models: stack.join(' › ') })}</p>
       )}
       {runLine && <p className="m-0 font-mono text-muted-foreground text-xs">{runLine}</p>}
     </div>

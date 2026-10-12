@@ -21,7 +21,7 @@ import {
   type Program,
 } from './gl';
 import { COPY_FRAG, DRAW_FRAG, DRAW_VERT, FADE_FRAG, QUAD_VERT, UPDATE_FRAG } from './shaders';
-import { bindWind, hasWind, NO_WIND, type WindLayers, windTextures } from './wind-gl';
+import { bindWind, hasWind, NO_WIND, WIND_UNITS, type WindLayers, windTextures } from './wind-gl';
 
 export interface Particles {
   show(layers: WindLayers): void;
@@ -145,8 +145,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.viewport(0, 0, res, res);
     activate(gl, update);
     bindWind(gl, update, textures, shown, 0);
-    bindTexture(gl, state[0], 4);
-    gl.uniform1i(update.u.u_particles, 4);
+    bindTexture(gl, state[0], WIND_UNITS);
+    gl.uniform1i(update.u.u_particles, WIND_UNITS);
     gl.uniform4f(update.u.u_view, view.x, view.y, view.w, view.h);
     gl.uniform4f(update.u.u_shift, ...shift);
     gl.uniform2f(update.u.u_screen, size.w, size.h);
@@ -160,8 +160,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     bindFramebuffer(gl, fb, trails[1]);
     gl.viewport(0, 0, width, height);
     activate(gl, fade);
-    bindTexture(gl, trails[0], 4);
-    gl.uniform1i(fade.u.u_screen_tex, 4);
+    bindTexture(gl, trails[0], WIND_UNITS);
+    gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
     gl.uniform1f(fade.u.u_fade, FADE ** dt);
     screenQuad(fade);
 
@@ -170,10 +170,10 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     activate(gl, draw);
     bindWind(gl, draw, textures, shown, 0);
-    bindTexture(gl, state[0], 4);
-    bindTexture(gl, state[1], 5);
-    gl.uniform1i(draw.u.u_before, 4);
-    gl.uniform1i(draw.u.u_after, 5);
+    bindTexture(gl, state[0], WIND_UNITS);
+    bindTexture(gl, state[1], WIND_UNITS + 1);
+    gl.uniform1i(draw.u.u_before, WIND_UNITS);
+    gl.uniform1i(draw.u.u_after, WIND_UNITS + 1);
     gl.uniform4f(draw.u.u_shift, ...shift);
     gl.uniform4f(draw.u.u_view, view.x, view.y, view.w, view.h);
     gl.uniform2f(draw.u.u_screen, width, height);
@@ -181,8 +181,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     gl.uniform1f(draw.u.u_width, size.ratio);
     gl.uniform1f(draw.u.u_move, PX_PER_KN * dt * size.ratio);
     gl.uniform4f(draw.u.u_ink, ...ink);
-    bindTexture(gl, ramp, 6);
-    gl.uniform1i(draw.u.u_ramp, 6);
+    bindTexture(gl, ramp, WIND_UNITS + 2);
+    gl.uniform1i(draw.u.u_ramp, WIND_UNITS + 2);
     gl.uniform1f(draw.u.u_ramp_max, RAMP_MAX_KN);
     gl.uniform1f(draw.u.u_town, townness(zoomOf(view.w, size.w)));
     gl.uniform1f(draw.u.u_gusts, byGust ? 1 : 0);
@@ -193,8 +193,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     // 4. Onto the canvas
     bindFramebuffer(gl, null);
     activate(gl, copy);
-    bindTexture(gl, trails[1], 4);
-    gl.uniform1i(copy.u.u_screen_tex, 4);
+    bindTexture(gl, trails[1], WIND_UNITS);
+    gl.uniform1i(copy.u.u_screen_tex, WIND_UNITS);
     screenQuad(copy);
 
     state = [state[1], state[0]];

@@ -326,7 +326,7 @@
   "map_forecastHere": "Forecast for this place",
   "map_attribution": "Data:",
   "history_hint": "Point or tap for the values at any time",
-  "map_layered": "{fine} within its domain, {base} elsewhere",
+  "map_layered": "{models}: the finest model wherever it covers, blended without seams",
   "title_login": "Sign in | Windfenster",
   "title_account": "Account | Windfenster",
   "nav_signIn": "Sign in",

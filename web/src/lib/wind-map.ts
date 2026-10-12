@@ -208,9 +208,11 @@ export interface MapChoice {
   selected: MapLayer | null;
   /** Drawn everywhere */
   base: MapLayer | null;
-  /** Drawn over the base inside its domain, while its hours last */
+  /** A finer global model over the base (ICON global), in pieces around the view */
+  mid: MapLayer | null;
+  /** The finest, over both inside its domain (ICON-D2), while its hours last */
   detail: MapLayer | null;
-  /** The hours of both, for the timeline */
+  /** The hours of all, for the timeline */
   frames: MapFrame[];
 }
 
@@ -220,27 +222,27 @@ export interface Place {
   lat: number;
 }
 
-function inArea(area: readonly number[] | null, at: Place): boolean {
-  if (!area) return false;
-  const [w, s, e, n] = area;
-  return at.lat >= s && at.lat <= n && (e - w >= 359 || (at.lon >= w && at.lon <= e));
+function global(l: MapLayer): boolean {
+  return l.area !== null && l.area[2] - l.area[0] >= 359;
 }
 
-/** What the map draws for the model picked: a finer model over the base, the base alone, or
- * whichever has hours. Nothing picked: the finest model whose area holds `at` (ICON-D2 over
- * Germany, ICON global elsewhere). */
-export function chooseLayers(layers: readonly MapLayer[], chosen: string | null, at: Place | null = null): MapChoice {
+/** What the map draws: the model picked and every coarser one under it, each where it has
+ * hours (the server lists them finest first). Nothing picked: all of them, so ICON-D2 fades into
+ * ICON global and that into ECMWF without an edge to see. */
+export function chooseLayers(layers: readonly MapLayer[], chosen: string | null): MapChoice {
   const ready = layers.filter((l) => l.frames.length > 0);
-  const fine = ready.filter((l) => !BASE_MODELS.includes(l.model));
-  const auto = (at && fine.find((l) => inArea(l.area, at))) ?? fine[0] ?? ready[0] ?? null;
-  const selected = ready.find((l) => l.model === chosen) ?? auto;
-  const base = ready.find((l) => BASE_MODELS.includes(l.model)) ?? null;
-  const detail = selected && selected !== base ? selected : null;
+  const selected = ready.find((l) => l.model === chosen) ?? ready[0] ?? null;
+  const shown = selected ? ready.slice(ready.indexOf(selected)) : [];
+  const base = shown.find((l) => BASE_MODELS.includes(l.model)) ?? null;
+  const fine = shown.filter((l) => l !== base);
+  const mid = fine.find(global) ?? null;
+  const detail = fine.find((l) => l !== mid) ?? null;
   const seen = new Set<number>();
-  const frames = [...(detail?.frames ?? []), ...(base?.frames ?? [])]
+  const frames = [detail, mid, base]
+    .flatMap((l) => l?.frames ?? [])
     .filter((f) => !seen.has(f.validAt) && seen.add(f.validAt))
     .sort((a, b) => a.validAt - b.validAt);
-  return { selected, base, detail, frames };
+  return { selected, base, mid, detail, frames };
 }
 
 /** The piece of a world texture around a view (west, south, east, north), as the server cuts

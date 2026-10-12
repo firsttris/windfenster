@@ -11,22 +11,29 @@ export interface WindPair {
   t: number;
 }
 
-/** What the map shows: the base model over the whole region and, where it has a domain, the
- * finer detail model over it. Either may be missing. */
+/** What the map shows: the base model over the whole world (ECMWF), a finer global one over it
+ * where the app has its piece (ICON global), and the finest inside its domain (ICON-D2). Any may
+ * be missing. */
 export interface WindLayers {
   base: WindPair | null;
+  mid: WindPair | null;
   detail: WindPair | null;
 }
 
-export const NO_WIND: WindLayers = { base: null, detail: null };
+export const NO_WIND: WindLayers = { base: null, mid: null, detail: null };
+
+const NAMES = ['base', 'mid', 'detail'] as const;
+
+/** Texture units the wind takes, from 0: two hours of each layer */
+export const WIND_UNITS = NAMES.length * 2;
 
 export function hasWind(l: WindLayers): boolean {
-  return l.base !== null || l.detail !== null;
+  return NAMES.some((n) => l[n] !== null);
 }
 
 /** The frames of the layers, finest first */
 export function framesOf(l: WindLayers): WindFrame[] {
-  return [l.detail, l.base].flatMap((p) => (p ? [p.a, p.b] : []));
+  return [l.detail, l.mid, l.base].flatMap((p) => (p ? [p.a, p.b] : []));
 }
 
 /** Textures per frame in one GL context, uploaded when first drawn, with mipmaps: the field is
@@ -70,7 +77,8 @@ export function windTextures(gl: WebGL2RenderingContext) {
 
 export type WindTextures = ReturnType<typeof windTextures>;
 
-/** Binds the layers to texture units `unit` … `unit + 3` and sets the wind uniforms. */
+/** Binds the layers to texture units `unit` … `unit + WIND_UNITS - 1` and sets the wind
+ * uniforms. */
 export function bindWind(
   gl: WebGL2RenderingContext,
   p: Program,
@@ -78,7 +86,7 @@ export function bindWind(
   layers: WindLayers,
   unit: number,
 ) {
-  (['base', 'detail'] as const).forEach((name, k) => {
+  NAMES.forEach((name, k) => {
     const pair = layers[name];
     for (const [i, f] of [pair?.a, pair?.b].entries()) {
       bindTexture(gl, textures.get(f), unit + k * 2 + i);
@@ -100,6 +108,6 @@ export function bindWind(
     }
     gl.uniform2f(p.u[`u_${name}_gust`], pair?.a.meta.gustMax ?? -1, pair?.b.meta.gustMax ?? -1);
   });
-  gl.uniform2f(p.u.u_mix, layers.base?.t ?? 0, layers.detail?.t ?? 0);
-  gl.uniform2f(p.u.u_has, layers.base ? 1 : 0, layers.detail ? 1 : 0);
+  gl.uniform3f(p.u.u_mix, layers.base?.t ?? 0, layers.mid?.t ?? 0, layers.detail?.t ?? 0);
+  gl.uniform3f(p.u.u_has, layers.base ? 1 : 0, layers.mid ? 1 : 0, layers.detail ? 1 : 0);
 }

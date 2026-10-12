@@ -4,32 +4,38 @@
  * positions in two bytes per axis.
  */
 
+/** The uniforms of one layer: two hours (`0`, `1`), each with its texture, texel edges (west,
+ * south, east, north) and value ranges (uMin, uMax, vMin, vMax), and the gust at blue 255 per
+ * hour (negative when the hour has none). */
+const layerUniforms = (name: string) => `
+uniform sampler2D u_${name}0;
+uniform sampler2D u_${name}1;
+uniform vec4 u_${name}_bounds0;
+uniform vec4 u_${name}_bounds1;
+uniform vec4 u_${name}_range0;
+uniform vec4 u_${name}_range1;
+uniform vec2 u_${name}_gust;`;
+
+/** The layer's wind at `ll`, its two hours blended; zero where it is not shown */
+const layerWind = (name: string, k: string) =>
+  `u_has.${k} * mixWind(windOf(u_${name}0, u_${name}_bounds0, u_${name}_range0, u_${name}_gust.x, ll), ` +
+  `windOf(u_${name}1, u_${name}_bounds1, u_${name}_range1, u_${name}_gust.y, ll), u_mix.${k})`;
+
 /** The wind at a Mercator position: (u, v) and the gust in kn, and how much of the spot lies in
- * a model's domain. Two models, each two hours blended: the base (ECMWF, the whole region) and
- * the detail (ICON-D2, its domain), which wins inside its domain and fades into the base over the
- * last 30–60 km to its edge (the edge read from a coarse mip level). Textures hold texel edges in
- * `bounds` (west, south, east, north), value ranges in `range` (uMin, uMax, vMin, vMax) and the
- * gust at blue 255 in `gust` (negative when the hour has none). A texture 360° wide (the global
- * base) repeats east and west, so MapLibre's world copies show it and the seam at 180° is sampled
- * across; a regional one is placed on the copy its longitudes fall on. The colour field samples
- * with mipmaps; the particles read the full texture (`SAMPLE`). */
+ * a model's domain. Up to three models, each two hours blended, finest on top: the base (ECMWF,
+ * the whole world); over it a finer global model (ICON global) in the piece the app has around
+ * the view, fading out over the piece's outer 4 %; and over both the detail (ICON-D2, its
+ * domain), which fades into what lies under it over the last 30–60 km to its edge (the edge read
+ * from a coarse mip level). A texture 360° wide (the global base) repeats east and west, so
+ * MapLibre's world copies show it and the seam at 180° is sampled across; a regional one is
+ * placed on the copy its longitudes fall on. The colour field samples with mipmaps; the
+ * particles read the full texture (`SAMPLE`). */
 const WIND = `
-uniform sampler2D u_base0;
-uniform sampler2D u_base1;
-uniform sampler2D u_detail0;
-uniform sampler2D u_detail1;
-uniform vec4 u_base_bounds0;
-uniform vec4 u_base_bounds1;
-uniform vec4 u_base_range0;
-uniform vec4 u_base_range1;
-uniform vec4 u_detail_bounds0;
-uniform vec4 u_detail_bounds1;
-uniform vec4 u_detail_range0;
-uniform vec4 u_detail_range1;
-uniform vec2 u_base_gust;    // kn at blue 255: hour 0, hour 1
-uniform vec2 u_detail_gust;
-uniform vec2 u_mix;   // how far between the two hours: base, detail
-uniform vec2 u_has;   // 1 where a model is shown: base, detail
+${layerUniforms('base')}
+${layerUniforms('mid')}
+${layerUniforms('detail')}
+uniform vec3 u_mix;   // how far between the two hours: base, mid, detail
+uniform vec3 u_has;   // 1 where a model is shown: base, mid, detail
 
 const float PI = 3.141592653589793;
 const float EDGE_LOD = 4.0;
@@ -76,21 +82,32 @@ vec4 mixWind(vec4 a, vec4 b, float t) {
   return m;
 }
 
+/** How far inside a piece: 0 at its edges, 1 from 4 % of its size inwards (along the latitude
+ * only for a texture around the world). */
+float innerOf(vec4 b, vec2 uv) {
+  vec2 d = min(uv, 1.0 - uv);
+  return smoothstep(0.0, 0.04, wrapsOf(b) > 0.5 ? d.y : min(d.x, d.y)) * insideOf(b, uv);
+}
+
+/** One layer over another by weight w (where the upper has wind); how much of the spot lies in
+ * either */
+vec4 layered(vec4 under, vec4 over, float w) {
+  vec4 m = mixWind(under, over, step(0.5, over.w) * (under.w < 0.5 ? 1.0 : w));
+  m.w = max(under.w, over.w);
+  return m;
+}
+
 vec4 wind(vec2 merc) {
   vec2 ll = lonLat(merc);
-  vec4 base = u_has.x * mixWind(
-    windOf(u_base0, u_base_bounds0, u_base_range0, u_base_gust.x, ll),
-    windOf(u_base1, u_base_bounds1, u_base_range1, u_base_gust.y, ll), u_mix.x);
-  vec4 detail = u_has.y * mixWind(
-    windOf(u_detail0, u_detail_bounds0, u_detail_range0, u_detail_gust.x, ll),
-    windOf(u_detail1, u_detail_bounds1, u_detail_range1, u_detail_gust.y, ll), u_mix.y);
+  vec4 base = ${layerWind('base', 'x')};
+  vec4 mid = ${layerWind('mid', 'y')};
+  vec4 detail = ${layerWind('detail', 'z')};
+  vec4 under = layered(base, mid, innerOf(u_mid_bounds0, uvOf(u_mid_bounds0, ll)));
   vec2 duv = uvOf(u_detail_bounds0, ll);
   float edge = textureLod(u_detail0, clampOf(u_detail_bounds0, duv), EDGE_LOD).a * insideOf(u_detail_bounds0, duv);
-  float w = step(0.5, detail.w) * (base.w < 0.5 ? 1.0 : smoothstep(0.6, 0.98, edge));
-  vec4 m = mixWind(base, detail, w);
+  vec4 m = layered(under, detail, smoothstep(0.6, 0.98, edge));
   // Never a gust below the wind: both are interpolated apart, and hours without gusts show wind.
   m.z = max(m.z, length(m.xy));
-  m.w = max(base.w, detail.w);
   return m;
 }
 `;
