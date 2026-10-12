@@ -70,7 +70,7 @@ export function AgreementTile({ fc }: { fc: Forecast }) {
             ))}
           </div>
           <div className="flex justify-between font-mono text-[11px] text-dim" aria-hidden="true">
-            {Array.from({ length: top / (top > 50 ? 20 : 10) + 1 }, (_, i) => i * (top > 50 ? 20 : 10)).map((kn) => (
+            {Array.from({ length: top / 10 + 1 }, (_, i) => i * 10).map((kn) => (
               <span key={kn}>
                 {formatWind(kn, unit)}
                 {kn === top ? ` ${UNIT_LABEL[unit]}` : ''}

@@ -84,8 +84,8 @@ test("tomorrow's table shows the chosen model hour by hour: wind, the gust under
 
 test('measured values and the TAF stand under the forecast, to compare', async ({ page, request }) => {
   await page.goto('/station/edsb');
-  // Every 3 hours around the clock: the stand-in's TEMPO (the three hours around now) always meets
-  // a column, at any time of day; hour by hour today shows only 7 to 19
+  // Every 3 hours around the clock: the stand-in's TEMPO (five hours around now) always meets a
+  // column of today or tomorrow, at any time of day; hour by hour today shows only 7 to 19
   await page.getByRole('group', { name: 'Heute und morgen' }).getByRole('button', { name: '3 h' }).click();
   const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
   await expect(today.getByText('Zum Vergleich')).toBeVisible();
@@ -100,8 +100,14 @@ test('measured values and the TAF stand under the forecast, to compare', async (
   const measured = (await row(/Gemessen/).allInnerTexts()).map((t) => t.split('/')[0].trim()).filter(Boolean);
   expect(measured.filter((t) => /^\d+$/.test(t)).length).toBeGreaterThan(0);
   for (const t of measured.filter((t) => /^\d+$/.test(t))) expect(reported, `measured ${t}`).toContain(t);
-  // TAF: the prevailing 12 kn, the span TEMPO allows up to 18 kn
-  const taf = (await row(/^TAF/).allInnerTexts()).map((t) => t.trim());
+  // TAF: the span TEMPO allows, 12 to 18 kn, in some column of today or tomorrow
+  const taf = (
+    await page
+      .getByRole('row')
+      .filter({ has: page.getByRole('rowheader', { name: /^TAF/ }) })
+      .getByRole('cell')
+      .allInnerTexts()
+  ).map((t) => t.trim());
   expect(taf).toContain('12–18');
   // and what the numbers do not show, in words: the TEMPO's showers
   const notes = page.locator('section[id^="day-"]').getByText(/^TAF · zeitw\./);

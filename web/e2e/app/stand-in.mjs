@@ -123,8 +123,10 @@ function tafs(code, now) {
           clouds: [],
         },
         {
+          // Five whole hours around now: at any time of day one of them is a three-hourly column
+          // of today or tomorrow (the app tests compare the TAF row against it)
           timeFrom: from + 3600,
-          timeTo: from + 14400,
+          timeTo: from + 21600,
           timeBec: null,
           fcstChange: 'TEMPO',
           probability: null,

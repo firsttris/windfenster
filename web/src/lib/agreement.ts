@@ -67,7 +67,7 @@ export function dayAgreement(fc: Forecast, times: number[]): Spread | null {
 }
 
 /** The top of the agreement strip in kn: 30, or the next ten above the strongest model, so
- * every model's dot and the spread stay on it. */
+ * every model's dot and the spread stay on it; the strip's marks are every ten. */
 export function stripTop(winds: readonly number[]): number {
   return Math.max(30, Math.ceil(Math.max(0, ...winds) / 10) * 10);
 }

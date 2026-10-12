@@ -17,8 +17,6 @@ docs_dir: docs
 # Pages as installation.html instead of installation/: this keeps the relative image paths
 # working, which also have to work on GitHub
 use_directory_urls: false
-exclude_docs: |
-  README.md
 
 nav:
   - Home: index.md

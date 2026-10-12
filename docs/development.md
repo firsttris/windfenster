@@ -13,7 +13,8 @@ pnpm dev
 
 `pnpm dev` creates `.env` from [`.env.example`](https://github.com/firsttris/windfenster/blob/main/.env.example) on the first run, then starts
 the server on :8080 and the web app with hot reload on :5173 (it proxies `/api`). Open
-http://localhost:5173. Data goes to `./.data`.
+http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `pnpm dev`) names the Vite
+server the binary redirects to while no web app is built in; it is a development setting only.
 
 Checks, as CI runs them:
 

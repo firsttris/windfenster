@@ -68,31 +68,11 @@ jobs:
       - name: Route tree is up to date
         run: git diff --exit-code -- web/src/routeTree.gen.ts
 
-  # The server for the browser tests' app project: a debug build without debug info and with
-  # the SPA embedded (it runs in another place than it was built), next to the checks
+  # The server for the browser tests' app project, built next to the checks (e2e-server.yml,
+  # shared with the screenshots)
   e2e-server:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 0
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: cargo build -p windfenster --locked --features embed-ui
-      - uses: actions/upload-artifact@v4
-        with:
-          name: e2e-server
-          path: target/debug/windfenster
-          retention-days: 1
+    uses: ./.github/workflows/e2e-server.yml
 
   browser:
     # The browser tests (web/e2e): the wind map's shaders on SwiftShader, and the whole app
