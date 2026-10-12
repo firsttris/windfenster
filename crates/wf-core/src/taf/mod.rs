@@ -208,13 +208,18 @@ pub async fn last_fetch(db: &SqlitePool, station_id: i64) -> sqlx::Result<Option
         .await
 }
 
-/// Drops TAFs whose validity ended before `before`.
-pub async fn purge(db: &SqlitePool, before: i64) -> sqlx::Result<u64> {
-    Ok(sqlx::query("DELETE FROM taf WHERE valid_to < ?")
-        .bind(before)
-        .execute(db)
-        .await?
-        .rows_affected())
+/// Drops old TAFs, by the same rule as the measurements (`observation::purge`).
+pub async fn purge(db: &SqlitePool, keep: crate::observation::Keep) -> sqlx::Result<u64> {
+    Ok(sqlx::query(&format!(
+        "DELETE FROM taf WHERE valid_to < ? OR (valid_to < ? AND station_id NOT IN ({}))",
+        crate::station::KEPT_IDS
+    ))
+    .bind(keep.kept)
+    .bind(keep.all)
+    .bind(keep.opened_since)
+    .execute(db)
+    .await?
+    .rows_affected())
 }
 
 /// Groups and times shared by the tests.
@@ -283,7 +288,14 @@ mod tests {
         assert_eq!(between(&db, 1, T0 + 23 * H, T0 + 30 * H).await?.len(), 2);
         assert!(between(&db, 1, T0 + 24 * H, T0 + 30 * H).await?.is_empty());
         assert!(current(&db, 1, T0 + 24 * H).await?.is_none());
-        assert_eq!(purge(&db, T0 + 25 * H).await?, 2);
+        let at = T0 + 25 * H;
+        let keep = crate::observation::Keep {
+            all: at,
+            opened_since: at,
+            kept: at,
+            raw: at,
+        };
+        assert_eq!(purge(&db, keep).await?, 2);
         Ok(())
     }
 }

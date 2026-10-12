@@ -135,6 +135,14 @@ pub async fn set_tracked(db: &SqlitePool, slugs: &[String]) -> sqlx::Result<Vec<
     Ok(unknown)
 }
 
+/// Row ids of the stations whose history is kept whole: tracked ones, those opened since the
+/// one bound value, and anyone's favourites. For `IN (…)`.
+pub const KEPT_IDS: &str = "SELECT s.id FROM station s WHERE s.tracked \
+     OR EXISTS (SELECT 1 FROM place p WHERE p.requested_at >= ? \
+       AND p.lat_e2 = CAST(round(s.lat * 100) AS INTEGER) \
+       AND p.lon_e2 = CAST(round(s.lon * 100) AS INTEGER)) \
+     OR EXISTS (SELECT 1 FROM favorite f WHERE f.slug = s.slug)";
+
 /// Stations of a source to keep current: tracked ones and those opened since `since`, with
 /// their row ids.
 pub async fn watched(

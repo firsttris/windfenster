@@ -188,7 +188,10 @@ the last seven days, and right away when someone opens a station whose values ar
 TAFs (airport forecasts) of the same stations come from aviationweather.gov's TAF API every 30
 minutes, with the change groups already decoded; Windfenster turns them into an hourly
 series with the span that TEMPO, PROB and a change in progress allow. Measurements and TAFs
-are kept for 13 months, for the verification of the models.
+are kept for 13 months, for the verification of the models, at tracked stations, stations
+opened within the last 30 days and anyone's favourites; all other stations keep 11 days (the
+history chart's reach), and the reports' text goes after 2 days. Worldwide a year of every
+station's half-hourly METARs would come to many gigabytes.
 
 Each station page shows its measurements over a day, as Windfinder does: the last 24 hours
 and the ten days before, with mean wind, gusts and direction. When a station's past days

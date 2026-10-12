@@ -14,6 +14,13 @@ use crate::stations::{self, Sources};
 
 /// Measurements and TAFs are kept for 13 months: a full season to compare against.
 pub const KEEP_OBSERVATIONS_S: i64 = 395 * 86_400;
+/// Stations nobody tracks, opened lately or saved keep 11 days: the history chart reaches 10
+/// days back (wf-api `history.rs`).
+pub const KEEP_OTHERS_S: i64 = 11 * 86_400;
+/// A station opened this recently keeps its whole history.
+pub const OPENED_WITHIN_S: i64 = 30 * 86_400;
+/// The reports' text is kept for 2 days; it is only shown for the latest.
+pub const KEEP_RAW_S: i64 = 2 * 86_400;
 
 pub struct Scheduler {
     pub db: SqlitePool,
@@ -107,12 +114,18 @@ impl Scheduler {
                 if let Err(e) = self.forecasts.purge(now).await {
                     tracing::error!("purge: {e}");
                 }
-                if let Err(e) =
-                    wf_core::observation::purge(&self.db, now - KEEP_OBSERVATIONS_S).await
-                {
-                    tracing::error!("observation purge: {e}");
+                let keep = wf_core::observation::Keep {
+                    all: now - KEEP_OTHERS_S,
+                    opened_since: now - OPENED_WITHIN_S,
+                    kept: now - KEEP_OBSERVATIONS_S,
+                    raw: now - KEEP_RAW_S,
+                };
+                match wf_core::observation::purge(&self.db, keep).await {
+                    Ok(n) if n > 0 => tracing::info!("dropped {n} old measurements"),
+                    Ok(_) => {}
+                    Err(e) => tracing::error!("observation purge: {e}"),
                 }
-                if let Err(e) = wf_core::taf::purge(&self.db, now - KEEP_OBSERVATIONS_S).await {
+                if let Err(e) = wf_core::taf::purge(&self.db, keep).await {
                     tracing::error!("TAF purge: {e}");
                 }
                 let keep_from = wf_core::time::yyyymmdd(now - KEEP_OBSERVATIONS_S);

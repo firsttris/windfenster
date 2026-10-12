@@ -168,13 +168,40 @@ pub async fn newest_per_station(db: &SqlitePool, since: i64) -> sqlx::Result<Vec
     .await
 }
 
-/// Drops measurements older than `before`.
-pub async fn purge(db: &SqlitePool, before: i64) -> sqlx::Result<u64> {
-    Ok(sqlx::query("DELETE FROM observation WHERE observed_at < ?")
-        .bind(before)
+/// How long measurements stay, as the oldest times kept (Unix seconds).
+#[derive(Debug, Clone, Copy)]
+pub struct Keep {
+    /// Every station's measurements from here on
+    pub all: i64,
+    /// Stations kept whole (`station::KEPT_IDS`), opened since this time
+    pub opened_since: i64,
+    /// Kept stations' measurements from here on
+    pub kept: i64,
+    /// The report as sent, from here on
+    pub raw: i64,
+}
+
+/// Thins out the measurements: kept stations (tracked, opened lately, someone's favourite) keep
+/// theirs to `keep.kept`, all others only to `keep.all`; the reports' text goes after
+/// `keep.raw`. Worldwide that is thousands of stations every half hour, too much to keep a year
+/// of each. Returns the measurements dropped.
+pub async fn purge(db: &SqlitePool, keep: Keep) -> sqlx::Result<u64> {
+    let dropped = sqlx::query(&format!(
+        "DELETE FROM observation WHERE observed_at < ? \
+         OR (observed_at < ? AND station_id NOT IN ({}))",
+        crate::station::KEPT_IDS
+    ))
+    .bind(keep.kept)
+    .bind(keep.all)
+    .bind(keep.opened_since)
+    .execute(db)
+    .await?
+    .rows_affected();
+    sqlx::query("UPDATE observation SET raw = NULL WHERE observed_at < ? AND raw IS NOT NULL")
+        .bind(keep.raw)
         .execute(db)
-        .await?
-        .rows_affected())
+        .await?;
+    Ok(dropped)
 }
 
 #[cfg(test)]
@@ -232,8 +259,28 @@ mod tests {
             ("edsb", Some(200), Some(11.0), Some(210.0))
         );
         assert_eq!(newest_per_station(&db, 201).await?[0].at, None);
-        assert_eq!(purge(&db, 150).await?, 1);
+        let keep = |all, kept| Keep {
+            all,
+            opened_since: 0,
+            kept,
+            raw: 0,
+        };
+        // Nobody tracks, opened or saved the station: it keeps only the short span.
+        assert_eq!(purge(&db, keep(150, 0)).await?, 1);
         assert_eq!(since(&db, id, 0).await?.len(), 1);
+        // Tracked, it keeps its measurements to the long span; the report text goes earlier.
+        store(&db, &[(id, o(100, 9.0))]).await?;
+        sqlx::query("UPDATE station SET tracked = 1")
+            .execute(&db)
+            .await?;
+        let keep_raw = Keep {
+            raw: 150,
+            ..keep(250, 50)
+        };
+        assert_eq!(purge(&db, keep_raw).await?, 0);
+        let got = since(&db, id, 0).await?;
+        assert_eq!((got[0].raw.as_deref(), got[1].raw.is_some()), (None, true));
+        assert_eq!(purge(&db, keep(250, 150)).await?, 1);
         Ok(())
     }
 }
