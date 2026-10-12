@@ -3,7 +3,7 @@
  * else the world from Natural Earth. Both with labels in Noto Sans, recoloured for the theme
  * without touching the wind layers on top.
  */
-import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import type { LayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import type { BasemapInfo } from '@/bindings/BasemapInfo';
 import type { Theme } from '@/lib/prefs';
 import {
@@ -44,17 +44,6 @@ export function isWorld(b: Pick<Basemap, 'bounds'>): boolean {
   return b.bounds[2] - b.bounds[0] >= 359;
 }
 
-const DOMAIN: LayerSpecification = {
-  id: 'domain',
-  type: 'line',
-  source: 'domain',
-  paint: { 'line-width': 1.2, 'line-dasharray': [4, 3] },
-};
-
-function withDomain(p: ThemePaint, line: string): ThemePaint {
-  return { ...p, domain: { 'line-color': line } };
-}
-
 function style(
   sources: StyleSpecification['sources'],
   layers: LayerSpecification[],
@@ -63,9 +52,8 @@ function style(
   return {
     version: 8,
     glyphs: `${location.origin}/glyphs/{fontstack}/{range}.pbf`,
-    sources: { ...sources, domain: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } },
-    // The domain's dashes over the field and the borders, under the labels
-    layers: [...layers.filter((l) => l.type !== 'symbol'), DOMAIN, ...layers.filter((l) => l.type === 'symbol')].map(
+    sources,
+    layers: layers.map(
       (l) => ({ ...l, paint: { ...('paint' in l ? l.paint : {}), ...paint[l.id] } }) as LayerSpecification,
     ),
   };
@@ -77,7 +65,7 @@ export function basemapFor(info: BasemapInfo | null): Basemap {
     // Tiles of any zoom from the server: the world, the region deeper, the spots deeper still
     const zoom = Math.max(info.maxZoom, info.detailZoom, TILE_ZOOM);
     const bounds = info.bounds as [number, number, number, number];
-    const paint = (theme: Theme) => withDomain(protomapsPaint(PALETTES[theme]), PALETTES[theme].line);
+    const paint = (theme: Theme) => protomapsPaint(PALETTES[theme]);
     return {
       style: (theme, lang) => style(protomapsSources(zoom, bounds), protomapsLayers(lang), paint(theme)),
       aboveField: PROTOMAPS_ABOVE_FIELD,
@@ -88,14 +76,9 @@ export function basemapFor(info: BasemapInfo | null): Basemap {
     };
   }
   return {
-    style: (theme, lang) =>
-      style(
-        naturalEarthSources(),
-        naturalEarthLayers(lang),
-        withDomain(naturalEarthPaint(PALETTES[theme]), PALETTES[theme].line),
-      ),
+    style: (theme, lang) => style(naturalEarthSources(), naturalEarthLayers(lang), naturalEarthPaint(PALETTES[theme])),
     aboveField: NATURAL_EARTH_ABOVE_FIELD,
-    paint: (theme) => withDomain(naturalEarthPaint(PALETTES[theme]), PALETTES[theme].line),
+    paint: (theme) => naturalEarthPaint(PALETTES[theme]),
     bounds: WORLD_BOUNDS,
     maxZoom: 11,
   };
@@ -107,14 +90,4 @@ export function applyTheme(map: MapLibreMap, basemap: Basemap, theme: Theme) {
     if (!map.getLayer(layer)) continue;
     for (const [prop, value] of Object.entries(props)) map.setPaintProperty(layer, prop as PaintProperty, value);
   }
-}
-
-/** The model's domain as the dashed line. */
-export function setDomain(map: MapLibreMap, ring: [number, number][] | null) {
-  void map.getSource<GeoJSONSource>('domain')?.setData({
-    type: 'FeatureCollection',
-    features: ring?.length
-      ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [...ring, ring[0]] } }]
-      : [],
-  });
 }

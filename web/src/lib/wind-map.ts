@@ -270,9 +270,12 @@ export function covers(meta: TextureMeta, at: Place): boolean {
   return at.lat >= meta.south && at.lat <= meta.north && at.lon >= meta.west && at.lon <= meta.east;
 }
 
-/** Models on the map that the forecast does not have, with what the model list says of them */
+/** The map's models as the model list would name them, for those the forecast does not have
+ * (ICON global, or any turned off with `WF_MODELS`) */
 export const MAP_ONLY_MODELS: Record<string, { name: string; provider: string; resolutionKm: number }> = {
+  icon_d2: { name: 'ICON-D2', provider: 'DWD', resolutionKm: 2.2 },
   icon_global: { name: 'ICON global', provider: 'DWD', resolutionKm: 13 },
+  ecmwf_ifs025: { name: 'ECMWF IFS', provider: 'ECMWF', resolutionKm: 25 },
 };
 
 /** A model's hours if `time` lies within them, else none: a finer model ends where its forecast

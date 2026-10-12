@@ -13,7 +13,7 @@ step: number, validAt: number,
  */
 west: number, south: number, east: number, north: number, width: number, height: number, 
 /**
- * The model's domain, (lon, lat) points of a ring, for the dashed outline
+ * The model's domain, (lon, lat) points of a ring, where the map fades it into the base
  */
 domain: Array<[number, number]>, 
 /**

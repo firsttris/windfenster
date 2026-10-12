@@ -13,7 +13,7 @@ import { viewOf } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { arrowField } from './arrows';
-import { applyTheme, type Basemap, isWorld, setDomain } from './basemap';
+import { applyTheme, type Basemap, isWorld } from './basemap';
 import { HoverReadout } from './hover-readout';
 import { type Particles, particles } from './particles';
 import { openCluster, PIN_LAYERS, pinTheme, setPins } from './pins';
@@ -32,7 +32,6 @@ interface Props {
   layers: WindLayers;
   /** Colour by the gusts instead of the wind */
   gusts: boolean;
-  domain: [number, number][] | null;
   pins: readonly StationWind[] | undefined;
   unit: WindUnit;
   picked: Pick | null;
@@ -60,19 +59,7 @@ const START: [[number, number], [number, number]] = [
   [17.5, 55.5],
 ];
 
-export function MapCanvas({
-  basemap,
-  layers,
-  gusts,
-  domain,
-  pins,
-  unit,
-  picked,
-  onPick,
-  onCenter,
-  focus,
-  detail,
-}: Props) {
+export function MapCanvas({ basemap, layers, gusts, pins, unit, picked, onPick, onCenter, focus, detail }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const field = useRef<WindField | null>(null);
@@ -246,10 +233,6 @@ export function MapCanvas({
     field.current?.setGusts(gusts);
     parts.current?.setGusts(gusts);
   }, [gusts]);
-
-  useEffect(() => {
-    if (ready && map.current) setDomain(map.current, domain);
-  }, [ready, domain]);
 
   useEffect(() => {
     const mp = map.current;

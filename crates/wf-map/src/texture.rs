@@ -40,7 +40,7 @@ pub struct TextureMeta {
     pub north: f64,
     pub width: u32,
     pub height: u32,
-    /// The model's domain, (lon, lat) points of a ring, for the dashed outline
+    /// The model's domain, (lon, lat) points of a ring, where the map fades it into the base
     pub domain: Vec<[f64; 2]>,
     /// kn
     pub u_min: f32,

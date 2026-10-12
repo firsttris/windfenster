@@ -196,10 +196,7 @@ function MapPage() {
 
   const modelInfo = ready.length > 0 && (
     <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="m-0 font-semibold text-sm">{m.map_model()}</h2>
-        {detail && <span className="text-muted-foreground text-xs">{m.map_domainNote()}</span>}
-      </div>
+      <h2 className="m-0 font-semibold text-sm">{m.map_model()}</h2>
       {chips}
       {choice.detail && choice.base && (
         <p className="m-0 text-muted-foreground text-xs">
@@ -266,7 +263,6 @@ function MapPage() {
             basemap={basemap}
             layers={layers}
             gusts={gusts}
-            domain={detail ? (detail.a.meta.domain as [number, number][]) : null}
             pins={pins.data}
             unit={unit}
             picked={pick}

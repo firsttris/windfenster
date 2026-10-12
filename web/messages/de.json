@@ -288,7 +288,6 @@
   "map_eyebrow": "Windkarte",
   "map_title": "Wind weltweit",
   "map_model": "Modell",
-  "map_domainNote": "gestrichelt = Rechengebiet",
   "map_run": "Lauf {run} · {provider}",
   "map_speed": "Windgeschwindigkeit in 10 m",
   "map_legend": "Farbskala der Windgeschwindigkeit in {unit}",
