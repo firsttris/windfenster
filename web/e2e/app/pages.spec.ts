@@ -84,6 +84,9 @@ test("tomorrow's table shows the chosen model hour by hour: wind, the gust under
 
 test('measured values and the TAF stand under the forecast, to compare', async ({ page, request }) => {
   await page.goto('/station/edsb');
+  // Every 3 hours around the clock: the stand-in's TEMPO (the three hours around now) always meets
+  // a column, at any time of day; hour by hour today shows only 7 to 19
+  await page.getByRole('group', { name: 'Heute und morgen' }).getByRole('button', { name: '3 h' }).click();
   const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
   await expect(today.getByText('Zum Vergleich')).toBeVisible();
   const row = (name: RegExp) =>
