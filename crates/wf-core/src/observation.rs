@@ -181,26 +181,40 @@ pub struct Keep {
     pub raw: i64,
 }
 
+/// The two statements of `purge`, per station: both find their rows by the primary key
+/// (station, time) and touch nothing else.
+const PURGE_STATION: &str = "DELETE FROM observation WHERE station_id = ? AND observed_at < ?";
+const CLEAR_RAW: &str = "UPDATE observation SET raw = NULL WHERE station_id = ? AND observed_at < ? AND raw IS NOT NULL";
+
 /// Thins out the measurements: kept stations (tracked, opened lately, someone's favourite) keep
 /// theirs to `keep.kept`, all others only to `keep.all`; the reports' text goes after
 /// `keep.raw`. Worldwide that is thousands of stations every half hour, too much to keep a year
-/// of each. Returns the measurements dropped.
+/// of each. Station by station, along the primary key: one statement over the whole table (by
+/// time, which the key does not start with) would read every row and hold the database's write
+/// lock for seconds at some 15 million rows; this way each holds it a moment and the ingest goes
+/// on in between. Returns the measurements dropped.
 pub async fn purge(db: &SqlitePool, keep: Keep) -> sqlx::Result<u64> {
-    let dropped = sqlx::query(&format!(
-        "DELETE FROM observation WHERE observed_at < ? \
-         OR (observed_at < ? AND station_id NOT IN ({}))",
+    let stations: Vec<(i64, bool)> = sqlx::query_as(&format!(
+        "SELECT id, id IN ({}) FROM station ORDER BY id",
         crate::station::KEPT_IDS
     ))
-    .bind(keep.kept)
-    .bind(keep.all)
     .bind(keep.opened_since)
-    .execute(db)
-    .await?
-    .rows_affected();
-    sqlx::query("UPDATE observation SET raw = NULL WHERE observed_at < ? AND raw IS NOT NULL")
-        .bind(keep.raw)
-        .execute(db)
-        .await?;
+    .fetch_all(db)
+    .await?;
+    let mut dropped = 0;
+    for (id, kept) in stations {
+        dropped += sqlx::query(PURGE_STATION)
+            .bind(id)
+            .bind(if kept { keep.kept } else { keep.all })
+            .execute(db)
+            .await?
+            .rows_affected();
+        sqlx::query(CLEAR_RAW)
+            .bind(id)
+            .bind(keep.raw)
+            .execute(db)
+            .await?;
+    }
     Ok(dropped)
 }
 
@@ -281,6 +295,34 @@ mod tests {
         let got = since(&db, id, 0).await?;
         assert_eq!((got[0].raw.as_deref(), got[1].raw.is_some()), (None, true));
         assert_eq!(purge(&db, keep(250, 150)).await?, 1);
+        Ok(())
+    }
+
+    /// The purge's statements go along the primary key, never through the whole table.
+    #[tokio::test]
+    async fn purges_along_the_key() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let db = crate::db::connect(&dir.path().join("t.db")).await?;
+        crate::db::migrate(&db).await?;
+        for sql in [PURGE_STATION, CLEAR_RAW] {
+            let plan: Vec<(i64, i64, i64, String)> =
+                sqlx::query_as(&format!("EXPLAIN QUERY PLAN {sql}"))
+                    .bind(1)
+                    .bind(100)
+                    .fetch_all(&db)
+                    .await?;
+            let plan: Vec<&str> = plan.iter().map(|r| r.3.as_str()).collect();
+            assert!(
+                plan.iter().any(|p| p.starts_with(
+                    "SEARCH observation USING PRIMARY KEY (station_id=? AND observed_at<?)"
+                )),
+                "{sql}: {plan:?}"
+            );
+            assert!(
+                !plan.iter().any(|p| p.starts_with("SCAN")),
+                "{sql}: {plan:?}"
+            );
+        }
         Ok(())
     }
 }
