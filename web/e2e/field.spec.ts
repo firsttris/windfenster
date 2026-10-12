@@ -4,7 +4,7 @@
  * no gusts, nothing where no model has wind, the field's opacity, and its fading out at town zoom.
  */
 import { expect, type Page, test } from '@playwright/test';
-import { RAMP_MAX_KN, rampPixels } from '../src/lib/wind-map';
+import { FIELD_DIM, RAMP_MAX_KN, rampPixels } from '../src/lib/wind-map';
 import type { Layer } from './gpu';
 import { GUST_MAX, hour, RANGE, type Value } from './textures';
 
@@ -20,7 +20,8 @@ function steady(w: Value, gusts = true): Layer {
 
 /** The scale's colour for `kn`, as the GPU reads the 256 × 1 ramp texture (linear, edges clamped) */
 function rampColour(kn: number): number[] {
-  const ramp = rampPixels();
+  // The field's ramp, dimmed towards the night (wind-field.ts)
+  const ramp = rampPixels(256, FIELD_DIM);
   const f = Math.min(1, Math.max(0, kn / RAMP_MAX_KN)) * 256 - 0.5;
   const [i0, i1] = [Math.max(0, Math.floor(f)), Math.min(255, Math.floor(f) + 1)];
   const t = Math.min(1, Math.max(0, f - Math.floor(f)));

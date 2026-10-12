@@ -1,7 +1,7 @@
 import type { WindUnit } from '@/bindings/WindUnit';
 import { KMH_PER_KN, MS_PER_KN, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
-import { RAMP_MAX_KN, rampGradient } from '@/lib/wind-map';
+import { FIELD_DIM, RAMP_MAX_KN, rampGradient } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 
 /** Round marks per unit within the ramp's 0…40 kn */
@@ -22,7 +22,7 @@ export function Legend({ unit, gusts, className }: { unit: WindUnit; gusts: bool
         role="img"
         aria-label={label({ unit: UNIT_LABEL[unit] })}
         className="h-2 rounded-full"
-        style={{ background: rampGradient() }}
+        style={{ background: rampGradient(FIELD_DIM) }}
       />
       <figcaption className="relative h-4 font-mono text-[11px] text-muted-foreground" aria-hidden="true">
         {TICKS[unit].map((t, i, all) => {

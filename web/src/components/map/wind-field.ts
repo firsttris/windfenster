@@ -2,7 +2,7 @@
  * coastlines and labels. It draws only when the map or the hour changes. */
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
 import { townness } from '@/lib/town-zoom';
-import { MAX_LAT, mercatorX, mercatorY, RAMP_MAX_KN, rampPixels, wrapsAround } from '@/lib/wind-map';
+import { FIELD_DIM, MAX_LAT, mercatorX, mercatorY, RAMP_MAX_KN, rampPixels, wrapsAround } from '@/lib/wind-map';
 import { activate, bindAttribute, bindTexture, createBuffer, createProgram, createTexture, type Program } from './gl';
 import { FIELD_FRAG, FIELD_VERT } from './shaders';
 import {
@@ -50,7 +50,7 @@ export function windField(id: string, opacity: number, gusts: boolean): WindFiel
       map = m;
       gl = context;
       program = createProgram(gl, FIELD_VERT, FIELD_FRAG);
-      ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
+      ramp = createTexture(gl, gl.LINEAR, rampPixels(256, FIELD_DIM), 256, 1);
       textures = windTextures(gl);
       vao = gl.createVertexArray();
     },

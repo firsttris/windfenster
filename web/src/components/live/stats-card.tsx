@@ -8,11 +8,11 @@ import { intlLocale } from '@/lib/i18n';
 import { useUnit } from '@/lib/prefs';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
-import { petal, rings, rose, sectorDegrees, wholeYear, windyShare } from '@/lib/wind-stats';
+import { petal, rings, rose, STATS_BANDS_KN, sectorDegrees, wholeYear, windyShare } from '@/lib/wind-stats';
 import { m } from '@/paraglide/messages';
 import { Card } from '@/ui/card';
 import { WindArrow } from '@/ui/wind-arrow';
-import { WIND_SCALE } from '@/ui/wind-scale';
+import { windBand } from '@/ui/wind-scale';
 
 const R = 120;
 /** The calm circle in the middle */
@@ -86,7 +86,7 @@ function RoseChart({ month }: { month: MonthStats }) {
             // biome-ignore lint/suspicious/noArrayIndexKey: sectors and bands are fixed positions
             key={`${sector}-${p.band}`}
             d={wedge(sector, p.from, p.to)}
-            fill={WIND_SCALE[p.band].bg}
+            fill={windBand(STATS_BANDS_KN[p.band]).bg}
             className="stroke-card"
             strokeWidth={0.75}
           />
@@ -104,14 +104,13 @@ function Legend() {
   const [unit] = useUnit();
   return (
     <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 text-muted-foreground text-xs">
-      {WIND_SCALE.map((b, i) => {
-        const next = WIND_SCALE[i + 1];
-        const label = next
-          ? `${formatWind(b.from, unit)}–${formatWind(next.from, unit)}`
-          : `${formatWind(b.from, unit)}+`;
+      {STATS_BANDS_KN.map((from, i) => {
+        const next = STATS_BANDS_KN[i + 1];
+        const label =
+          next !== undefined ? `${formatWind(from, unit)}–${formatWind(next, unit)}` : `${formatWind(from, unit)}+`;
         return (
-          <li key={b.from} className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm" style={{ background: b.bg }} aria-hidden="true" />
+          <li key={from} className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: windBand(from).bg }} aria-hidden="true" />
             {label}
           </li>
         );

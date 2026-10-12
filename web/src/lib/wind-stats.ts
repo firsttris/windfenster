@@ -5,6 +5,10 @@
 import type { MonthStats } from '@/bindings/MonthStats';
 import type { WindStats } from '@/bindings/WindStats';
 
+/** The speed bands the server counts the rose in, lower edges in kn (wf_core::climate::BANDS_KN);
+ * coloured by the wind scale at each edge. */
+export const STATS_BANDS_KN = [0, 5, 9, 13, 17, 21, 25, 30] as const;
+
 /** The months added up: the year */
 export function wholeYear(stats: WindStats): MonthStats {
   const sum = (f: (m: MonthStats) => number) => stats.months.reduce((s, m) => s + f(m), 0);

@@ -73,10 +73,18 @@ function rgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+/** How far the map's colour field leans towards the night of the dark theme: the scale's full
+ * colours suit cells and pins, spread over the whole map they glare. */
+export const FIELD_DIM = 0.3;
+const NIGHT: [number, number, number] = [9, 9, 11];
+
 /** The field's colours, `width` steps from 0 to RAMP_MAX_KN: the wind scale's bands, blended
- * between their lower edges. RGBA, for a width × 1 texture. */
-export function rampPixels(width = 256): Uint8Array {
-  const stops = WIND_SCALE.map((b) => ({ kn: b.from, c: rgb(b.bg) }));
+ * between their lower edges, `dim` of the way towards the night. RGBA, for a width × 1 texture. */
+export function rampPixels(width = 256, dim = 0): Uint8Array {
+  const stops = WIND_SCALE.map((b) => ({
+    kn: b.from,
+    c: rgb(b.bg).map((v, i) => v + (NIGHT[i] - v) * dim) as [number, number, number],
+  }));
   const out = new Uint8Array(width * 4);
   for (let x = 0; x < width; x++) {
     const kn = (x / (width - 1)) * RAMP_MAX_KN;
@@ -92,8 +100,11 @@ export function rampPixels(width = 256): Uint8Array {
 }
 
 /** CSS gradient of the same ramp, for the legend. */
-export function rampGradient(): string {
-  const stops = WIND_SCALE.map((b) => `${b.bg} ${((b.from / RAMP_MAX_KN) * 100).toFixed(1)}%`);
+export function rampGradient(dim = 0): string {
+  const hex = (c: number[]) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+  const stops = WIND_SCALE.map(
+    (b) => `${hex(rgb(b.bg).map((v, i) => v + (NIGHT[i] - v) * dim))} ${((b.from / RAMP_MAX_KN) * 100).toFixed(1)}%`,
+  );
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
