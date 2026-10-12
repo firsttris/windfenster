@@ -4,6 +4,7 @@
 mod basemap;
 mod ecmwf;
 mod icon_d2;
+mod icon_global;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,7 +14,7 @@ use crate::grid::{GridError, LatLonGrid};
 use crate::index::{self, MapIndex};
 use crate::store::{self, MapRun};
 use crate::texture::{self, TextureError};
-use crate::{ecmwf as ecmwf_files, icon_d2 as icon_d2_files};
+use crate::{ecmwf as ecmwf_files, icon_d2 as icon_d2_files, icon_global as icon_global_files};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -39,6 +40,7 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub struct Urls {
     pub icon_d2: String,
+    pub icon_global: String,
     pub ecmwf: String,
     /// Protomaps' daily builds, for the basemap
     pub protomaps: String,
@@ -50,6 +52,7 @@ impl Default for Urls {
     fn default() -> Self {
         Self {
             icon_d2: icon_d2_files::BASE.into(),
+            icon_global: icon_global_files::BASE.into(),
             ecmwf: ecmwf_files::BASE.into(),
             protomaps: crate::basemap::fetch::BUILDS.into(),
             mapterhorn: crate::basemap::terrain::DOWNLOADS.into(),
@@ -74,6 +77,8 @@ pub struct MapData {
     tapped: std::sync::Mutex<Vec<(crate::basemap::spots::Spot, i64)>>,
     /// How much basemap and relief to keep
     depth: crate::basemap::Depth,
+    /// ICON global's triangles to the regular grid, once loaded or made
+    icon_global_near: tokio::sync::OnceCell<Arc<Vec<u32>>>,
 }
 
 /// The basemap's and the relief's region (west, south, east, north).
@@ -88,6 +93,7 @@ impl MapData {
             readers: Default::default(),
             tapped: Default::default(),
             depth: Default::default(),
+            icon_global_near: Default::default(),
         }
     }
 
@@ -109,13 +115,26 @@ impl MapData {
     pub async fn index(&self) -> std::io::Result<MapIndex> {
         let mut layers = Vec::new();
         for model in crate::MODELS {
-            layers.push(index::layer(model, &self.runs(model).await?));
+            let runs = self.runs(model).await?;
+            let mut layer = index::layer(model, &runs);
+            layer.area = self.area(model, &runs).await;
+            layers.push(layer);
         }
         Ok(MapIndex {
             layers,
             basemap: crate::basemap::info(&self.root).await,
             terrain: crate::basemap::terrain::info(&self.root).await,
         })
+    }
+
+    /// What the newest run's first texture covers.
+    async fn area(&self, model: &str, runs: &[MapRun]) -> Option<[f64; 4]> {
+        let run = runs.first()?;
+        let step = run.steps.first()?;
+        let path = store::run_dir(&self.root, model, run.run_at).join(format!("{step:03}.json"));
+        let meta: texture::TextureMeta =
+            serde_json::from_slice(&tokio::fs::read(path).await.ok()?).ok()?;
+        Some([meta.west, meta.south, meta.east, meta.north])
     }
 
     /// The background loop: new hours every ten minutes.
@@ -138,7 +157,9 @@ impl MapData {
         }
     }
 
-    /// Encodes U, V and the gust of an hour and writes the texture.
+    /// Encodes U, V and the gust of an hour and writes the texture (as PNG too, unless the app
+    /// only takes pieces of it).
+    #[allow(clippy::too_many_arguments)]
     async fn write_hour(
         &self,
         model: &'static str,
@@ -147,14 +168,19 @@ impl MapData {
         u: LatLonGrid,
         v: LatLonGrid,
         gust: Option<LatLonGrid>,
+        with_png: bool,
     ) -> Result<(), Error> {
         let (png, rgba, meta) = tokio::task::spawn_blocking(move || {
             let (rgba, meta) = texture::pixels(&u, &v, gust.as_ref(), model, run_at, step)?;
-            let png = texture::png(&rgba, meta.width, meta.height)?;
+            let png = if with_png {
+                Some(texture::png(&rgba, meta.width, meta.height)?)
+            } else {
+                None
+            };
             Ok::<_, texture::TextureError>((png, rgba, meta))
         })
         .await??;
-        Ok(store::write_step(&self.root, model, &png, &rgba, &meta).await?)
+        Ok(store::write_step(&self.root, model, png.as_deref(), &rgba, &meta).await?)
     }
 
     /// Hours of a run already on disk.

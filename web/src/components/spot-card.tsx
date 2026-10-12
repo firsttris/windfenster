@@ -16,7 +16,6 @@ import { daySegments } from '@/lib/timeline';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { useGear } from '@/lib/use-gear';
 import { useNow } from '@/lib/use-now';
-import { BASE_MODELS } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
@@ -39,8 +38,8 @@ export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: 
   const pins = useQuery({ ...mapStationsQuery, enabled: f.slug !== null });
   const live = f.slug ? pins.data?.find((p) => p.slug === f.slug && p.wind !== null) : undefined;
 
-  const detail = index.data?.layers.find((l) => !BASE_MODELS.includes(l.model))?.model ?? null;
-  const hours = series.data ? spotHours(series.data, BASE_MODELS[0], detail) : [];
+  // Every model on the map, finest first, as the server lists them
+  const hours = series.data ? spotHours(series.data, index.data?.layers.map((l) => l.model) ?? []) : [];
   const from = now - (now % 3600);
   const to = Math.min(from + DAYS * 86_400, hours.at(-1)?.validAt ?? from);
   const best = peak(hours, f.sector, now);

@@ -30,6 +30,8 @@ Volume=%h/windfenster/data:/data:Z
 # Environment=WF_BASEMAP_WORLD_ZOOM=8
 # Environment=WF_BASEMAP_ZOOM=12
 # Environment=WF_TERRAIN_ZOOM=8
+# ICON global on the map is about 2.2 GB of downloads a day; to leave the world to ECMWF:
+# Environment=WF_ICON_GLOBAL=false
 # Alarm e-mails (alarms go by push without): your mail provider's SMTP
 # Environment=WF_SMTP_URL=smtps://alarm%40example.org:PASSWORD@smtp.example.org:465
 # Environment=WF_MAIL_FROM=Windfenster <alarm@example.org>

@@ -11,8 +11,6 @@ use wf_map::series::MapSeries;
 use crate::text::{Ctx, Lang};
 use crate::{Alarms, Error};
 
-/// The wind map's base model; any other layer is finer and wins while it has hours.
-const BASE_MODEL: &str = "ecmwf_ifs025";
 /// Windows starting within this are told.
 const AHEAD_S: i64 = 48 * 3_600;
 /// Messages go out between these local hours only.
@@ -69,34 +67,31 @@ pub async fn job(a: &Alarms, index: Option<&MapIndex>, job: &Job, now: i64) -> R
     Ok(())
 }
 
-/// The spot's hours as the app's spot sheet shows them (`web/src/lib/spot-series.ts`): the finer
-/// model while it has hours, the base model around them.
+/// The spot's hours as the app shows them (`web/src/lib/spot-series.ts`): each model while it
+/// has hours there, the finer before the coarser (ICON-D2, ICON global, ECMWF).
 pub fn hours(series: &MapSeries) -> Vec<Hour> {
-    let of = |base: bool| {
-        series
-            .layers
-            .iter()
-            .find(|l| (l.model == BASE_MODEL) == base)
-            .map(|l| l.points.as_slice())
-            .unwrap_or_default()
-    };
-    let (fine, base) = (of(false), of(true));
-    let (first, last) = match (fine.first(), fine.last()) {
-        (Some(a), Some(b)) => (a.valid_at, b.valid_at),
-        _ => (i64::MAX, i64::MIN),
-    };
-    let mut out: Vec<Hour> = fine
-        .iter()
-        .chain(
-            base.iter()
-                .filter(|p| p.valid_at < first || p.valid_at > last),
-        )
-        .map(|p| Hour {
-            at: p.valid_at,
-            wind: f64::from(p.wind),
-            dir: f64::from(p.dir),
-        })
-        .collect();
+    let mut covered: Vec<(i64, i64)> = Vec::new();
+    let mut out: Vec<Hour> = Vec::new();
+    for model in wf_map::MODELS {
+        let Some(layer) = series.layers.iter().find(|l| l.model == *model) else {
+            continue;
+        };
+        let (Some(first), Some(last)) = (layer.points.first(), layer.points.last()) else {
+            continue;
+        };
+        out.extend(
+            layer
+                .points
+                .iter()
+                .filter(|p| !covered.iter().any(|&(a, b)| (a..=b).contains(&p.valid_at)))
+                .map(|p| Hour {
+                    at: p.valid_at,
+                    wind: f64::from(p.wind),
+                    dir: f64::from(p.dir),
+                }),
+        );
+        covered.push((first.valid_at, last.valid_at));
+    }
     out.sort_by_key(|h| h.at);
     out
 }
@@ -201,4 +196,59 @@ async fn live(
 /// The piece for a wind, when the alarm goes by gear
 fn fitting(rule: &Rule, wind: f64) -> Option<GearItem> {
     rule.gear.and_then(|g| gear::best_for(g, wind)).copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use wf_map::series::{SeriesLayer, SeriesPoint};
+
+    use super::*;
+
+    fn layer(model: &str, hours: impl Iterator<Item = i64>) -> SeriesLayer {
+        SeriesLayer {
+            model: model.into(),
+            points: hours
+                .map(|h| SeriesPoint {
+                    valid_at: h * 3_600,
+                    run_at: 0,
+                    wind: model.len() as f32,
+                    gust: None,
+                    dir: 0.0,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn the_finest_model_while_it_lasts() {
+        let series = MapSeries {
+            layers: vec![
+                layer("icon_d2", 2..=4),
+                layer("icon_global", 0..=8),
+                layer("ecmwf_ifs025", (0..=15).step_by(3)),
+            ],
+        };
+        let got: Vec<(i64, usize)> = hours(&series)
+            .iter()
+            .map(|h| (h.at / 3_600, h.wind as usize))
+            .collect();
+        // icon_d2 (7) at 2–4, icon_global (11) around it to 8, ECMWF (12) after
+        assert_eq!(
+            got,
+            [
+                (0, 11),
+                (1, 11),
+                (2, 7),
+                (3, 7),
+                (4, 7),
+                (5, 11),
+                (6, 11),
+                (7, 11),
+                (8, 11),
+                (9, 12),
+                (12, 12),
+                (15, 12)
+            ]
+        );
+    }
 }

@@ -132,6 +132,10 @@ struct ServeArgs {
     /// keep two runs as textures in `{data_dir}/map`; `false` turns the map off.
     #[arg(long, env = "WF_MAP", default_value_t = true, action = clap::ArgAction::Set)]
     map: bool,
+    /// ICON global on the map (13 km, hourly to +78 h): the DWD's 00 and 12 UTC runs, about 1.1
+    /// GB each to fetch and 1.5 GB on disk; `false` leaves the world to ECMWF.
+    #[arg(long, env = "WF_ICON_GLOBAL", default_value_t = true, action = clap::ArgAction::Set)]
+    icon_global: bool,
     /// The map's detailed basemap and relief: `auto` cuts them from Protomaps' daily build and
     /// Mapterhorn's elevation (the world to `WF_BASEMAP_WORLD_ZOOM`, the region to
     /// `WF_BASEMAP_ZOOM`, 20 km around places people look at to zoom 14) unless the operator
@@ -279,6 +283,9 @@ async fn serve(args: ServeArgs) -> Result<()> {
         .collect();
     if let (true, Some(map)) = (args.scheduler, &map) {
         tokio::spawn(map.clone().keep_current());
+        if args.icon_global {
+            tokio::spawn(map.clone().keep_icon_global());
+        }
         if args.basemap == "auto" {
             tokio::spawn(map.clone().keep_basemap(db.clone()));
         }

@@ -10,6 +10,7 @@ pub mod gear;
 pub mod history;
 pub mod live;
 pub mod map;
+mod map_piece;
 mod meta;
 pub mod ranking;
 pub mod search;
@@ -69,6 +70,7 @@ pub struct AppState {
     gauge_history: water::HistoryCache,
     rankings: ranking::RankingCache,
     pins: map::PinCache,
+    pieces: map_piece::PieceCache,
     /// Stations (row ids) whose past days were filled in within six hours.
     backfilled: moka::future::Cache<i64, ()>,
 }
@@ -108,6 +110,7 @@ impl AppState {
             gauge_history: water::new_cache(),
             rankings: ranking::new_cache(),
             pins: map::new_pin_cache(),
+            pieces: map_piece::new_cache(),
             backfilled: moka::future::Cache::builder()
                 .max_capacity(10_000)
                 .time_to_live(Duration::from_secs(6 * 3_600))
@@ -161,6 +164,7 @@ pub fn router(state: AppState) -> Router {
         .route("/map/terrain.pmtiles", get(map::terrain))
         .route("/map/basemap/{z}/{x}/{y}", get(map::basemap_tile))
         .route("/map/{model}/{run}/{file}", get(map::file))
+        .route("/map/{model}/{run}/{step}/{piece}", get(map_piece::piece))
         .route(
             "/me",
             get(auth::me).patch(auth::rename_me).delete(auth::delete_me),

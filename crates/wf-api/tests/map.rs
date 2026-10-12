@@ -86,7 +86,7 @@ async fn app(with_map: bool) -> Result<(tempfile::TempDir, Router)> {
         3,
     )?;
     let png = wf_map::texture::png(&rgba, meta.width, meta.height)?;
-    wf_map::store::write_step(&root, "icon_d2", &png, &rgba, &meta).await?;
+    wf_map::store::write_step(&root, "icon_d2", Some(&png), &rgba, &meta).await?;
     let mut state = AppState::new(db, forecasts, None, None, None, None);
     if with_map {
         state = state.with_map(Arc::new(MapData::new(root, http, wf_map::Urls::default())));
@@ -122,8 +122,9 @@ async fn index_lists_the_hours_on_disk() -> Result<()> {
         json!({"layers": [
             {"model": "icon_d2", "frames": [
                 {"validAt": R06 + 3 * 3_600, "runAt": R06, "path": "icon_d2/2026101106/003"}
-            ]},
-            {"model": "ecmwf_ifs025", "frames": []}
+            ], "area": [9.75, 49.75, 10.75, 50.25], "inPieces": false},
+            {"model": "icon_global", "frames": [], "area": null, "inPieces": true},
+            {"model": "ecmwf_ifs025", "frames": [], "area": null, "inPieces": false}
         ], "basemap": null, "terrain": null})
     );
 

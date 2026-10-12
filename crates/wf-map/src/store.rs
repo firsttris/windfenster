@@ -53,7 +53,7 @@ pub fn run_dir(root: &Path, model: &str, run_at: i64) -> PathBuf {
 pub async fn write_step(
     root: &Path,
     model: &str,
-    png: &[u8],
+    png: Option<&[u8]>,
     rgba: &[u8],
     meta: &TextureMeta,
 ) -> std::io::Result<()> {
@@ -61,7 +61,9 @@ pub async fn write_step(
     tokio::fs::create_dir_all(&dir).await?;
     let name = format!("{:03}", meta.step);
     // The JSON last: a step counts once its description is there.
-    tokio::fs::write(dir.join(format!("{name}.png")), png).await?;
+    if let Some(png) = png {
+        tokio::fs::write(dir.join(format!("{name}.png")), png).await?;
+    }
     tokio::fs::write(dir.join(format!("{name}.rgba")), rgba).await?;
     let json = serde_json::to_vec(meta).map_err(std::io::Error::other)?;
     tokio::fs::write(dir.join(format!("{name}.json")), json).await
@@ -140,9 +142,15 @@ mod tests {
         assert_eq!(run_id(r06), "2026101106");
         assert_eq!(parse_run_id("2026101106"), Some(r06));
         for (run, step) in [(r06, 0), (r06, 1), (r09, 2), (r09, 0)] {
-            write_step(dir.path(), "icon_d2", b"png", b"rgba", &meta(run, step))
-                .await
-                .unwrap();
+            write_step(
+                dir.path(),
+                "icon_d2",
+                Some(b"png"),
+                b"rgba",
+                &meta(run, step),
+            )
+            .await
+            .unwrap();
         }
         let list = runs(dir.path(), "icon_d2").await.unwrap();
         assert_eq!(list.len(), 2);

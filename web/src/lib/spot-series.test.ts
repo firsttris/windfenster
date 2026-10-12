@@ -14,7 +14,7 @@ const series: MapSeries = {
 
 describe('a place over the hours', () => {
   it('takes the finer model while it lasts, the base around it', () => {
-    expect(spotHours(series, 'ecmwf_ifs025', 'icon_d2').map((p) => [p.validAt, p.model])).toEqual([
+    expect(spotHours(series, ['icon_d2', 'ecmwf_ifs025']).map((p) => [p.validAt, p.model])).toEqual([
       [0, 'ecmwf_ifs025'],
       [3, 'icon_d2'],
       [4, 'icon_d2'],
@@ -22,12 +22,22 @@ describe('a place over the hours', () => {
     ]);
     // Outside the finer model's domain it has no hours: the base alone
     const outside = { layers: [{ model: 'icon_d2', points: [] }, series.layers[1]] };
-    expect(spotHours(outside, 'ecmwf_ifs025', 'icon_d2')).toHaveLength(3);
-    expect(spotHours(series, 'ecmwf_ifs025', null)).toHaveLength(3);
+    expect(spotHours(outside, ['icon_d2', 'ecmwf_ifs025'])).toHaveLength(3);
+    expect(spotHours(series, [null, 'ecmwf_ifs025'])).toHaveLength(3);
+    // ICON global between the two: around ICON-D2, before ECMWF
+    const three = { layers: [...series.layers, { model: 'icon_global', points: [h(0, 2), h(1, 3), h(5, 4)] }] };
+    expect(spotHours(three, ['icon_d2', 'icon_global', 'ecmwf_ifs025']).map((p) => [p.validAt, p.model])).toEqual([
+      [0, 'icon_global'],
+      [1, 'icon_global'],
+      [3, 'icon_d2'],
+      [4, 'icon_d2'],
+      [5, 'icon_global'],
+      [6, 'ecmwf_ifs025'],
+    ]);
   });
 
   it('colours the timeline by the wind', () => {
-    const hours = spotHours(series, 'ecmwf_ifs025', null);
+    const hours = spotHours(series, [null, 'ecmwf_ifs025']);
     const g = windGradient(hours, 0, 6);
     // 1 kn, 9 kn and 15 kn: the first, third and fourth band
     expect(g).toBe(

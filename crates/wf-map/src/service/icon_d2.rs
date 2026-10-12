@@ -33,7 +33,8 @@ impl MapData {
                 } else {
                     None
                 };
-                self.write_hour(model, run_at, step, u, v, gust).await?;
+                self.write_hour(model, run_at, step, u, v, gust, true)
+                    .await?;
                 written += 1;
             }
             break;

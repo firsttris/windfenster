@@ -1,5 +1,5 @@
-/** A place's hours as the map draws them: the finer model while it has hours there, the base
- * model around them; and the colour band the timeline shows for them. */
+/** A place's hours as the map draws them: the finer model while it has hours there, the coarser
+ * around them; and the colour band the timeline shows for them. */
 import type { MapSeries } from '@/bindings/MapSeries';
 import type { SeriesPoint } from '@/bindings/SeriesPoint';
 import { windBand } from '@/ui/wind-scale';
@@ -8,15 +8,22 @@ export interface SpotHour extends SeriesPoint {
   model: string;
 }
 
-export function spotHours(series: MapSeries, base: string | null, detail: string | null): SpotHour[] {
-  const of = (model: string | null): SpotHour[] =>
-    (series.layers.find((l) => l.model === model)?.points ?? []).map((p) => ({ ...p, model: model as string }));
-  const fine = of(detail);
-  const first = fine[0]?.validAt ?? Number.POSITIVE_INFINITY;
-  const last = fine.at(-1)?.validAt ?? Number.NEGATIVE_INFINITY;
-  return [...fine, ...of(base).filter((p) => p.validAt < first || p.validAt > last)].sort(
-    (a, b) => a.validAt - b.validAt,
-  );
+/** The place's hours from the models in `finestFirst`: each while it has hours there, a finer
+ * one before a coarser (as `crates/wf-alarm/src/check.rs` reads them for alarms). */
+export function spotHours(series: MapSeries, finestFirst: readonly (string | null | undefined)[]): SpotHour[] {
+  const covered: [number, number][] = [];
+  const out: SpotHour[] = [];
+  for (const model of finestFirst) {
+    const points = series.layers.find((l) => l.model === model)?.points ?? [];
+    if (!model || points.length === 0) continue;
+    out.push(
+      ...points
+        .filter((p) => !covered.some(([a, b]) => p.validAt >= a && p.validAt <= b))
+        .map((p) => ({ ...p, model })),
+    );
+    covered.push([points[0].validAt, points[points.length - 1].validAt]);
+  }
+  return out.sort((a, b) => a.validAt - b.validAt);
 }
 
 /** A CSS gradient over `from`…`to` in the wind scale's colours of the hours, each hour's colour

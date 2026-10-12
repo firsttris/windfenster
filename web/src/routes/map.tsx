@@ -23,7 +23,17 @@ import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { useTitle } from '@/lib/use-title';
 import { cn } from '@/lib/utils';
-import { chooseLayers, hoursAt, insideRing, positionAt, startTime } from '@/lib/wind-map';
+import {
+  chooseLayers,
+  covers,
+  framesFor,
+  hoursAt,
+  MAP_ONLY_MODELS,
+  type Place,
+  pieceFor,
+  positionAt,
+  startTime,
+} from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 
 const NO_DETAIL: [number, number, number, number][] = [];
@@ -63,17 +73,20 @@ function MapPage() {
     setChosenState(model);
     setModelPref(model);
   };
-  const choice = chooseLayers(index.data?.layers ?? [], chosen);
+  // The map's middle and view, after each move
+  const [center, setCenter] = useState<(Place & { view: [number, number, number, number] }) | null>(null);
+  const choice = chooseLayers(index.data?.layers ?? [], chosen, center);
+  // A model sent in pieces (ICON global): the piece around the view
+  const detailFrames = framesFor(choice.detail, center ? pieceFor(center.view) : null);
   const frames = choice.frames;
   const [picked, setTime] = useState<number | null>(initial.time ?? null);
   const time = picked ?? startTime(frames, now);
   const [playing, setPlaying] = useState(false);
   usePlayback(playing, frames, time, setTime);
   const base = useWindPair(choice.base?.frames ?? [], time, playing);
-  const detail = useWindPair(hoursAt(choice.detail?.frames ?? [], time), time, playing);
+  const detail = useWindPair(hoursAt(detailFrames, time), time, playing);
   const layers = useMemo(() => ({ base, detail }), [base, detail]);
   const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
-  const [center, setCenter] = useState<{ lon: number; lat: number } | null>(null);
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
   // A place looked at gets detail on the server within a minute or two: ask again then.
@@ -117,9 +130,7 @@ function MapPage() {
   // The place picked over the coming hours, from the map's own fields
   const series = useQuery({ ...mapSeriesQuery(pick?.lat ?? 0, pick?.lon ?? 0), enabled: pick !== null });
   const hours = series.data
-    ? spotHours(series.data, choice.base?.model ?? null, choice.detail?.model ?? null).filter(
-        (h) => h.validAt >= now - 3_600,
-      )
+    ? spotHours(series.data, [choice.detail?.model, choice.base?.model]).filter((h) => h.validAt >= now - 3_600)
     : series.isError
       ? []
       : undefined;
@@ -128,20 +139,20 @@ function MapPage() {
     if (time === null || list.length === 0) return false;
     return pair?.a.path !== list[positionAt(list, time).i]?.path;
   };
-  const loading = behind(base, choice.base?.frames ?? []) || behind(detail, hoursAt(choice.detail?.frames ?? [], time));
+  const loading = behind(base, choice.base?.frames ?? []) || behind(detail, hoursAt(detailFrames, time));
   // A model hour without gusts (ECMWF's first, some late ones) shows the wind instead.
   const gustless = gusts
     ? [detail, base].find((p) => p && p.a.meta.gustMax === null && p.b.meta.gustMax === null)
     : null;
 
-  const modelOf = (id: string | undefined) => models.data?.find((x) => x.id === id);
+  const modelOf = (id: string | undefined) =>
+    models.data?.find((x) => x.id === id) ?? (id ? MAP_ONLY_MODELS[id] : undefined);
   const nameOf = (id: string) => modelOf(id)?.name ?? id;
   const ready = index.data?.layers.filter((l) => l.frames.length > 0) ?? [];
   // The model that draws the hour shown at the spot picked or else in the middle of the view,
   // for its run: the detail inside its domain, the base around it.
   const where = pick ?? center;
-  const inDetail =
-    detail !== null && (where === null || insideRing(detail.a.meta.domain as [number, number][], where.lon, where.lat));
+  const inDetail = detail !== null && (where === null || covers(detail.a.meta, where));
   const drawing = inDetail || !choice.base ? choice.detail : choice.base;
   const drawingFrames = drawing?.frames ?? [];
   const frame = time !== null && drawingFrames.length ? drawingFrames[positionAt(drawingFrames, time).i] : null;
@@ -260,7 +271,7 @@ function MapPage() {
             unit={unit}
             picked={pick}
             onPick={setPick}
-            onCenter={(lon, lat) => setCenter({ lon, lat })}
+            onCenter={(lon, lat, view) => setCenter({ lon, lat, view })}
             focus={focus}
             detail={info?.detail ?? NO_DETAIL}
           />

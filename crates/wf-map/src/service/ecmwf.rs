@@ -61,7 +61,8 @@ impl MapData {
                     }
                     Err(e) => return Err(e),
                 };
-                self.write_hour(model, run_at, step, u, v, gust).await?;
+                self.write_hour(model, run_at, step, u, v, gust, true)
+                    .await?;
                 written += 1;
                 tokio::time::sleep(PAUSE).await;
             }

@@ -4,9 +4,11 @@
 //! each scaled to the file's own range, which a JSON file next to it gives.
 
 pub mod basemap;
+pub mod crop;
 pub mod ecmwf;
 pub mod grid;
 pub mod icon_d2;
+pub mod icon_global;
 pub mod index;
 pub mod series;
 pub mod service;
@@ -20,4 +22,4 @@ pub use index::{MapFrame, MapIndex, MapLayer};
 pub use service::{MapData, REGION, Urls};
 
 /// The models on the map, finest first.
-pub const MODELS: &[&str] = &[icon_d2::MODEL, ecmwf::MODEL];
+pub const MODELS: &[&str] = &[icon_d2::MODEL, icon_global::MODEL, ecmwf::MODEL];

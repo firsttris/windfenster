@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { MapFrame } from '@/bindings/MapFrame';
+import type { MapLayer } from '@/bindings/MapLayer';
 import type { TextureMeta } from '@/bindings/TextureMeta';
 import {
   blend,
   chooseLayers,
+  framesFor,
   gustOf,
   hoursAt,
   insideRing,
   latOf,
   mercatorX,
   mercatorY,
+  pieceFor,
   positionAt,
   RAMP_MAX_KN,
   rampPixels,
@@ -168,12 +171,20 @@ describe('domains', () => {
 });
 
 describe('layers', () => {
-  const at = (model: string, hours: number[]) => ({
+  const at = (
+    model: string,
+    hours: number[],
+    area: [number, number, number, number] | null = null,
+    inPieces = false,
+  ): MapLayer => ({
     model,
     frames: hours.map((h) => ({ validAt: h * 3_600, runAt: 0, path: `${model}/2026101100/${h}` })),
+    area,
+    inPieces,
   });
-  const icon = at('icon_d2', [0, 1, 2]);
-  const ecmwf = at('ecmwf_ifs025', [0, 3, 6]);
+  const icon = at('icon_d2', [0, 1, 2], [-3.94, 43.18, 20.34, 58.08]);
+  const ecmwf = at('ecmwf_ifs025', [0, 3, 6], [-180.125, -90.125, 179.875, 90.125]);
+  const global = at('icon_global', [0, 1, 2, 3], [-180.0625, -90.0625, 179.9375, 90.0625], true);
 
   it('puts the finer model over the base', () => {
     const c = chooseLayers([icon, ecmwf], null);
@@ -194,6 +205,24 @@ describe('layers', () => {
     const d = chooseLayers([icon, at('ecmwf_ifs025', [])], null);
     expect([d.detail?.model, d.base]).toEqual(['icon_d2', null]);
     expect(chooseLayers([], null).selected).toBeNull();
+  });
+
+  it('takes the finest model where the map is, unless one is picked', () => {
+    const layers = [icon, global, ecmwf];
+    expect(chooseLayers(layers, null, { lon: 8.1, lat: 48.8 }).detail?.model).toBe('icon_d2');
+    expect(chooseLayers(layers, null, { lon: 28.1, lat: 36.4 }).detail?.model).toBe('icon_global');
+    expect(chooseLayers(layers, 'icon_global', { lon: 8.1, lat: 48.8 }).detail?.model).toBe('icon_global');
+  });
+
+  it('takes a model sent in pieces around the view', () => {
+    // The Aegean at about zoom 6: a quarter more on every side, on whole 10°
+    expect(pieceFor([22, 34, 30, 40])).toBe('20_30_40_50');
+    expect(pieceFor([170, 10, 179, 20])).toBe('160_0_180_30');
+    // Too wide for a piece: the base model draws alone.
+    expect(pieceFor([-60, 20, 40, 60])).toBeNull();
+    expect(framesFor(global, '20_30_40_50')[0].path).toBe('icon_global/2026101100/0/20_30_40_50');
+    expect(framesFor(global, null)).toEqual([]);
+    expect(framesFor(icon, null)).toBe(icon.frames);
   });
 
   it('ends the finer model with its hours', () => {

@@ -145,6 +145,16 @@ pub fn decode(bytes: &[u8]) -> Result<LatLonGrid, GridError> {
     })
 }
 
+/// The values of the first message of a GRIB2 file, in the file's order, whatever its grid: for
+/// ICON global's triangles (template 3.101), whose places come as fields of their own.
+pub fn decode_values(bytes: &[u8]) -> Result<Vec<f32>, GridError> {
+    let grib2 = grib::from_bytes(bytes)?;
+    let (_, msg) = grib2.iter().next().ok_or(GridError::Empty)?;
+    Ok(grib::Grib2SubmessageDecoder::from(msg)?
+        .dispatch()?
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

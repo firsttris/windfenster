@@ -15,6 +15,10 @@ pub enum TextureError {
     Grids,
     #[error("PNG: {0}")]
     Png(#[from] png::EncodingError),
+    #[error("the piece holds no texels")]
+    Outside,
+    #[error("reading texels: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// What the JSON next to a texture says: where it lies and how to read its colours.

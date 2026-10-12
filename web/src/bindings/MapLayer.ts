@@ -9,4 +9,13 @@ model: string,
 /**
  * One per hour, ascending
  */
-frames: Array<MapFrame>, };
+frames: Array<MapFrame>, 
+/**
+ * The area its textures cover (west, south, east, north), from the newest run; null
+ * without hours
+ */
+area: [number, number, number, number] | null, 
+/**
+ * Whether the app takes its textures in pieces (`crop`), not whole
+ */
+inPieces: boolean, };

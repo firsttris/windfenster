@@ -38,7 +38,9 @@ interface Props {
   picked: Pick | null;
   onPick: (p: Pick) => void;
   /** The middle of the view, after every move */
-  onCenter: (lon: number, lat: number) => void;
+  /** After a move: the middle, and the view's west, south, east, north (on the world copy
+   * the middle falls on, within ±180°) */
+  onCenter: (lon: number, lat: number, view: [number, number, number, number]) => void;
   /** A place to fly to (a new object flies again) */
   focus: { lon: number; lat: number } | null;
   /** Boxes with detail tiles; new ones show without making the map anew */
@@ -149,10 +151,15 @@ export function MapCanvas({
     mp.on('resize', sync);
     const middle = () => {
       // On a world copy: the same place within ±180°
-      const c = mp.getCenter().wrap();
-      center.current(c.lng, c.lat);
+      const raw = mp.getCenter();
+      const c = raw.wrap();
+      const shift = c.lng - raw.lng;
+      const b = mp.getBounds();
+      center.current(c.lng, c.lat, [b.getWest() + shift, b.getSouth(), b.getEast() + shift, b.getNorth()]);
     };
     mp.on('moveend', middle);
+    // Where the map opens counts too: the model and the piece follow it from the start.
+    mp.on('load', middle);
     mp.on('load', () => {
       mp.addLayer(f.layer, basemap.aboveField);
       mp.addSource('picked', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });

@@ -127,10 +127,13 @@ What follows:
   are downloaded (about 150 and 115 MB per run). A minute after the start it cuts the basemap
   and then the relief; at the zoom levels above that takes a while, and the map shows Natural
   Earth and coarser tiles until then. Detail spots come a minute or two after a place is opened.
-- **Disk:** with the settings above roughly 15 GB at most: the basemap (7 GB and the world),
-  relief (about 4 GB), spots (a few GB once many are used), the map's runs (two per model, about
-  230 MB each) and the database (up to about 1 GB after a year). With the defaults it is
-  about 3 GB (basemap 323 MB, relief 948 MB, runs about 900 MB, spots up to 600 MB).
+- **Disk:** with the settings above roughly 18 GB at most: the basemap (7 GB and the world),
+  relief (about 4 GB), spots (a few GB once many are used), the map's runs (two per model: about
+  230 MB each for ICON-D2 and ECMWF, 1.5 GB each for ICON global) and the database (up to about
+  1 GB after a year). With the defaults it is about 6 GB (basemap 323 MB, relief 948 MB, runs
+  about 4 GB, spots up to 600 MB).
+- **Downloads:** ICON global is the big one, about 1.1 GB per run at 00 and 12 UTC (2.2 GB a
+  day); `WF_ICON_GLOBAL=false` leaves the world to ECMWF.
 - **Updating:** the timer runs `podman auto-update`, which pulls a new `:latest` and restarts the
   container; the database migrates itself on start. With Compose:
   `docker compose pull && docker compose up -d`.
@@ -155,7 +158,8 @@ What follows:
 | `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
-| `WF_MAP` | `true` | The wind map: ICON-D2 from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
+| `WF_MAP` | `true` | The wind map: ICON-D2 and ICON global from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
+| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF |
 | `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
 | `WF_BASEMAP_WORLD_ZOOM` | `7` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, 7 about 150 MB, every level roughly three to four times more |
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
@@ -298,11 +302,28 @@ round. Next to each PNG the texels lie uncompressed (`.rgba`), so one place can 
 every hour in milliseconds. The newest run and the one before are kept per model: for ICON-D2
 about 150 MB of downloads and 230 MB on disk per run, for ECMWF about 115 MB and 220 MB. Hours
 without gusts (ECMWF's first, and late hours of some runs) show the wind on the gust layer, with
-a note. `GET /api/map` lists the hours, each from the newest run that has it;
+a note.
+
+Between the two, ICON global (13 km, the DWD's 00 and 12 UTC runs, hourly to +78 h and every
+3 hours to +120 h) comes as one bz2-compressed GRIB2 file per hour and quantity on the model's
+own grid of 2,949,120 triangles. Windfenster puts it on a regular 0.125° grid (2880 × 1441
+points), each point taking the value of the nearest triangle's centre; the table of nearest
+centres is made once from the run's `CLAT` and `CLON` (about 10 seconds) and kept as
+`{WF_DATA_DIR}/map/icon_global-grid.u32`. Its own loop fetches the hours (about 1.1 GB per run, a
+minute or so per ten hours), so it holds up neither ICON-D2 nor ECMWF. A whole hour would be a
+PNG of 4 to 5 MB, too much for a phone; the app asks instead for the piece around what it shows,
+`GET /api/map/icon_global/{run}/{hour}/{west}_{south}_{east}_{north}.png` and `.json` (edges on
+whole 10°, at most 100° × 80°, 100 to 500 KB), cut from the texels and kept in memory a while.
+From further out than such a piece, ECMWF draws alone.
+
+`GET /api/map` lists the hours, each from the newest run that has it, with each model's area and
+whether it comes in pieces;
 `GET /api/map/series?lat=&lon=` gives a place's wind, gusts and direction over all of them.
 
-The map page (`/map`) draws ICON-D2 over ECMWF, blended over the last 30 to 60 km to its
-domain's edge, and ECMWF alone where and when ICON-D2 has nothing; the other model can be picked
+The map page (`/map`) draws the finer model over ECMWF, blended over the last 30 to 60 km to its
+domain's edge, and ECMWF alone where and when it has nothing: unless a model is picked, ICON-D2
+when the map's middle is in its domain, else ICON global. A spot's hours, the spot cards and the
+alarms take each model while it has hours there, the finest first. The other model can be picked
 instead. It draws the field, wind or gusts, as a colour layer under coastlines and labels and
 the particles on a canvas of their own, after mapbox/webgl-wind: a shader moves them along the
 wind of the hour shown, blended between two model hours while the timeline plays; fewer of them
@@ -413,7 +434,7 @@ crates/
                  verification and the mix, accounts, favourites, gear, alarms, database
   wf-ingest/     Open-Meteo, station lists, measurements (METAR, TAF, DWD, PEGELONLINE),
                  geocoding, scheduler
-  wf-map/        wind map: GRIB2 (ICON-D2, ECMWF) to PNG textures, runs on disk
+  wf-map/        wind map: GRIB2 (ICON-D2, ICON global, ECMWF) to PNG textures, runs on disk
   wf-alarm/      alarms: windows from the map's fields, live from measurements, push and e-mail
   wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
   windfenster/   the binary: serve | migrate | import-stations | probe

@@ -18,12 +18,18 @@ pub struct MapIndex {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct MapLayer {
     /// Model id, as in the forecast
     pub model: String,
     /// One per hour, ascending
     pub frames: Vec<MapFrame>,
+    /// The area its textures cover (west, south, east, north), from the newest run; null
+    /// without hours
+    pub area: Option<[f64; 4]>,
+    /// Whether the app takes its textures in pieces (`crop`), not whole
+    pub in_pieces: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
@@ -58,6 +64,8 @@ pub fn layer(model: &str, runs: &[MapRun]) -> MapLayer {
     MapLayer {
         model: model.to_owned(),
         frames,
+        area: None,
+        in_pieces: model == crate::icon_global::MODEL,
     }
 }
 

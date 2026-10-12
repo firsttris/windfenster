@@ -214,11 +214,26 @@ export interface MapChoice {
   frames: MapFrame[];
 }
 
+/** A place: where the map's middle is, or a spot */
+export interface Place {
+  lon: number;
+  lat: number;
+}
+
+function inArea(area: readonly number[] | null, at: Place): boolean {
+  if (!area) return false;
+  const [w, s, e, n] = area;
+  return at.lat >= s && at.lat <= n && (e - w >= 359 || (at.lon >= w && at.lon <= e));
+}
+
 /** What the map draws for the model picked: a finer model over the base, the base alone, or
- * whichever has hours. */
-export function chooseLayers(layers: readonly MapLayer[], chosen: string | null): MapChoice {
+ * whichever has hours. Nothing picked: the finest model whose area holds `at` (ICON-D2 over
+ * Germany, ICON global elsewhere). */
+export function chooseLayers(layers: readonly MapLayer[], chosen: string | null, at: Place | null = null): MapChoice {
   const ready = layers.filter((l) => l.frames.length > 0);
-  const selected = ready.find((l) => l.model === chosen) ?? ready[0] ?? null;
+  const fine = ready.filter((l) => !BASE_MODELS.includes(l.model));
+  const auto = (at && fine.find((l) => inArea(l.area, at))) ?? fine[0] ?? ready[0] ?? null;
+  const selected = ready.find((l) => l.model === chosen) ?? auto;
   const base = ready.find((l) => BASE_MODELS.includes(l.model)) ?? null;
   const detail = selected && selected !== base ? selected : null;
   const seen = new Set<number>();
@@ -227,6 +242,38 @@ export function chooseLayers(layers: readonly MapLayer[], chosen: string | null)
     .sort((a, b) => a.validAt - b.validAt);
   return { selected, base, detail, frames };
 }
+
+/** The piece of a world texture around a view (west, south, east, north), as the server cuts
+ * it (`crates/wf-map/src/crop.rs`): a quarter more on every side, edges on whole 10°, within
+ * ±180° and ±80°; null when that is too large (from afar the base model draws alone). */
+export function pieceFor([w, s, e, n]: readonly [number, number, number, number]): string | null {
+  const [mx, my] = [(e - w) / 4, (n - s) / 4];
+  const west = Math.max(-180, Math.floor((w - mx) / 10) * 10);
+  const east = Math.min(180, Math.ceil((e + mx) / 10) * 10);
+  const south = Math.max(-80, Math.floor((s - my) / 10) * 10);
+  const north = Math.min(80, Math.ceil((n + my) / 10) * 10);
+  if (east <= west || north <= south || east - west > 100 || north - south > 80) return null;
+  return `${west}_${south}_${east}_${north}`;
+}
+
+/** A layer's hours as the map loads them: pieces around the view for a model sent in pieces,
+ * none when the view is too wide for one. */
+export function framesFor(layer: MapLayer | null, piece: string | null): readonly MapFrame[] {
+  if (!layer) return [];
+  if (!layer.inPieces) return layer.frames;
+  return piece ? layer.frames.map((f) => ({ ...f, path: `${f.path}/${piece}` })) : [];
+}
+
+/** Whether a texture holds a place: inside its model's domain, or its edges for a piece */
+export function covers(meta: TextureMeta, at: Place): boolean {
+  if (meta.domain.length > 2) return insideRing(meta.domain as [number, number][], at.lon, at.lat);
+  return at.lat >= meta.south && at.lat <= meta.north && at.lon >= meta.west && at.lon <= meta.east;
+}
+
+/** Models on the map that the forecast does not have, with what the model list says of them */
+export const MAP_ONLY_MODELS: Record<string, { name: string; provider: string; resolutionKm: number }> = {
+  icon_global: { name: 'ICON global', provider: 'DWD', resolutionKm: 13 },
+};
 
 /** A model's hours if `time` lies within them, else none: a finer model ends where its forecast
  * does instead of standing still at its last hour. */
