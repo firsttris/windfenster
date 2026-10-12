@@ -137,4 +137,3 @@ test("a finer model's gust stays inside its own domain", async ({ page }) => {
   const speed = Math.hypot(ecmwf(-20).u, -5);
   for (const got of [gpu, cpu]) expectWind(got[0], ecmwf(-20).u, -5, speed);
 });
-

@@ -14,7 +14,8 @@ export interface ParticlePasses {
   fade: Program;
   /** Two triangles over the whole target */
   quad: WebGLBuffer;
-  /** A particle's quad: tail (x 0) to head (x 1), both sides (y ±1) */
+  /** A particle's quad: tail (x 0) to head (x 1), both sides (y ±1), as a strip of four corners:
+   * the vertex shader looks up the wind once per corner, so four instead of six saves a third */
   corners: WebGLBuffer;
   fb: WebGLFramebuffer;
 }
@@ -25,7 +26,7 @@ export function particlePasses(gl: WebGL2RenderingContext): ParticlePasses {
     fade: createProgram(gl, QUAD_VERT, FADE_FRAG),
     draw: createProgram(gl, DRAW_VERT, DRAW_FRAG),
     quad: createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])),
-    corners: createBuffer(gl, new Float32Array([0, -1, 1, -1, 0, 1, 0, 1, 1, -1, 1, 1])),
+    corners: createBuffer(gl, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1])),
     fb: gl.createFramebuffer(),
   };
 }
@@ -138,6 +139,6 @@ export function drawParticles(
   gl.uniform1f(draw.u.u_town, o.town);
   gl.uniform1f(draw.u.u_gusts, o.gusts ? 1 : 0);
   bindAttribute(gl, passes.corners, draw.a.a_corner, 2);
-  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, at.res * at.res);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, at.res * at.res);
   gl.disable(gl.BLEND);
 }
