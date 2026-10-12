@@ -47,8 +47,9 @@ cargo test --workspace
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm e2e        # the wind map's shaders in Chromium; PW_CHROMIUM=… for another Chromium
 pnpm build
+cargo build -p windfenster
+pnpm e2e        # browser tests: map shaders and the whole app; PW_CHROMIUM=… for another Chromium
 ```
 
 CI runs on the newest stable Rust, which can bring new clippy lints: run clippy with

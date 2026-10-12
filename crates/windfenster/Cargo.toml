@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# See wf-api: the SPA embedded in a debug build, for the browser tests in CI
+embed-ui = ["wf-api/embed-ui"]
+
 [dependencies]
 wf-core.workspace = true
 wf-api.workspace = true

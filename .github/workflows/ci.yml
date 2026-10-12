@@ -68,10 +68,39 @@ jobs:
       - name: Route tree is up to date
         run: git diff --exit-code -- web/src/routeTree.gen.ts
 
-  browser:
-    # The wind map's shaders on a GPU (SwiftShader), in the official Playwright image; its
-    # version must match @playwright/test in web/package.json.
+  # The server for the browser tests' app project: a debug build without debug info and with
+  # the SPA embedded (it runs in another place than it was built), next to the checks
+  e2e-server:
     if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cargo build -p windfenster --locked --features embed-ui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2e-server
+          path: target/debug/windfenster
+          retention-days: 1
+
+  browser:
+    # The browser tests (web/e2e): the wind map's shaders on SwiftShader, and the whole app
+    # against the server above, which takes everything from the outside from a local stand-in.
+    # In the official Playwright image; its version must match @playwright/test in
+    # web/package.json.
+    if: ${{ !github.event.pull_request.draft }}
+    needs: e2e-server
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
@@ -84,7 +113,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm e2e
+      - uses: actions/download-artifact@v4
+        with:
+          name: e2e-server
+          path: e2e-server
+      - run: chmod +x e2e-server/windfenster
+      # $GITHUB_WORKSPACE is the checkout's path inside the container (github.workspace is the
+      # runner's)
+      - run: WF_BIN="$GITHUB_WORKSPACE/e2e-server/windfenster" pnpm e2e
       # The pictures that differed, with their diffs, to look at or to take as the new ones
       - uses: actions/upload-artifact@v4
         if: failure()

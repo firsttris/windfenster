@@ -8,6 +8,11 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# Embed the SPA in debug builds too (release builds always do), for a binary that runs
+# elsewhere than it was built: the browser tests in CI.
+embed-ui = ["rust-embed/debug-embed"]
+
 [dependencies]
 wf-core.workspace = true
 wf-ingest.workspace = true

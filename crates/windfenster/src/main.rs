@@ -73,6 +73,55 @@ struct DataArgs {
     /// Directory for the database and the map textures.
     #[arg(long, env = "WF_DATA_DIR", default_value = "/data")]
     data_dir: PathBuf,
+    /// For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE,
+    /// OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests'
+    /// stand-in serves them (web/e2e/stand-in).
+    #[arg(long, env = "WF_SOURCES")]
+    sources: Option<String>,
+}
+
+impl DataArgs {
+    /// The address of one outside source under `WF_SOURCES`, if set
+    fn source(&self, path: &str) -> Option<String> {
+        non_empty(&self.sources).map(|base| format!("{}/{path}", base.trim_end_matches('/')))
+    }
+
+    fn station_sources(&self) -> Sources {
+        match self.source("") {
+            Some(_) => Sources {
+                ourairports_base: self.source("ourairports").unwrap_or_default(),
+                awc_stations_url: self
+                    .source("awc/data/cache/stations.cache.json.gz")
+                    .unwrap_or_default(),
+                dwd_url: self.source("dwd/stations.txt").unwrap_or_default(),
+            },
+            None => Sources::default(),
+        }
+    }
+
+    fn measurement_urls(&self) -> Urls {
+        match self.source("") {
+            Some(_) => Urls {
+                awc_base: self.source("awc").unwrap_or_default(),
+                dwd_base: self.source("dwd").unwrap_or_default(),
+                pegelonline_base: self.source("pegelonline").unwrap_or_default(),
+            },
+            None => Urls::default(),
+        }
+    }
+
+    fn map_urls(&self) -> wf_map::Urls {
+        match self.source("") {
+            Some(_) => wf_map::Urls {
+                icon_d2: self.source("icon-d2").unwrap_or_default(),
+                icon_global: self.source("icon-global").unwrap_or_default(),
+                ecmwf: self.source("ecmwf").unwrap_or_default(),
+                protomaps: self.source("protomaps").unwrap_or_default(),
+                mapterhorn: self.source("mapterhorn").unwrap_or_default(),
+            },
+            None => wf_map::Urls::default(),
+        }
+    }
 }
 
 #[derive(Args)]
@@ -209,7 +258,7 @@ async fn main() -> Result<()> {
         Command::ImportStations(data) => {
             let db = open(&data).await?;
             let http = wf_ingest::http_client()?;
-            Ok(stations::import_all(&db, &http, &Sources::default()).await?)
+            Ok(stations::import_all(&db, &http, &data.station_sources()).await?)
         }
         Command::Probe(args) => probe(args).await,
         Command::Serve(args) => serve(*args).await,
@@ -238,7 +287,10 @@ async fn serve(args: ServeArgs) -> Result<()> {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    let cfg = args.open_meteo.config();
+    let mut cfg = args.open_meteo.config();
+    if cfg.base_url.is_none() {
+        cfg.base_url = args.data.source("open-meteo");
+    }
     let api_key = cfg.api_key.clone();
     let forecasts = Arc::new(Forecasts::new(
         db.clone(),
@@ -247,16 +299,20 @@ async fn serve(args: ServeArgs) -> Result<()> {
     ));
     let geocoder = Arc::new(Geocoder::new(
         http.clone(),
-        non_empty(&args.geocoding_url),
+        non_empty(&args.geocoding_url).or_else(|| args.data.source("geocoding")),
         api_key,
     ));
-    let measurements = Arc::new(Measurements::new(db.clone(), http.clone(), Urls::default()));
+    let measurements = Arc::new(Measurements::new(
+        db.clone(),
+        http.clone(),
+        args.data.measurement_urls(),
+    ));
     let map = args.map.then(|| {
         Arc::new(
             MapData::new(
                 args.data.data_dir.join("map"),
                 http.clone(),
-                wf_map::Urls::default(),
+                args.data.map_urls(),
             )
             .with_depth(wf_map::basemap::Depth {
                 world_zoom: args.basemap_world_zoom,
@@ -298,7 +354,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 http,
                 forecasts: forecasts.clone(),
                 measurements: measurements.clone(),
-                sources: Sources::default(),
+                sources: args.data.station_sources(),
                 tracked,
             }
             .run(),

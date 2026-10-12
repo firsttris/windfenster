@@ -158,6 +158,7 @@ What follows:
 | `WF_MODELS` | all | Models to use, comma-separated Open-Meteo ids |
 | `WF_TRACKED_STATIONS` | `edsb,lgrp` | Stations (slugs) kept current and verified even when nobody opens them |
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
+| `WF_SOURCES` | – | For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE, OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests' stand-in serves them |
 | `WF_MAP` | `true` | The wind map: ICON-D2 and ICON global from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
 | `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF |
 | `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
@@ -424,18 +425,32 @@ cargo test --workspace     # also writes the TypeScript bindings
 pnpm lint                  # Biome
 pnpm typecheck
 pnpm test
-pnpm e2e                   # the wind map's shaders in Chromium (Playwright)
 pnpm build
+cargo build -p windfenster # the server the browser tests run against
+pnpm e2e                   # browser tests (Playwright): the map's shaders and the whole app
 ```
 
-`pnpm e2e` renders the map's shaders on SwiftShader and compares them with what the readout
-under the pointer shows, for wind and gusts across all three models; it needs Playwright's
-Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or another one in
-`PW_CHROMIUM`. CI runs it in the official Playwright image. Besides the blending it checks the
-particles (spread, speed, direction, no strokes when they start anew) and the colour field, and
-compares the look of three scenes (a low over all three models with wind and with gusts, calm
-air) with approved pictures in `web/e2e/look.spec.ts-snapshots`. A change meant to alter the
-look updates them with `pnpm e2e --update-snapshots`; look at them before committing.
+`pnpm e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
+Playwright's Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or
+another one in `PW_CHROMIUM`. CI runs them in the official Playwright image, in about four
+minutes.
+
+- **gpu** (`web/e2e/*.spec.ts`): the map's shaders in a test page. How the three models lie over
+  one another, compared with what the readout under the pointer shows, for wind and gusts; the
+  particles (spread, speed, direction, no strokes when they start anew); the colour field; and
+  the look of three scenes (a low over all three models with wind and with gusts, calm air)
+  against approved pictures in `web/e2e/look.spec.ts-snapshots`. A change meant to alter the
+  look updates them with `pnpm e2e --update-snapshots`; look at them before committing.
+- **app** (`web/e2e/app/*.spec.ts`): the whole app against the real server (the debug build, or
+  `WF_BIN`), started on a fresh data directory with `WF_SCHEDULER=false` and `WF_SOURCES`
+  pointing every outside source at a local stand-in (`web/e2e/app/stand-in.mjs`: Open-Meteo,
+  the place search, aviationweather.gov, the DWD, OurAirports, in their own formats); the map's
+  textures are written in before it starts. Nothing is downloaded. Station pages, the forecast
+  table against the API, a DWD station, the search, the map (all three models, ICON global in
+  pieces, a spot's hours against the API, picking an hour and a place, the model and the gust
+  layer), a passkey account (Chrome's virtual authenticator, sign-in by autofill) with a saved
+  spot and its alarm, and an account with e-mail and password. Any error in the browser or from
+  the server fails the test it happens in.
 
 ### Layout
 
