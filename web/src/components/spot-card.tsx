@@ -20,6 +20,7 @@ import { BASE_MODELS } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
+import { AlarmButton } from './alarm';
 import { KIND_NAME } from './gear-fit';
 
 /** How far the band reaches */
@@ -53,7 +54,7 @@ export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: 
         {...(f.slug
           ? { to: '/station/$slug', params: { slug: f.slug } }
           : { to: '/point', search: { lat: f.lat, lon: f.lon, name: f.name } })}
-        className="flex flex-col gap-0.5 pr-10 text-foreground no-underline after:absolute after:inset-0 after:content-['']"
+        className="flex flex-col gap-0.5 pr-16 text-foreground no-underline after:absolute after:inset-0 after:content-['']"
       >
         <span className="truncate font-bold text-lg tracking-[-0.03em]">{f.name}</span>
         <span className="font-mono text-muted-foreground text-xs">
@@ -61,14 +62,17 @@ export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: 
           {f.sector && ` · ${m.favorite_sectorText({ from: compass(f.sector.from), to: compass(f.sector.to) })}`}
         </span>
       </Link>
-      <button
-        type="button"
-        aria-label={`${m.home_favoritesEdit()}: ${f.name}`}
-        onClick={onEdit}
-        className="absolute top-3 right-3 z-10 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        <Pencil aria-hidden="true" className="size-4" />
-      </button>
+      <div className="absolute top-3 right-3 z-10 flex gap-0.5">
+        <AlarmButton favorite={f} compact />
+        <button
+          type="button"
+          aria-label={`${m.home_favoritesEdit()}: ${f.name}`}
+          onClick={onEdit}
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <Pencil aria-hidden="true" className="size-4" />
+        </button>
+      </div>
 
       {live?.wind != null && (
         <p className="m-0 flex items-center gap-2 text-sm">

@@ -3,6 +3,7 @@ import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-ro
 import { KeyRound, LogOut, Sailboat, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Account } from '@/bindings/Account';
+import { NotificationsCard } from '@/components/notifications-card';
 import { Loading, Page } from '@/components/page';
 import { meQuery, send } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
@@ -104,6 +105,7 @@ function Signed({ account }: { account: Account }) {
           </Button>
         </Card>
         <PasswordCard account={account} />
+        <NotificationsCard account={account} />
         <Card>
           <CardHeader>
             <CardTitle>{m.gear_title()}</CardTitle>

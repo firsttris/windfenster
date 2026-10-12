@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { Account } from '@/bindings/Account';
+import type { Alarm } from '@/bindings/Alarm';
 import type { ErrorBody } from '@/bindings/ErrorBody';
 import type { ErrorCode } from '@/bindings/ErrorCode';
 import type { Favorite } from '@/bindings/Favorite';
@@ -9,6 +10,7 @@ import type { MapSeries } from '@/bindings/MapSeries';
 import type { Model } from '@/bindings/Model';
 import type { NearGauge } from '@/bindings/NearGauge';
 import type { PointForecast } from '@/bindings/PointForecast';
+import type { PushInfo } from '@/bindings/PushInfo';
 import type { SearchResults } from '@/bindings/SearchResults';
 import type { StationForecast } from '@/bindings/StationForecast';
 import type { StationHistory } from '@/bindings/StationHistory';
@@ -62,6 +64,19 @@ export const meQuery = queryOptions({
   queryKey: ['me'],
   queryFn: () => api<Account | null>('/me'),
   staleTime: 5 * 60_000,
+});
+
+export const alarmsQuery = queryOptions({
+  queryKey: ['alarms'],
+  queryFn: () => api<Alarm[]>('/alarms'),
+  staleTime: 5 * 60_000,
+});
+
+/** What the server can send: its push key, and whether e-mail is set up */
+export const pushInfoQuery = queryOptions({
+  queryKey: ['push'],
+  queryFn: () => api<PushInfo>('/push'),
+  staleTime: 60 * 60_000,
 });
 
 export const favoritesQuery = queryOptions({

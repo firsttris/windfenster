@@ -1,6 +1,6 @@
 /** Keep a station or a point as a favourite: a star on its page; signed out it leads to the
  * sign-in and back. A new favourite opens its settings: an own name and the wind directions that
- * work there (for "Bestes Fenster" later). */
+ * work there; a saved spot gets a bell for its alarm. */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { Star } from 'lucide-react';
@@ -14,6 +14,7 @@ import { describeError } from '@/lib/i18n';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
+import { AlarmButton } from './alarm';
 
 interface Props {
   target: FavoriteTarget;
@@ -67,6 +68,7 @@ export function FavoriteButton({ target, lat, lon, name }: Props) {
         <Star aria-hidden="true" className={fav ? 'fill-current text-amber-500' : undefined} />
         {fav ? m.favorite_saved() : m.favorite_add()}
       </Button>
+      {fav && <AlarmButton favorite={fav} />}
       {fav && <FavoriteDialog favorite={fav} open={open} onOpenChange={setOpen} />}
     </>
   );
