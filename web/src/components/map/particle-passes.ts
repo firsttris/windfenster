@@ -5,12 +5,13 @@
  */
 import { type MercatorView, RAMP_MAX_KN } from '@/lib/wind-map';
 import { activate, bindAttribute, bindFramebuffer, bindTexture, createBuffer, createProgram, type Program } from './gl';
-import { DRAW_FRAG, DRAW_VERT, QUAD_VERT, UPDATE_FRAG } from './shaders';
+import { DRAW_FRAG, DRAW_VERT, FADE_FRAG, QUAD_VERT, UPDATE_FRAG } from './shaders';
 import { bindWind, WIND_UNITS, type WindLayers, type WindTextures } from './wind-gl';
 
 export interface ParticlePasses {
   update: Program;
   draw: Program;
+  fade: Program;
   /** Two triangles over the whole target */
   quad: WebGLBuffer;
   /** A particle's quad: tail (x 0) to head (x 1), both sides (y ±1) */
@@ -21,6 +22,7 @@ export interface ParticlePasses {
 export function particlePasses(gl: WebGL2RenderingContext): ParticlePasses {
   return {
     update: createProgram(gl, QUAD_VERT, UPDATE_FRAG),
+    fade: createProgram(gl, QUAD_VERT, FADE_FRAG),
     draw: createProgram(gl, DRAW_VERT, DRAW_FRAG),
     quad: createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])),
     corners: createBuffer(gl, new Float32Array([0, -1, 1, -1, 0, 1, 0, 1, 1, -1, 1, 1])),
@@ -70,6 +72,26 @@ export function moveParticles(
   gl.uniform1ui(update.u.u_frame, o.frame);
   gl.uniform1f(update.u.u_drop, o.drop);
   screenQuad(gl, passes, update);
+}
+
+/** Last frame's trails `from` into `to` (`width` × `height` device pixels), each pixel `fade`
+ * as bright, moved with the map by `shift`. */
+export function fadeTrails(
+  gl: WebGL2RenderingContext,
+  passes: ParticlePasses,
+  from: WebGLTexture,
+  to: WebGLTexture,
+  o: { width: number; height: number; fade: number; shift: [number, number, number, number] },
+) {
+  const { fade } = passes;
+  bindFramebuffer(gl, passes.fb, to);
+  gl.viewport(0, 0, o.width, o.height);
+  activate(gl, fade);
+  bindTexture(gl, from, WIND_UNITS);
+  gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
+  gl.uniform1f(fade.u.u_fade, o.fade);
+  gl.uniform4f(fade.u.u_shift, ...o.shift);
+  screenQuad(gl, passes, fade);
 }
 
 /** Draws each particle from `before` to `after` into what is bound, `width` × `height` device

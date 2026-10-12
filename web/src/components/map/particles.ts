@@ -9,16 +9,17 @@
 import { countsAsFrame, nextBudget, particleCount, SAMPLE_FRAMES } from '@/lib/particle-budget';
 import type { Theme } from '@/lib/prefs';
 import { townness, zoomOf } from '@/lib/town-zoom';
+import { trailFade } from '@/lib/trails';
 import { type MercatorView, rampPixels } from '@/lib/wind-map';
 import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from './gl';
-import { drawParticles, moveParticles, particlePasses, screenQuad } from './particle-passes';
-import { COPY_FRAG, FADE_FRAG, QUAD_VERT } from './shaders';
+import { drawParticles, fadeTrails, moveParticles, particlePasses, screenQuad } from './particle-passes';
+import { COPY_FRAG, QUAD_VERT } from './shaders';
 import { hasWind, NO_WIND, WIND_UNITS, type WindLayers, windTextures } from './wind-gl';
 
 export interface Particles {
   show(layers: WindLayers): void;
-  /** The visible map changed; `zoomed` starts the particles afresh. */
-  setView(view: MercatorView, cssWidth: number, cssHeight: number, pixelRatio: number, zoomed: boolean): void;
+  /** The visible map changed: the particles and their trails move with it. */
+  setView(view: MercatorView, cssWidth: number, cssHeight: number, pixelRatio: number): void;
   /** Over the town map the particles lean towards the theme's ink, to stand out from it. */
   setTheme(theme: Theme): void;
   /** Colours by the gusts instead of the wind where the particles take the field's colours. */
@@ -28,8 +29,6 @@ export interface Particles {
 
 /** Screen pixels per knot and frame (at 60 frames a second) */
 const PX_PER_KN = 0.08;
-/** How much of a trail is left after one frame */
-const FADE = 0.97;
 /** Over the field the particles are white; over the town map their colour leans this far
  * towards the theme's ink: light lines on the dark map, dark ones on the light. */
 const INK: Record<Theme, [number, number, number, number]> = {
@@ -51,7 +50,6 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
   const gl: WebGL2RenderingContext = context;
   const passes = particlePasses(gl);
   const { fb } = passes;
-  const fade = createProgram(gl, QUAD_VERT, FADE_FRAG);
   const copy = createProgram(gl, QUAD_VERT, COPY_FRAG);
   const textures = windTextures(gl);
   const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
@@ -87,7 +85,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     const { width, height } = canvas;
     if (resized || !trails) {
       if (trails) for (const t of trails) gl.deleteTexture(t);
-      trails = [createTexture(gl, gl.NEAREST, null, width, height), createTexture(gl, gl.NEAREST, null, width, height)];
+      // Linear: a zoom samples them between pixels
+      trails = [createTexture(gl, gl.LINEAR, null, width, height), createTexture(gl, gl.LINEAR, null, width, height)];
     }
     for (const t of trails) {
       bindFramebuffer(gl, fb, t);
@@ -134,14 +133,8 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
       drop: DROP * dt,
     });
 
-    // 2. Last frame's trails, fainter: trails[0] → trails[1]
-    bindFramebuffer(gl, fb, trails[1]);
-    gl.viewport(0, 0, width, height);
-    activate(gl, fade);
-    bindTexture(gl, trails[0], WIND_UNITS);
-    gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
-    gl.uniform1f(fade.u.u_fade, FADE ** dt);
-    screenQuad(gl, passes, fade);
+    // 2. Last frame's trails, fainter and moved with the map: trails[0] → trails[1]
+    fadeTrails(gl, passes, trails[0], trails[1], { width, height, fade: trailFade(dt, shift), shift });
 
     // 3. Each particle from where it was to where it is, over them
     drawParticles(gl, passes, textures, shown, state[0], state[1], at, {
@@ -173,7 +166,7 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
     show(layers) {
       shown = layers;
     },
-    setView(next, cssWidth, cssHeight, pixelRatio, zoomed) {
+    setView(next, cssWidth, cssHeight, pixelRatio) {
       const width = Math.round(cssWidth * pixelRatio);
       const height = Math.round(cssHeight * pixelRatio);
       const resized = width !== canvas.width || height !== canvas.height;
@@ -192,12 +185,13 @@ export function particles(canvas: HTMLCanvasElement): Particles | null {
       ];
       view = next;
       size = { w: cssWidth, h: cssHeight, ratio: pixelRatio };
-      if (zoomed || resized || !state) {
+      // A new size starts afresh; a pan or zoom moves particles and trails along (UPDATE_FRAG,
+      // FADE_FRAG), so they never flicker or vanish while the map moves.
+      if (resized || !state) {
         seed();
         shift = [1, 1, 0, 0];
+        clearTrails(resized);
       }
-      // Trails are drawn on the screen: after a move they would point the wrong way.
-      clearTrails(resized);
     },
     setTheme(theme) {
       ink = INK[theme];

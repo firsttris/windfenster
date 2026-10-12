@@ -5,14 +5,15 @@
  *   places on the CPU (`windAt`), for `wind.spec.ts` to compare.
  * - `window.particleRun` moves particles from known places through the update pass a few times
  *   and draws the last step, for `particles.spec.ts`.
+ * - `window.fadeRun` fades a few lit pixels once, moved as after a pan or zoom.
  * - `window.scene` paints the colour field as the map does (`windField`) and particles with their
  *   trails over it, from fixed random numbers, for `look.spec.ts` to compare with a picture.
  */
 import type { TextureMeta } from '@/bindings/TextureMeta';
 import type { WindFrame } from '@/components/map/frames';
 import { activate, bindFramebuffer, bindTexture, createProgram, createTexture } from '@/components/map/gl';
-import { drawParticles, moveParticles, particlePasses, screenQuad } from '@/components/map/particle-passes';
-import { COPY_FRAG, FADE_FRAG, QUAD_VERT, WIND } from '@/components/map/shaders';
+import { drawParticles, fadeTrails, moveParticles, particlePasses, screenQuad } from '@/components/map/particle-passes';
+import { COPY_FRAG, QUAD_VERT, WIND } from '@/components/map/shaders';
 import { windAt } from '@/components/map/wind-at';
 import { windField } from '@/components/map/wind-field';
 import { bindWind, WIND_UNITS, type WindLayers, windTextures } from '@/components/map/wind-gl';
@@ -156,6 +157,8 @@ export interface ParticleRun {
   cssHeight: number;
   /** Update passes, one after the other */
   steps: { pxPerKn: number; drop: number; frame: number }[];
+  /** The map moved before the first step: new = old * xy + zw (identity when not given) */
+  shift?: [number, number, number, number];
   /** Draws the last step into a target of this many device pixels */
   draw?: { width: number; height: number; lineWidth: number; move: number };
 }
@@ -177,11 +180,11 @@ async function particleRun(
   if (!gl) throw new Error('no WebGL2');
   const passes = particlePasses(gl);
   const textures = windTextures(gl);
-  const at = { res: run.res, view: run.view, shift: [1, 1, 0, 0] as [number, number, number, number] };
+  const at = { res: run.res, view: run.view, shift: run.shift ?? ([1, 1, 0, 0] as [number, number, number, number]) };
   let from = createTexture(gl, gl.NEAREST, encode(run.start), run.res, run.res);
   let previous = from;
   const states: number[][] = [];
-  for (const step of run.steps) {
+  for (const [k, step] of run.steps.entries()) {
     const to = createTexture(gl, gl.NEAREST, null, run.res, run.res);
     moveParticles(gl, passes, textures, layers, from, to, at, {
       cssWidth: run.cssWidth,
@@ -191,6 +194,8 @@ async function particleRun(
     const bytes = new Uint8Array(run.res * run.res * 4);
     gl.readPixels(0, 0, run.res, run.res, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
     states.push(decode(bytes));
+    // The move counts for the first step; the draw after the last step sees it too
+    if (k < run.steps.length - 1) at.shift = [1, 1, 0, 0];
     previous = from;
     from = to;
   }
@@ -285,7 +290,6 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
   }
   // Particles as particles.ts runs them: move, fade the trails, draw, for `frames` frames
   const passes = particlePasses(gl);
-  const fade = createProgram(gl, QUAD_VERT, FADE_FRAG);
   const copy = createProgram(gl, QUAD_VERT, COPY_FRAG);
   const textures = windTextures(gl);
   const ramp = createTexture(gl, gl.LINEAR, rampPixels(), 256, 1);
@@ -309,13 +313,7 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
       frame,
       drop: 0.004,
     });
-    bindFramebuffer(gl, passes.fb, trails[1]);
-    gl.viewport(0, 0, sc.width, sc.height);
-    activate(gl, fade);
-    bindTexture(gl, trails[0], WIND_UNITS);
-    gl.uniform1i(fade.u.u_screen_tex, WIND_UNITS);
-    gl.uniform1f(fade.u.u_fade, 0.97);
-    screenQuad(gl, passes, fade);
+    fadeTrails(gl, passes, trails[0], trails[1], { width: sc.width, height: sc.height, fade: 0.97, shift: at.shift });
     drawParticles(gl, passes, textures, layers, state[0], state[1], at, {
       width: sc.width,
       height: sc.height,
@@ -341,6 +339,40 @@ async function scene(given: { base: Layer | null; mid: Layer | null; detail: Lay
   gl.finish();
 }
 
+export interface FadeRun {
+  width: number;
+  height: number;
+  /** Pixels lit white before, (x, y) from the top left */
+  lit: [number, number][];
+  fade: number;
+  shift: [number, number, number, number];
+}
+
+/** The trails' fade pass once over a target with a few pixels lit: its alpha after, row by row
+ * from the top, base64 */
+function fadeRun(run: FadeRun): string {
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl2');
+  if (!gl) throw new Error('no WebGL2');
+  const passes = particlePasses(gl);
+  const { width, height } = run;
+  const before = new Uint8Array(width * height * 4);
+  // Rows from the bottom, as the trails are drawn
+  for (const [x, y] of run.lit)
+    before.fill(255, ((height - 1 - y) * width + x) * 4, ((height - 1 - y) * width + x) * 4 + 4);
+  const from = createTexture(gl, gl.LINEAR, before, width, height);
+  const to = createTexture(gl, gl.LINEAR, null, width, height);
+  fadeTrails(gl, passes, from, to, run);
+  const rgba = new Uint8Array(width * height * 4);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+  const alpha = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) alpha[y * width + x] = rgba[((height - 1 - y) * width + x) * 4 + 3];
+  let text = '';
+  for (let i = 0; i < alpha.length; i += 0x8000) text += String.fromCharCode(...alpha.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
 /** The scene's pixels at (x, y) from the top left, RGBA as stored (premultiplied) */
 function pixelsAt(places: [number, number][]): number[][] {
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -358,9 +390,11 @@ declare global {
     particleRun: typeof particleRun;
     scene: typeof scene;
     pixelsAt: typeof pixelsAt;
+    fadeRun: typeof fadeRun;
   }
 }
 window.pixelsAt = pixelsAt;
 window.windBoth = windBoth;
 window.particleRun = particleRun;
 window.scene = scene;
+window.fadeRun = fadeRun;

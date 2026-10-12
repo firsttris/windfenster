@@ -164,7 +164,11 @@ vec4 encode(vec2 p) {
 `;
 
 /** Moves every particle along the wind, `u_px_per_kn` screen pixels per knot and frame;
- * particles outside the domain or the view, and a few at random, start anew elsewhere. */
+ * particles outside the domain or the view, and a few at random, start anew elsewhere. When the
+ * map moved (`u_shift`), the particles move with it and the view stays evenly filled: after a
+ * zoom out the old view covers only part of the new one, so as many of its particles as it now
+ * holds too many start anew, and new particles go where the old view was not (the strip a pan
+ * uncovers, the border a zoom out adds). */
 export const UPDATE_FRAG = `#version 300 es
 precision highp float;
 #define SAMPLE(t, uv) textureLod(t, uv, 0.0)
@@ -192,6 +196,11 @@ float unit(uint h) {
   return float(h >> 8u) / 16777216.0;
 }
 
+/** Within the last frame's view, in this frame's coordinates */
+bool inOld(vec2 q) {
+  return all(greaterThanEqual(q, u_shift.zw)) && all(lessThanEqual(q, u_shift.zw + u_shift.xy));
+}
+
 void main() {
   vec2 p = decode(texelFetch(u_particles, ivec2(gl_FragCoord.xy), 0)) * u_shift.xy + u_shift.zw;
   uint h = pcg(uint(gl_FragCoord.y) * 65536u + uint(gl_FragCoord.x) ^ pcg(u_frame));
@@ -201,9 +210,18 @@ void main() {
   bool lost = w.w < 0.5 || any(lessThan(next, vec2(0.0))) || any(greaterThan(next, vec2(1.0)));
   // Calm particles would only pile up; strong ones are renewed a bit more often.
   float drop = u_drop + u_drop * 3.0 * smoothstep(0.0, 30.0, speed);
-  if (lost || unit(h) < drop) {
+  // Zoomed out: the old view's particles crowd into its smaller area; keep as many as it holds
+  float crowd = 1.0 - u_shift.x * u_shift.y;
+  if (lost || unit(h) < drop || unit(pcg(h ^ 0x9e3779b9u)) < crowd) {
     uint hx = pcg(h);
     next = vec2(unit(hx), unit(pcg(hx)));
+    // Where the map moved, new particles fill what the old view did not cover; when it covers
+    // everything (a zoom in) the last try stands, anywhere.
+    bool moved = u_shift != vec4(1.0, 1.0, 0.0, 0.0);
+    for (int k = 0; k < 12 && moved && inOld(next); k++) {
+      hx = pcg(pcg(hx) ^ uint(k));
+      next = vec2(unit(hx), unit(pcg(hx)));
+    }
   }
   color = encode(clamp(next, 0.0, 1.0));
 }`;
@@ -269,15 +287,24 @@ void main() {
   color = vec4(c * a, a);
 }`;
 
-/** The trails of the last frame, a little fainter: what is left fades out over time. */
+/** The trails of the last frame, a little fainter: what is left fades out over time. When the
+ * map moved they move with it (`u_shift` as in the update), so a pan or zoom keeps them where
+ * the wind drew them instead of wiping them. */
 export const FADE_FRAG = `#version 300 es
-precision mediump float;
+precision highp float;
 uniform sampler2D u_screen_tex;
 uniform float u_fade;
+uniform vec4 u_shift;     // the view moved: new = old * xy + zw, from the top left
 in vec2 v_pos;
 out vec4 color;
 void main() {
-  vec4 c = texture(u_screen_tex, v_pos);
+  // The texture's rows go from the bottom, the view's places from the top.
+  vec2 old = (vec2(v_pos.x, 1.0 - v_pos.y) - u_shift.zw) / u_shift.xy;
+  if (any(lessThan(old, vec2(0.0))) || any(greaterThan(old, vec2(1.0)))) {
+    color = vec4(0.0);
+    return;
+  }
+  vec4 c = texture(u_screen_tex, vec2(old.x, 1.0 - old.y));
   // Rounding down makes sure faint trails reach zero.
   color = floor(255.0 * c * u_fade) / 255.0;
 }`;

@@ -239,3 +239,66 @@ test('moving particles draw a short stroke along the wind', async ({ page }) => 
   const still = await drawn(page, calm, 0);
   expect(Math.max(...still.map((s) => s.extent))).toBeLessThanOrEqual(2);
 });
+
+/** Particles per area inside and outside a rectangle (x0, y0, x1, y1) of the view */
+function density(places: number[], r: [number, number, number, number]): { inside: number; outside: number } {
+  let n = 0;
+  for (let i = 0; i < places.length; i += 2) {
+    if (places[i] >= r[0] && places[i] <= r[2] && places[i + 1] >= r[1] && places[i + 1] <= r[3]) n += 1;
+  }
+  const area = (r[2] - r[0]) * (r[3] - r[1]);
+  return { inside: n / area, outside: (places.length / 2 - n) / (1 - area) };
+}
+
+test('after a zoom out or a pan the view stays evenly filled', async ({ page }) => {
+  // Evenly spread before, in calm air, nothing renewed by chance
+  const start = grid(0);
+  const steps = [{ pxPerKn: PX_PER_KN, drop: 0, frame: 11 }];
+  // Zoomed out twice around the middle: the old view is the middle quarter
+  const out = await run(page, calm, { start, steps, shift: [0.5, 0.5, 0.25, 0.25] });
+  const zoomed = density(out.states[0], [0.25, 0.25, 0.75, 0.75]);
+  expect(zoomed.inside / zoomed.outside).toBeGreaterThan(0.9);
+  expect(zoomed.inside / zoomed.outside).toBeLessThan(1.1);
+  // Panned a fifth of the view to the west: the strip uncovered in the east filled as densely
+  const panned = await run(page, calm, { start, steps, shift: [1, 1, -0.2, 0] });
+  const strip = density(panned.states[0], [0.8, 0, 1, 1]);
+  expect(strip.inside / strip.outside).toBeGreaterThan(0.9);
+  expect(strip.inside / strip.outside).toBeLessThan(1.1);
+  // and the others went along with the map, not anew
+  let along = 0;
+  for (let i = 0; i < start.length; i += 2) {
+    if (start[i] >= 0.2 && Math.abs(panned.states[0][i] - (start[i] - 0.2)) < 2 * ONE) along += 1;
+  }
+  expect(along / (start.length / 2)).toBeGreaterThan(0.79);
+  // Zoomed in: the particles still in view spread out, the others fill in evenly
+  const zoomIn = await run(page, calm, { start, steps, shift: [2, 2, -0.5, -0.5] });
+  for (const n of [8, 16]) {
+    const { chi, df } = chiSquare(zoomIn.states[0], n);
+    expect(chi, `${n} × ${n} cells`).toBeLessThan(df + 5 * Math.sqrt(2 * df));
+  }
+});
+
+test('trails move with the map instead of vanishing', async ({ page }) => {
+  const fade = (shift: [number, number, number, number]) =>
+    page
+      .evaluate((r) => window.fadeRun(r), {
+        width: 200,
+        height: 100,
+        lit: [[50, 40]] as [number, number][],
+        fade: 0.5,
+        shift,
+      })
+      .then((b64) => Uint8Array.from(Buffer.from(b64, 'base64')));
+  const lit = (alpha: Uint8Array) =>
+    [...alpha.keys()].filter((i) => alpha[i] > 0).map((i) => [i % 200, Math.floor(i / 200)]);
+  // Standing still: where it was, half as bright (rounded down)
+  const still = await fade([1, 1, 0, 0]);
+  expect(lit(still)).toEqual([[50, 40]]);
+  expect(still[40 * 200 + 50]).toBe(127);
+  // The map moved 20 px right and 10 px up on the screen: the trail with it
+  const panned = await fade([1, 1, 0.1, -0.1]);
+  expect(lit(panned)).toEqual([[70, 30]]);
+  expect(panned[30 * 200 + 70]).toBe(127);
+  // Panned off the view: gone
+  expect(lit(await fade([1, 1, 0.9, 0]))).toEqual([]);
+});

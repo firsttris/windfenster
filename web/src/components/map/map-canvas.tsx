@@ -120,19 +120,15 @@ export function MapCanvas({ basemap, layers, gusts, pins, unit, picked, onPick, 
     parts.current?.setTheme(theme);
     parts.current?.setGusts(gusts);
 
-    let zoom = mp.getZoom();
     const sync = () => {
       const b = mp.getBounds();
-      const z = mp.getZoom();
       const el = mp.getCanvas();
       parts.current?.setView(
         viewOf(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()),
         el.clientWidth,
         el.clientHeight,
         mp.getPixelRatio(),
-        Math.abs(z - zoom) > 1e-6,
       );
-      zoom = z;
     };
     mp.on('move', sync);
     mp.on('resize', sync);
