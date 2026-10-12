@@ -7,7 +7,7 @@
   "scripts": {
     "i18n": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy localStorage preferredLanguage baseLocale --silent",
     "dev": "pnpm i18n && vite",
-    "build": "pnpm i18n && tsc -p . && vite build",
+    "build": "pnpm i18n && tsc -p . && vite build && node scripts/precompress.mjs",
     "typecheck": "pnpm i18n && tsc -p .",
     "test": "pnpm i18n && vitest run",
     "e2e": "pnpm i18n && playwright test --grep-invert @screenshots",

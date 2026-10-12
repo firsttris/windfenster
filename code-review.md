@@ -171,7 +171,7 @@ gegen Aufwand und Risiko)? Kein neuer Cache, wo sich Daten ändern können.
 | 2.2 | ja | **ja, behoben** | Selten (Südhalbkugel, genau .xx5), aber eine Zeile: gleich runden wie der Server. |
 | 2.9 | ja | **ja, behoben** | Eine Zeile Schutz gegen Division durch null. |
 | 1.4 | ja | später, **Entscheidung** | 3 GB für ICON global sind auf einem Pi viel; `WF_ICON_GLOBAL=false` hilft schon heute. Ein anderes Speicherformat ist ein größerer Umbau. |
-| 3.9 | ja | später, **Entscheidung** | Spürbar nur für den ersten Besuch (Bundle wird live komprimiert, auf dem Pi 1–2 s). Fix braucht Vorkomprimieren im Build oder beim Start. |
+| 3.9 | ja | **ja, behoben** (auf Wunsch) | Spürbar nur für den ersten Besuch (Bundle wird live komprimiert, auf dem Pi 1–2 s). Fix braucht Vorkomprimieren im Build oder beim Start. |
 | 3.13 | ja | nein, vorerst | Betrifft nur eine offene Karte genau beim jährlichen Erneuern des Reliefs; Neuladen behebt es. |
 | 3.5 | ja | nein, vorerst | Realistisch ~200 MB; ein Gewicht nach Größe wäre schöner, ändert aber nichts Spürbares. |
 | 1.5 | ja | nein | 130 MB Spitze je ICON-global-Stunde sind auch auf einem Pi 4 tragbar. |

@@ -134,3 +134,9 @@ so a link preview and a search result show the station's name and region.
 The server keeps hot answers in memory ([moka](https://github.com/moka-rs/moka)): assembled
 forecasts per place, place search results, rankings, the map's pins and the pieces of ICON
 global. The map's textures are sent with an immutable cache header: a run's hour never changes.
+
+The web app is compressed once, when it is built (`web/scripts/precompress.mjs`): every text
+file gets a Brotli and a gzip copy at the highest level (9.4 MB → 1.5 MB with Brotli), and the
+server sends the copy the browser accepts as it is. Compressing it per new visitor took about
+half a second of CPU on a desktop, several on a Raspberry Pi. Browsers ask for Brotli over
+HTTPS only; over plain `http://` they get gzip.
