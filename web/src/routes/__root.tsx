@@ -60,7 +60,11 @@ function Footer() {
           · {m.footer_gauges()}{' '}
           <a href="https://www.pegelonline.wsv.de/" className="text-subtle hover:text-foreground">
             PEGELONLINE (WSV)
-          </a>
+          </a>{' '}
+          ·{' '}
+          <Link to="/sources" className="text-subtle hover:text-foreground">
+            {m.footer_sources()}
+          </Link>
         </span>
         <span className="flex flex-wrap items-center gap-3">
           <span>

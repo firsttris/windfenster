@@ -99,3 +99,18 @@ test('the search finds stations and places, and a place has a forecast', async (
   await expect(page).toHaveURL(/\/point\?/);
   await expect(page.getByRole('heading', { name: '10-Tage-Vorhersage' })).toBeVisible();
 });
+
+test('the sources page, from the footer', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Datenquellen' }).click();
+  await expect(page).toHaveURL(/\/sources$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Datenquellen' })).toBeVisible();
+  for (const name of [
+    'Open-Meteo',
+    'Deutscher Wetterdienst (DWD)',
+    'ECMWF Open Data',
+    'PEGELONLINE (WSV)',
+    'OpenStreetMap',
+  ])
+    await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toBeVisible();
+});

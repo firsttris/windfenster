@@ -15,6 +15,7 @@ import { Route as GearRouteImport } from './routes/gear'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as PointRouteImport } from './routes/point'
+import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as StationSlugRouteImport } from './routes/station.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +48,11 @@ const PointRoute = PointRouteImport.update({
   path: '/point',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StationSlugRoute = StationSlugRouteImport.update({
   id: '/station/$slug',
   path: '/station/$slug',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesById {
@@ -79,15 +87,30 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/account' | '/gear' | '/login' | '/map' | '/point' | '/station/$slug'
+    | '/'
+    | '/account'
+    | '/gear'
+    | '/login'
+    | '/map'
+    | '/point'
+    | '/sources'
+    | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/account' | '/gear' | '/login' | '/map' | '/point' | '/station/$slug'
+    | '/'
+    | '/account'
+    | '/gear'
+    | '/login'
+    | '/map'
+    | '/point'
+    | '/sources'
+    | '/station/$slug'
   id:
     | '__root__'
     | '/'
@@ -96,6 +119,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/map'
     | '/point'
+    | '/sources'
     | '/station/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -106,6 +130,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MapRoute: typeof MapRoute
   PointRoute: typeof PointRoute
+  SourcesRoute: typeof SourcesRoute
   StationSlugRoute: typeof StationSlugRoute
 }
 
@@ -153,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PointRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/station/$slug': {
       id: '/station/$slug'
       path: '/station/$slug'
@@ -170,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MapRoute: MapRoute,
   PointRoute: PointRoute,
+  SourcesRoute: SourcesRoute,
   StationSlugRoute: StationSlugRoute,
 }
 export const routeTree = rootRouteImport

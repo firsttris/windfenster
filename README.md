@@ -518,8 +518,9 @@ Sans ([OFL](web/public/glyphs/OFL.txt), glyphs from
 [protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets)). The map's
 global wind comes from [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
 (CC BY 4.0), its relief from [Mapterhorn](https://mapterhorn.com/attribution) (open elevation
-data of many national surveys, mostly CC BY; credited on the map). Further sources come with the phases that use them and are listed on an
-attribution page.
+data of many national surveys, mostly CC BY; credited on the map). The app lists every source with
+what it is used for, its licence and the credit it asks for on its sources page (`/sources`,
+linked from the footer and the map).
 
 ---
 

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
 import { basemapFor } from '@/components/map/basemap';
@@ -374,7 +374,10 @@ function Attribution({ osm, relief, className }: { osm: boolean; relief: boolean
         link('https://www.naturalearthdata.com/', 'Natural Earth')
       )}{' '}
       {relief && <>· {link('https://mapterhorn.com/attribution', '© Mapterhorn')} </>}·{' '}
-      {link('https://maplibre.org/', 'MapLibre')}
+      {link('https://maplibre.org/', 'MapLibre')} ·{' '}
+      <Link to="/sources" className="text-subtle hover:text-foreground">
+        {m.sources_all()}
+      </Link>
     </p>
   );
 }
