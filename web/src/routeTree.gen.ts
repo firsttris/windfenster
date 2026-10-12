@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as GearRouteImport } from './routes/gear'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as PointRouteImport } from './routes/point'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GearRoute = GearRouteImport.update({
+  id: '/gear',
+  path: '/gear',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -50,6 +56,7 @@ const StationSlugRoute = StationSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/gear': typeof GearRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/gear': typeof GearRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/gear': typeof GearRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
@@ -74,13 +83,16 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/login' | '/map' | '/point' | '/station/$slug'
+  fullPaths:
+    '/' | '/account' | '/gear' | '/login' | '/map' | '/point' | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/login' | '/map' | '/point' | '/station/$slug'
+  to:
+    '/' | '/account' | '/gear' | '/login' | '/map' | '/point' | '/station/$slug'
   id:
     | '__root__'
     | '/'
     | '/account'
+    | '/gear'
     | '/login'
     | '/map'
     | '/point'
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  GearRoute: typeof GearRoute
   LoginRoute: typeof LoginRoute
   MapRoute: typeof MapRoute
   PointRoute: typeof PointRoute
@@ -110,6 +123,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gear': {
+      id: '/gear'
+      path: '/gear'
+      fullPath: '/gear'
+      preLoaderRoute: typeof GearRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -146,6 +166,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  GearRoute: GearRoute,
   LoginRoute: LoginRoute,
   MapRoute: MapRoute,
   PointRoute: PointRoute,

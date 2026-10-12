@@ -241,11 +241,19 @@ spot at a glance, with nothing to set: the wind measured there now (stations), t
 one band in the wind scale's colours from the map's data (hours from directions that do not work
 there faded) and the strongest hour.
 
+Under "Mein Material" (`/gear`) a user enters each kite, wing, windsurf sail and parawing with
+the mean wind (kn) they ride it in, or starts from a template per kind and level (rough values
+for about 80 kg). The forecast table then has a row with what fits each hour (the piece whose
+range the wind sits in most centrally, marked when the gusts go past its top), and the spot
+cards name it for the strongest hour. Signed in, the list is kept on the server; without an
+account in the browser, and it moves to the account at the first sign-in.
+
 API: `POST /api/auth/signup` (a name) and `/signup/finish`, `POST /api/auth/signup/password`,
 `POST /api/auth/signin/password`, `PUT /api/me/password`, `POST /api/auth/signin` and
 `/signin/finish`, `POST /api/auth/passkeys` (another passkey) and `/passkeys/finish`,
 `POST /api/auth/signout`; `GET`, `PATCH`, `DELETE /api/me`; `GET`, `POST /api/favorites`,
-`PUT`, `DELETE /api/favorites/{id}`, `PUT /api/favorites/order`.
+`PUT`, `DELETE /api/favorites/{id}`, `PUT /api/favorites/order`; `GET`, `PUT /api/gear` (the
+whole list, at most 30 pieces).
 
 ### How the wind map is fed
 

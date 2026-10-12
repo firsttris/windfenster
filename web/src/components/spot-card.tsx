@@ -7,17 +7,20 @@ import { Pencil } from 'lucide-react';
 import type { Favorite } from '@/bindings/Favorite';
 import { mapIndexQuery, mapSeriesQuery, mapStationsQuery } from '@/lib/api';
 import { ago, compass, coordinates } from '@/lib/format';
+import { gearFor, sizeText } from '@/lib/gear';
 import { intlLocale } from '@/lib/i18n';
 import { useUnit } from '@/lib/prefs';
 import { glanceBand, peak } from '@/lib/spot-glance';
 import { spotHours } from '@/lib/spot-series';
 import { daySegments } from '@/lib/timeline';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
+import { useGear } from '@/lib/use-gear';
 import { useNow } from '@/lib/use-now';
 import { BASE_MODELS } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
+import { KIND_NAME } from './gear-fit';
 
 /** How far the band reaches */
 const DAYS = 5;
@@ -29,6 +32,7 @@ const whenFmt = () =>
 export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: () => void }) {
   const [unit] = useUnit();
   const now = useNow();
+  const { gear } = useGear();
   const series = useQuery(mapSeriesQuery(f.lat, f.lon));
   const index = useQuery(mapIndexQuery);
   const pins = useQuery({ ...mapStationsQuery, enabled: f.slug !== null });
@@ -39,6 +43,7 @@ export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: 
   const from = now - (now % 3600);
   const to = Math.min(from + DAYS * 86_400, hours.at(-1)?.validAt ?? from);
   const best = peak(hours, f.sector, now);
+  const take = best ? gearFor(gear, best.wind, best.gust) : null;
   const pct = (t: number) => `${((t - from) / Math.max(1, to - from)) * 100}%`;
   const day = dayFmt();
 
@@ -113,6 +118,15 @@ export function SpotCard({ favorite: f, onEdit }: { favorite: Favorite; onEdit: 
             {formatWind(best.wind, unit)} {UNIT_LABEL[unit]}
           </span>
           <span className="text-muted-foreground"> {m.spot_from({ dir: compass(best.dir) })}</span>
+          {take !== null && typeof take === 'object' && (
+            <span className="text-muted-foreground">
+              {' · '}
+              <span className="font-medium text-foreground">
+                {KIND_NAME[take.fits.kind]()} {sizeText(take.fits.size)}
+              </span>
+              {take.gusty && ` (${m.gear_gusty()})`}
+            </span>
+          )}
         </p>
       )}
     </article>

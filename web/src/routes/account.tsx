@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Navigate, useNavigate } from '@tanstack/react-router';
-import { KeyRound, LogOut, Trash2 } from 'lucide-react';
+import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router';
+import { KeyRound, LogOut, Sailboat, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Account } from '@/bindings/Account';
 import { Loading, Page } from '@/components/page';
@@ -104,6 +104,18 @@ function Signed({ account }: { account: Account }) {
           </Button>
         </Card>
         <PasswordCard account={account} />
+        <Card>
+          <CardHeader>
+            <CardTitle>{m.gear_title()}</CardTitle>
+          </CardHeader>
+          <p className="m-0 text-muted-foreground text-sm leading-relaxed">{m.account_gearHint()}</p>
+          <Button variant="outline" className="w-fit" asChild>
+            <Link to="/gear">
+              <Sailboat aria-hidden="true" />
+              {m.gear_edit()}
+            </Link>
+          </Button>
+        </Card>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"

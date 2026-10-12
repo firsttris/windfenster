@@ -8,6 +8,7 @@ pub mod db;
 pub mod favorite;
 pub mod forecast;
 pub mod gauge;
+pub mod gear;
 pub mod geo;
 pub mod mix;
 pub mod model;

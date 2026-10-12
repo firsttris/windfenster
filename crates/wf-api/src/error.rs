@@ -34,6 +34,8 @@ pub enum ErrorCode {
     WrongPassword,
     /// Too many failed attempts for the address; wait 15 minutes
     TooManyAttempts,
+    /// A size or wind range out of bounds, or more than 30 pieces
+    InvalidGear,
     Internal,
 }
 
@@ -60,6 +62,7 @@ pub enum ApiError {
     WeakPassword,
     WrongPassword,
     TooManyAttempts,
+    InvalidGear,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -100,6 +103,7 @@ impl IntoResponse for ApiError {
             ApiError::EmailTaken => (StatusCode::CONFLICT, ErrorCode::EmailTaken),
             ApiError::WeakPassword => (StatusCode::BAD_REQUEST, ErrorCode::WeakPassword),
             ApiError::WrongPassword => (StatusCode::UNAUTHORIZED, ErrorCode::WrongPassword),
+            ApiError::InvalidGear => (StatusCode::BAD_REQUEST, ErrorCode::InvalidGear),
             ApiError::TooManyAttempts => {
                 (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
             }

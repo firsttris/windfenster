@@ -1,17 +1,30 @@
 import { useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
+import type { GearItem } from '@/bindings/GearItem';
 import type { WindUnit } from '@/bindings/WindUnit';
 import type { Day } from '@/lib/forecast';
 import { compass, dayMonth, hour, weekday } from '@/lib/format';
+import { gearFor } from '@/lib/gear';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { WindCell } from '@/ui/wind-cell';
+import { GearFitCell } from '../gear-fit';
 import { AgreementDot, modelName, StageChip, Weather } from './shared';
 
 /** Phone: one day at a time, picked from a row of day chips, as in the mockup. */
-export function ForecastList({ fc, days, unit }: { fc: Forecast; days: Day[]; unit: WindUnit }) {
+export function ForecastList({
+  fc,
+  days,
+  unit,
+  gear = [],
+}: {
+  fc: Forecast;
+  days: Day[];
+  unit: WindUnit;
+  gear?: readonly GearItem[];
+}) {
   const [index, setIndex] = useState(0);
   const day = days[Math.min(index, days.length - 1)];
   return (
@@ -66,6 +79,11 @@ export function ForecastList({ fc, days, unit }: { fc: Forecast; days: Day[]; un
               <th scope="col" className="w-11 font-normal">
                 {m.table_gusts()}
               </th>
+              {gear.length > 0 && (
+                <th scope="col" className="w-12 font-normal">
+                  {m.table_gearShort()}
+                </th>
+              )}
               <th scope="col" className="text-left font-normal">
                 {m.table_direction()}
               </th>
@@ -86,6 +104,11 @@ export function ForecastList({ fc, days, unit }: { fc: Forecast; days: Day[]; un
                 <td className="text-center font-mono text-[13px] text-subtle">
                   {c.gust === null ? '–' : formatWind(c.gust, unit)}
                 </td>
+                {gear.length > 0 && (
+                  <td className="text-center">
+                    <GearFitCell fit={c.wind === null ? null : gearFor(gear, c.wind, c.gust)} />
+                  </td>
+                )}
                 <td>
                   {c.dir !== null && (
                     <span className="flex items-center gap-1.5">

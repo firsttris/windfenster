@@ -5,6 +5,7 @@ pub mod auth;
 mod error;
 pub mod favorites;
 pub mod forecast;
+pub mod gear;
 pub mod history;
 pub mod live;
 pub mod map;
@@ -163,6 +164,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/passkeys/finish", post(auth::finish_add_passkey))
         .route("/auth/signout", post(auth::sign_out))
         .route("/favorites", get(favorites::list).post(favorites::add))
+        .route("/gear", get(gear::list).put(gear::replace))
         .route("/favorites/order", put(favorites::reorder))
         .route(
             "/favorites/{id}",

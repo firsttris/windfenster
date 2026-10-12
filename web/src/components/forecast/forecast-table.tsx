@@ -1,8 +1,10 @@
 import type { Forecast } from '@/bindings/Forecast';
+import type { GearItem } from '@/bindings/GearItem';
 import type { Taf } from '@/bindings/Taf';
 import type { WindUnit } from '@/bindings/WindUnit';
 import type { Cell, Day } from '@/lib/forecast';
 import { compass, dayMonth, formatNumber, hour, weekday } from '@/lib/format';
+import { gearFor } from '@/lib/gear';
 import { type Measured, nearest } from '@/lib/observations';
 import { tafHour } from '@/lib/taf-text';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
@@ -11,6 +13,7 @@ import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { WindCell } from '@/ui/wind-cell';
 import { windBand } from '@/ui/wind-scale';
+import { GearFitCell } from '../gear-fit';
 import { AgreementDot, modelName, StageChip, Weather } from './shared';
 
 interface Row {
@@ -30,10 +33,12 @@ interface Props {
   now: number;
   measured?: Measured;
   taf?: Taf | null;
+  /** The user's gear: a row with what fits each hour */
+  gear?: readonly GearItem[];
 }
 
 /** Desktop: days side by side, scrolling sideways; the row labels stay in place. */
-export function ForecastTable({ fc, days, unit, now, measured, taf }: Props) {
+export function ForecastTable({ fc, days, unit, now, measured, taf, gear = [] }: Props) {
   const rows: Row[] = [
     {
       label: measured ? m.table_forecast() : m.table_wind(),
@@ -41,6 +46,15 @@ export function ForecastTable({ fc, days, unit, now, measured, taf }: Props) {
       height: 'h-[46px]',
       cell: (c) => (c.wind === null ? <Dash /> : <WindCell kn={c.wind} unit={unit} className="mx-auto" />),
     },
+    ...(gear.length > 0
+      ? [
+          {
+            label: m.table_gear(),
+            height: 'h-[40px]',
+            cell: (c: Cell) => <GearFitCell fit={c.wind === null ? null : gearFor(gear, c.wind, c.gust)} />,
+          },
+        ]
+      : []),
     ...(measured
       ? [
           {

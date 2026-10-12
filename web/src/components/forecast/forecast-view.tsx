@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
@@ -12,6 +13,7 @@ import { noticeText } from '@/lib/i18n';
 import type { Measured } from '@/lib/observations';
 import { useUnit } from '@/lib/prefs';
 import { UNIT_LABEL, WIND_UNITS } from '@/lib/units';
+import { useGear } from '@/lib/use-gear';
 import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { m } from '@/paraglide/messages';
@@ -45,6 +47,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
   const globalModel = autoModel(fc, ranking, 'global');
   const selected = picked && fc.series.some((s) => s.model === picked) ? picked : initialModel(fc, ranking);
   const now = useNow();
+  const { gear } = useGear();
   const days = useMemo(
     () => (selected ? buildDays(fc, selected, now, globalModel) : []),
     [fc, selected, now, globalModel],
@@ -119,15 +122,19 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
               <p className="m-0 mt-1 text-muted-foreground text-[13px]">
                 {m.forecast_note()}
                 {taf && desktop && ` · ${m.taf_row()}: ${m.taf_legend()}`}
+                {' · '}
+                <Link to="/gear" className="text-foreground underline underline-offset-2">
+                  {gear.length > 0 ? m.gear_edit() : m.gear_hint()}
+                </Link>
               </p>
             </div>
             <ScaleLegend unit={unit} />
           </div>
           <div className={desktop ? 'pb-3' : ''}>
             {desktop ? (
-              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} />
+              <ForecastTable fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
             ) : (
-              <ForecastList fc={fc} days={days} unit={unit} />
+              <ForecastList fc={fc} days={days} unit={unit} gear={gear} />
             )}
           </div>
         </section>

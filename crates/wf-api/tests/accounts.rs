@@ -33,10 +33,12 @@ async fn call(
     let res = app.clone().oneshot(req).await?;
     let status = res.status();
     let bytes = to_bytes(res.into_body(), 1 << 20).await?;
+    // axum's own rejections (a body it cannot read) are plain text
     let value = if bytes.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(&bytes)?
+        serde_json::from_slice(&bytes)
+            .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
     };
     Ok((status, value))
 }
@@ -349,5 +351,37 @@ async fn a_passkey_account_adds_a_password() -> Result<()> {
     )
     .await?;
     assert_eq!(status, StatusCode::OK);
+    Ok(())
+}
+
+#[tokio::test]
+async fn gear_is_kept_as_a_list() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    let (status, _) = call(&app, "GET", "/api/gear", None, true).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    signed_in(&dir).await?;
+    let list = json!([
+        {"kind": "wing", "size": 4.0, "minKn": 14.0, "maxKn": 30.0},
+        {"kind": "kite", "size": 12.0, "minKn": 13.0, "maxKn": 20.0}
+    ]);
+    let (status, _) = call(&app, "PUT", "/api/gear", Some(list.clone()), true).await?;
+    assert_eq!(status, StatusCode::OK);
+    let (_, got) = call(&app, "GET", "/api/gear", None, true).await?;
+    assert_eq!(got, list);
+    let bad = json!([{"kind": "wing", "size": 4.0, "minKn": 20.0, "maxKn": 10.0}]);
+    let (status, body) = call(&app, "PUT", "/api/gear", Some(bad), true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::BAD_REQUEST, json!({"code": "invalid_gear"}))
+    );
+    let (status, _) = call(
+        &app,
+        "PUT",
+        "/api/gear",
+        Some(json!([{"kind": "boat", "size": 1, "minKn": 1, "maxKn": 2}])),
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     Ok(())
 }
