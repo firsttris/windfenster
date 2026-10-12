@@ -4472,7 +4472,7 @@ dependencies = [
 
 [[package]]
 name = "wf-alarm"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "axum",
  "chrono",
@@ -4495,7 +4495,7 @@ dependencies = [
 
 [[package]]
 name = "wf-api"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "argon2",
@@ -4525,7 +4525,7 @@ dependencies = [
 
 [[package]]
 name = "wf-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "serde",
@@ -4540,7 +4540,7 @@ dependencies = [
 
 [[package]]
 name = "wf-ingest"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "axum",
@@ -4561,7 +4561,7 @@ dependencies = [
 
 [[package]]
 name = "wf-map"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "axum",
  "bzip2",
@@ -4622,7 +4622,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windfenster"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "axum",
