@@ -312,11 +312,13 @@ async fn serve(args: ServeArgs) -> Result<()> {
         non_empty(&args.geocoding_url).or_else(|| args.data.source("geocoding")),
         api_key,
     ));
-    let climate = Arc::new(wf_ingest::climate::Climate::new(
-        db.clone(),
-        http.clone(),
-        args.data.climate_urls(),
-    ));
+    let mut climate =
+        wf_ingest::climate::Climate::new(db.clone(), http.clone(), args.data.climate_urls());
+    if args.data.source("").is_some() {
+        // A stand-in is ours: no need to pace the requests as the IEM asks
+        climate = climate.with_gap(std::time::Duration::ZERO);
+    }
+    let climate = Arc::new(climate);
     let measurements = Arc::new(Measurements::new(
         db.clone(),
         http.clone(),

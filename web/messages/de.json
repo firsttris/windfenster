@@ -499,5 +499,19 @@
   "sources_maplibre": "Darstellung der Karte",
   "sources_protomaps": "Kartenkacheln als PMTiles und Kartenstil",
   "sources_noto": "Schrift der Kartenbeschriftungen",
-  "footer_sources": "Datenquellen"
+  "footer_sources": "Datenquellen",
+  "stats_title": "Windstatistik",
+  "stats_sub": "{from}–{to}, Stundenwerte aus dem {source}",
+  "stats_pending": "Wird aus zehn Jahren Messwerten berechnet, einmalig, dauert etwa eine Minute …",
+  "stats_sourceIem": "METAR-Archiv des Iowa Environmental Mesonet",
+  "stats_sourceDwd": "Klimaarchiv des DWD",
+  "stats_months": "Monat",
+  "stats_monthWindy": "{month}: {share} windige Tage",
+  "stats_year": "Ganzes Jahr",
+  "stats_windyHint": "Balken: Anteil windiger Tage, an denen tagsüber mindestens zwei Stunden {kn} {unit} oder mehr Mittelwind wehten.",
+  "stats_windyDays": "Windige Tage",
+  "stats_main": "Hauptrichtung",
+  "stats_calm": "Flaute oder umlaufend",
+  "stats_roseHint": "Windrose: aus welcher Richtung wie oft wie viel Wind kam, als Anteil aller Stunden; innen der Anteil Flaute.",
+  "stats_roseLabel": "Windrose, Hauptrichtung {main}, Flaute {calm}"
 }

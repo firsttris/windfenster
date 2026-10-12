@@ -15,6 +15,7 @@ import type { SearchResults } from '@/bindings/SearchResults';
 import type { StationForecast } from '@/bindings/StationForecast';
 import type { StationHistory } from '@/bindings/StationHistory';
 import type { StationLive } from '@/bindings/StationLive';
+import type { StationStats } from '@/bindings/StationStats';
 import type { StationWind } from '@/bindings/StationWind';
 
 /** A failed API request: the HTTP status and the server's code (`null` when the answer came
@@ -143,6 +144,15 @@ export const historyQuery = (slug: string, from: number, to: number, live: boole
     queryFn: () => api<StationHistory>(`/stations/${encodeURIComponent(slug)}/history?from=${from}&to=${to}`),
     // Past days only change by a late backfill.
     staleTime: live ? 60_000 : 60 * 60_000,
+  });
+
+export const statsQuery = (slug: string) =>
+  queryOptions({
+    queryKey: ['stats', slug],
+    queryFn: () => api<StationStats>(`/stations/${encodeURIComponent(slug)}/stats`),
+    // Made once from the archive, which takes up to a minute; then once a year.
+    refetchInterval: (q) => (q.state.data?.pending ? 5_000 : false),
+    staleTime: 60 * 60_000,
   });
 
 export const mapIndexQuery = queryOptions({

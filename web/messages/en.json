@@ -499,5 +499,19 @@
   "sources_maplibre": "Drawing the map",
   "sources_protomaps": "Map tiles as PMTiles and the map style",
   "sources_noto": "Type of the map's labels",
-  "footer_sources": "Data sources"
+  "footer_sources": "Data sources",
+  "stats_title": "Wind statistics",
+  "stats_sub": "{from}–{to}, hourly values from the {source}",
+  "stats_pending": "Being worked out from ten years of measurements, once, takes about a minute …",
+  "stats_sourceIem": "Iowa Environmental Mesonet's METAR archive",
+  "stats_sourceDwd": "DWD's climate archive",
+  "stats_months": "Month",
+  "stats_monthWindy": "{month}: {share} windy days",
+  "stats_year": "Whole year",
+  "stats_windyHint": "Bars: share of windy days, with at least two daylight hours of {kn} {unit} or more mean wind.",
+  "stats_windyDays": "Windy days",
+  "stats_main": "Main direction",
+  "stats_calm": "Calm or variable",
+  "stats_roseHint": "Wind rose: how often how much wind came from each direction, as a share of all hours; calm in the middle.",
+  "stats_roseLabel": "Wind rose, main direction {main}, calm {calm}"
 }

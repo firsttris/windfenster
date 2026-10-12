@@ -4,6 +4,7 @@ import { FavoriteButton } from '@/components/favorite';
 import { ForecastView } from '@/components/forecast/forecast-view';
 import { HistoryCard } from '@/components/live/history-card';
 import { LiveTile } from '@/components/live/live-tile';
+import { StatsCard } from '@/components/live/stats-card';
 import { MapLink } from '@/components/map-link';
 import { Failed, Loading, Page } from '@/components/page';
 import { WaterTile } from '@/components/water-tile';
@@ -77,7 +78,12 @@ function StationPage() {
           }
         }
         taf={live.data?.taf}
-        history={<HistoryCard station={st} timeZone={forecast.timezone ?? 'UTC'} />}
+        history={
+          <>
+            <HistoryCard station={st} timeZone={forecast.timezone ?? 'UTC'} />
+            <StatsCard station={st} />
+          </>
+        }
         ranking={q.data.ranking}
         rankingStation={{ code: st.code, source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}` }}
       />

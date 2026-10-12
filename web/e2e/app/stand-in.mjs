@@ -7,6 +7,9 @@
  *   aviationweather.gov's METARs (every half hour), TAFs and station list
  * - /ourairports/airports.csv, /ourairports/regions.csv: OurAirports
  * - /dwd/stations.txt and the DWD's 10-minute wind and gust files (zip)
+ * - /iem/cgi-bin/request/asos.py: the Iowa Environmental Mesonet's METAR archive, a year of
+ *   hourly reports per request
+ * - /dwd-hourly/historical/ and its long file: the DWD's archive of hourly wind
  * Baden Airpark (EDSB) and Rhodes (LGRP) with METAR and TAF, Rheinstetten (DWD 04177). The
  * values follow the same weather as the map's textures (map-data.mjs), relative to `now`.
  */
@@ -280,6 +283,41 @@ function zip(name, data) {
   return Buffer.concat([local, n, data, central, n, end]);
 }
 
+/** A past hour's wind for the statistics: a westerly that is strong in summer at Rhodes and in
+ * winter at Baden Airpark and Rheinstetten, by day more than by night */
+function pastWind(lat, t) {
+  const d = new Date(t * 1000);
+  const month = d.getUTCMonth();
+  const hour = d.getUTCHours();
+  const summer = Math.cos(((month - 6.5) / 12) * 2 * Math.PI);
+  const season = lat < 40 ? 0.5 + 0.5 * summer : 0.5 - 0.5 * summer;
+  const kn = (6 + 14 * season) * (hour >= 8 && hour < 18 ? 1.2 : 0.6);
+  return { kn: Math.round(kn * 10) / 10, dir: lat < 40 ? 250 : 230 };
+}
+
+function iemYear(code, year) {
+  const a = AIRPORTS.find((x) => x.icao === code);
+  const rows = ['station,valid,sknt,drct'];
+  if (!a) return `${rows[0]}\n`;
+  for (let t = Date.UTC(year, 0, 1) / 1000; t < Date.UTC(year + 1, 0, 1) / 1000; t += 3600) {
+    const w = pastWind(a.lat, t);
+    rows.push(`${code},${iso(t).slice(0, 10)} ${iso(t).slice(11, 13)}:50,${w.kn.toFixed(2)},${w.dir.toFixed(2)}`);
+  }
+  return `${rows.join('\n')}\n`;
+}
+
+/** The DWD's hourly archive of Rheinstetten: from 2008 to the end of last year */
+function dwdHourly(now) {
+  const last = new Date(now * 1000).getUTCFullYear() - 1;
+  const lines = ['STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor'];
+  for (let t = Date.UTC(last - 11, 0, 1) / 1000; t < Date.UTC(last + 1, 0, 1) / 1000; t += 3600) {
+    const w = pastWind(48.97, t);
+    const stamp = iso(t).slice(0, 13).replace(/[-T]/g, '');
+    lines.push(`       4177;${stamp};   10;   ${(w.kn * 0.514444).toFixed(1)}; ${w.dir};eor`);
+  }
+  return { name: `stundenwerte_FF_04177_${last - 11}0101_${last}1231_hist.zip`, text: `${lines.join('\n')}\n` };
+}
+
 /** Starts the stand-in; `now` (unix seconds) is the moment the tests take as now. */
 export function startStandIn(port, now) {
   const server = createServer((req, res) => {
@@ -329,6 +367,16 @@ export function startStandIn(port, now) {
     if (m) {
       const kind = m[1] === 'wind' ? 'wind' : 'gust';
       return send(zip(`produkt_${kind}.txt`, dwdFile(kind, now, m[2] === 'now' ? 1 : 10)), 'application/zip');
+    }
+    if (p === '/iem/cgi-bin/request/asos.py')
+      return send(iemYear(q.get('station'), Number(q.get('sts')?.slice(0, 4))), 'text/plain');
+    if (p === '/dwd-hourly/historical/') {
+      const { name } = dwdHourly(now);
+      return send(`<a href="${name}">${name}</a>`, 'text/html');
+    }
+    if (p === `/dwd-hourly/historical/${dwdHourly(now).name}`) {
+      const { text } = dwdHourly(now);
+      return send(zip('produkt_ff_stunde_04177.txt', Buffer.from(text, 'latin1')), 'application/zip');
     }
     res.writeHead(404);
     res.end();
