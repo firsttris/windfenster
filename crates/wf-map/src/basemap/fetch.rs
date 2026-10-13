@@ -6,6 +6,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use pmtiles::{
     AsyncBackend, AsyncPmTilesReader, BackendResponse, HashMapCache, PmtError, PmtResult,
@@ -127,23 +128,57 @@ pub fn due(file_exists: bool, note: Option<&Note>, cut: &Cut, now: i64) -> bool 
 pub(crate) struct Http {
     client: reqwest::Client,
     url: String,
+    /// The first wait before asking again; it doubles each time
+    backoff: Duration,
 }
 
-impl AsyncBackend for Http {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
-        let fail = |e: reqwest::Error| PmtError::Reading(std::io::Error::other(e));
+/// Tries per range: a cut of a deep region is millions of requests over hours, and one 502 or
+/// connection cut among them ended the whole cut (seen against build.protomaps.com and
+/// download.mapterhorn.com, which answer 5xx now and then).
+const TRIES: u32 = 6;
+/// The first wait; with doubling 1, 2, 4, 8, 16 s, a minute in all before a range gives up
+const BACKOFF: Duration = Duration::from_secs(1);
+
+/// Whether asking again may help: the server or the way to it failed for a moment (5xx, 429,
+/// a timeout, a cut connection, a body cut short). A 404 or 416 stays what it is: a build not
+/// out, or a range past the file.
+fn passing(e: &reqwest::Error) -> bool {
+    match e.status() {
+        Some(s) => s.is_server_error() || s == reqwest::StatusCode::TOO_MANY_REQUESTS,
+        None => true,
+    }
+}
+
+impl Http {
+    async fn range(&self, offset: usize, length: usize) -> reqwest::Result<BackendResponse> {
         let bytes = self
             .client
             .get(&self.url)
             .header(RANGE, format!("bytes={offset}-{}", offset + length - 1))
             .send()
-            .await
-            .and_then(reqwest::Response::error_for_status)
-            .map_err(fail)?
+            .await?
+            .error_for_status()?
             .bytes()
-            .await
-            .map_err(fail)?;
+            .await?;
         Ok(BackendResponse::new(bytes))
+    }
+}
+
+impl AsyncBackend for Http {
+    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+        let mut wait = self.backoff;
+        for attempt in 1.. {
+            match self.range(offset, length).await {
+                Ok(response) => return Ok(response),
+                Err(e) if attempt < TRIES && passing(&e) => {
+                    tracing::debug!("{}: {e}; again in {wait:?}", self.url);
+                    tokio::time::sleep(wait).await;
+                    wait *= 2;
+                }
+                Err(e) => return Err(PmtError::Reading(std::io::Error::other(e))),
+            }
+        }
+        unreachable!("the loop returns")
     }
 }
 
@@ -153,6 +188,7 @@ pub(crate) async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reade
     let backend = Http {
         client: http.clone(),
         url,
+        backoff: BACKOFF,
     };
     AsyncPmTilesReader::try_from_cached_source(backend, HashMapCache::default()).await
 }
@@ -276,7 +312,63 @@ pub async fn keep_current(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use axum::http::StatusCode;
+
     use super::*;
+
+    /// A server that answers `fails` times with `status`, then with the range's bytes; returns
+    /// its address and how often it was asked.
+    async fn flaky(fails: usize, status: StatusCode) -> (String, Arc<AtomicUsize>) {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let count = asked.clone();
+        let app = axum::Router::new().route(
+            "/f.pmtiles",
+            axum::routing::get(move || {
+                let n = count.fetch_add(1, Ordering::SeqCst);
+                async move {
+                    if n < fails {
+                        (status, Vec::new())
+                    } else {
+                        (StatusCode::PARTIAL_CONTENT, b"tile".to_vec())
+                    }
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/f.pmtiles", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        (url, asked)
+    }
+
+    fn http(url: String) -> Http {
+        Http {
+            client: reqwest::Client::new(),
+            url,
+            backoff: Duration::from_millis(1),
+        }
+    }
+
+    #[tokio::test]
+    async fn asks_again_when_the_server_fails_for_a_moment() {
+        // Two 502s, then the bytes: one read, three requests
+        let (url, asked) = flaky(2, StatusCode::BAD_GATEWAY).await;
+        let got = http(url).read(0, 4).await.unwrap();
+        assert_eq!(&got.bytes[..], b"tile");
+        assert_eq!(asked.load(Ordering::SeqCst), 3);
+        // Busy (429) counts as a moment too
+        let (url, _) = flaky(1, StatusCode::TOO_MANY_REQUESTS).await;
+        assert!(http(url).read(0, 4).await.is_ok());
+        // A server that stays down: given up after the tries
+        let (url, asked) = flaky(usize::MAX, StatusCode::SERVICE_UNAVAILABLE).await;
+        assert!(http(url).read(0, 4).await.is_err());
+        assert_eq!(asked.load(Ordering::SeqCst), TRIES as usize);
+        // A build that is not out: no second ask
+        let (url, asked) = flaky(usize::MAX, StatusCode::NOT_FOUND).await;
+        assert!(http(url).read(0, 4).await.is_err());
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+    }
 
     #[test]
     fn leaves_the_operators_file_alone() {

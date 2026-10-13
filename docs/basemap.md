@@ -88,7 +88,10 @@ anew from the newest build:
 - it **downloads the whole file again** (no tiles are reused from the old one);
 - it writes to `basemap.pmtiles.part` and swaps it in only when complete, so **the old map stays
   in use** meanwhile, and you need room for both;
-- a restart in the middle **starts over**; after an error it tries again in an hour;
+- each range that fails for a moment (a 5xx, 429 or cut connection, which Protomaps and Mapterhorn
+  answer now and then over hours of requests) is asked again up to five times, waiting 1 to 16 s;
+  only when it keeps failing does the cut stop. A restart in the middle **starts over**; after an
+  error it tries again in an hour;
 - the detail spots stay as they are; from `WF_BASEMAP_ZOOM=14` none are made inside the region.
 
 Reload the map page in the browser afterwards.
