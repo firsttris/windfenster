@@ -5,7 +5,6 @@
 //! renewed when it grows old.
 
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 
 use pmtiles::{AsyncBackend, AsyncPmTilesReader, BackendResponse, PmtError, PmtResult};
@@ -22,8 +21,6 @@ pub const BUILDS: &str = "https://build.protomaps.com";
 const LOOK_BACK_DAYS: i64 = 10;
 /// Our basemap is renewed after this long: OpenStreetMap changes slowly.
 const RENEW_S: i64 = 120 * 86_400;
-/// Tiles fetched at the same time
-const PARALLEL: usize = 16;
 
 const NOTE: &str = "basemap.json";
 
@@ -254,76 +251,6 @@ pub(crate) async fn newest_build(
     Err(Error::NoBuild)
 }
 
-/// Copies the tiles of `areas` from `reader` into a new archive at `target`; returns how many.
-pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Result<usize, Error> {
-    let reader = Arc::new(reader);
-    let (tile_type, compression) = (
-        reader.get_header().tile_type,
-        reader.get_header().tile_compression,
-    );
-    let metadata = reader.get_metadata().await?;
-    let max_zoom = areas.iter().map(|a| a.max_zoom).max().unwrap_or(0);
-    let west = areas.iter().map(|a| a.west).fold(f64::INFINITY, f64::min);
-    let south = areas.iter().map(|a| a.south).fold(f64::INFINITY, f64::min);
-    let east = areas
-        .iter()
-        .map(|a| a.east)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let north = areas
-        .iter()
-        .map(|a| a.north)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let target = target.to_path_buf();
-    // Tiles go to a writing thread in id order, a batch fetched at a time. The writer is made
-    // there: it may not cross threads.
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<(pmtiles::TileCoord, Vec<u8>)>(PARALLEL * 4);
-    let write = tokio::task::spawn_blocking(move || -> Result<usize, Error> {
-        let file = std::fs::File::create(&target)?;
-        let mut writer = pmtiles::PmTilesWriter::new(tile_type)
-            .tile_compression(compression)
-            .min_zoom(0)
-            .max_zoom(max_zoom)
-            .bounds(west, south, east, north)
-            .center((west + east) / 2.0, (south + north) / 2.0)
-            .metadata(&metadata)
-            .create(std::io::BufWriter::new(file))?;
-        let mut n = 0;
-        while let Some((coord, data)) = rx.blocking_recv() {
-            writer.add_raw_tile(coord, &data)?;
-            n += 1;
-        }
-        writer.finalize()?;
-        Ok(n)
-    });
-    // A batch at a time from the tiles as they are made: the world deep is too many to list.
-    let mut tiles = tiles::wanted(areas);
-    loop {
-        let batch: Vec<_> = tiles.by_ref().take(PARALLEL).collect();
-        if batch.is_empty() {
-            break;
-        }
-        let mut set = tokio::task::JoinSet::new();
-        for (i, &coord) in batch.iter().enumerate() {
-            let reader = reader.clone();
-            set.spawn(async move { (i, reader.get_tile(coord).await.map(|t| (coord, t))) });
-        }
-        let mut got = Vec::with_capacity(batch.len());
-        while let Some(res) = set.join_next().await {
-            got.push(res?);
-        }
-        got.sort_by_key(|(i, _)| *i);
-        for (_, res) in got {
-            if let (coord, Some(data)) = res?
-                && tx.send((coord, data.to_vec())).await.is_err()
-            {
-                break;
-            }
-        }
-    }
-    drop(tx);
-    write.await?
-}
-
 /// Makes our basemap if it is due: the newest build, cut to the world and the region, or
 /// downloaded whole when the cut is all of it. Returns the build used, or None when nothing was
 /// due.
@@ -360,8 +287,9 @@ pub async fn keep_current(
         format!("the whole build ({})", download::gb(n))
     } else {
         part.clear().await;
-        let n = copy(reader, &areas, &part.file).await?;
-        format!("{n} tiles")
+        super::cut::room_for_cut(http, &build_url(base, &build), &reader, &areas, root).await?;
+        let n = super::cut::copy(reader, &areas, &part.file).await?;
+        format!("{n} tile entries")
     };
     tokio::fs::rename(&part.file, &file).await?;
     let note = Note {
@@ -383,6 +311,7 @@ pub async fn keep_current(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use axum::http::StatusCode;

@@ -85,7 +85,7 @@ pub async fn keep_current(
         format!("the whole planet file ({})", download::gb(n))
     } else {
         part.clear().await;
-        let n = fetch::copy(reader, &[world], &part.file).await?;
+        let n = super::cut::copy(reader, &[world], &part.file).await?;
         format!("{n} relief tiles")
     };
     tokio::fs::rename(&part.file, path(root)).await?;

@@ -92,9 +92,14 @@ anew from the newest build:
   answer now and then over hours of requests) is asked again up to nine times, the wait doubling from 1 s to a
   minute (about five minutes in all); only when it keeps failing does the cut stop. A restart in the middle **starts over**; after an
   error it tries again in an hour;
-- the tiles are walked one at a time in the archive's order and only the directories in use
-  are kept (64 MB at most); the archive being written keeps an entry for every tile until it is
-  complete, so a large cut needs memory: the world to zoom 14 several GB;
+- the tiles are walked one at a time in the archive's order, only the source's directories in
+  use are kept (64 MB at most), and the new archive is written as it goes: tile data straight
+  into the file, a leaf directory every few thousand entries into a side file, the root and
+  header at the end. Memory stays flat however large the cut (50 million tiles in under 30 MB);
+  only time grows, and the log says every five minutes how many tiles are done and how long
+  is left;
+- before a cut it checks that the disk has room for it (the source's size times the share of
+  its tiles asked for) and does not begin without;
 - the detail spots stay as they are; from `WF_BASEMAP_ZOOM=14` none are made inside the region,
   and spot files the main file now holds as deep are removed.
 

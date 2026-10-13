@@ -3,6 +3,7 @@
 //! next to it. The app reads the zoom range and bounds from the header and gets its tiles one by
 //! one from the server (`serve`).
 
+mod cut;
 mod dircache;
 mod download;
 pub mod fetch;
@@ -11,6 +12,7 @@ pub mod serve;
 pub mod spots;
 pub mod terrain;
 pub mod tiles;
+mod writer;
 
 use std::path::{Path, PathBuf};
 

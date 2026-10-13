@@ -104,9 +104,9 @@ pub async fn make(
     tokio::fs::create_dir_all(dir(root)).await?;
     let target = path(root, spot);
     let partial = target.with_extension("part");
-    let n = fetch::copy(reader, &[spot.area(from_zoom)], &partial).await?;
+    let n = super::cut::copy(reader, &[spot.area(from_zoom)], &partial).await?;
     tokio::fs::rename(&partial, &target).await?;
-    Ok(n)
+    Ok(usize::try_from(n).unwrap_or(usize::MAX))
 }
 
 /// What one round does: the wanted spots missing on disk (at most `limit`, in the order wanted),
