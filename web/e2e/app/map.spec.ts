@@ -21,12 +21,14 @@ async function texture(page: Page, model: string): Promise<string> {
 test('the map offers and draws all three models', async ({ page }) => {
   const loading = Promise.all(['icon_d2', 'ecmwf_ifs025', 'icon_global'].map((m) => texture(page, m)));
   await page.goto('/map#7/48.5/9');
-  await expect(page.getByRole('heading', { name: 'Wind weltweit' })).toBeVisible();
-  const models = page.getByRole('group', { name: 'Modell' });
-  for (const chip of ['ICON-D2 2,2 km', 'ICON global 13 km', 'ECMWF IFS 25 km'])
-    await expect(models.getByRole('button', { name: chip })).toBeVisible();
-  await expect(page.getByText('ICON-D2 › ICON global › ECMWF IFS')).toBeVisible();
-  await expect(page.getByText(/ICON-D2 · Lauf \d\d UTC · DWD/)).toBeVisible();
+  // The model as a pill, with its resolution and run; the others in its menu
+  const models = page.getByRole('combobox', { name: 'Modell' });
+  await expect(models.locator('option')).toHaveText([
+    /^ICON-D2 · 2,2 km · Lauf \d\d UTC$/,
+    /^ICON global · 13 km · Lauf \d\d UTC$/,
+    /^ECMWF IFS · 25 km · Lauf \d\d UTC$/,
+  ]);
+  await expect(page.getByText(/^2,2 km · Lauf \d\d UTC$/)).toBeVisible();
   const [, , piece] = await loading;
   // ICON global in a piece around the view (about 7° × 4° at zoom 7, a quarter more each side,
   // edges on whole 10°): 0–20° E, 40–60° N
@@ -78,15 +80,13 @@ test("a spot's hours are the ones the API has for it", async ({ page, request })
 test('picking an hour moves the map to it; closing the spot', async ({ page }) => {
   await page.goto(EDSB);
   const card = page.getByRole('region', { name: 'Karlsruhe Baden-Baden Airport' });
-  const shown = page
-    .getByRole('complementary')
-    .getByText(/^\w\w\., \d+\. \w+\.?, \d\d:\d\d$/)
-    .first();
-  await expect(shown).toBeVisible();
+  // The hour shown is the slider's, spoken as "Di., 13. Okt., 20:00"
+  const slider = page.getByRole('slider', { name: 'Stunde' });
+  await expect(slider).toHaveAttribute('aria-valuetext', /^\w\w\., \d+\. \w+\.?, \d\d:\d\d$/);
   // The next 15:00 in the strip, then the map's time is 15:00
   const hour = card.getByRole('button', { name: /, 15:00, / }).first();
   await hour.click();
-  await expect(shown).toHaveText(/, 15:00$/);
+  await expect(slider).toHaveAttribute('aria-valuetext', /, 15:00$/);
   await card.getByRole('button', { name: 'Schließen' }).click();
   await expect(card).toBeHidden();
 });
@@ -108,14 +108,12 @@ test('a place picked on the map, the model and the gust layer', async ({ page })
   await expect(card.first()).toBeVisible();
   await expect(card.first()).toContainText(/\d+ kn|Böen \d+ kn/);
   // ECMWF alone: chosen, in the address, its run named
-  await page.getByRole('group', { name: 'Modell' }).getByRole('button', { name: 'ECMWF IFS 25 km' }).click();
+  await page.getByRole('combobox', { name: 'Modell' }).selectOption('ecmwf_ifs025');
   await expect(page).toHaveURL(/model=ecmwf_ifs025/);
-  await expect(page.getByText(/ECMWF IFS · Lauf \d\d UTC · ECMWF/)).toBeVisible();
-  await expect(page.getByText('ICON-D2 › ICON global › ECMWF IFS')).toBeHidden();
+  await expect(page.getByText(/^25 km · Lauf \d\d UTC$/)).toBeVisible();
   // The gusts
-  const layer = page.getByRole('group', { name: 'Ebene' });
-  await layer.getByRole('button', { name: 'Böen' }).click();
-  await expect(layer.getByRole('button', { name: 'Böen' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('combobox', { name: 'Ebene' }).selectOption('gusts');
+  await expect(page).toHaveURL(/layer=gusts/);
 });
 
 test('the water gauges with their levels, from town zoom on', async ({ page }) => {
@@ -127,11 +125,10 @@ test('the water gauges with their levels, from town zoom on', async ({ page }) =
     ['Maxau', 498, 'normal'],
     ['Iffezheim', 612, 'high'],
   ]);
-  await expect(page.getByText(/blau normal, gelb niedrig, rot hoch/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeVisible();
 });
 
-test('the map fills the window under a floating header; the panel folds away, a spot opens it', async ({ page }) => {
+test('the map fills the window under a floating header; pills, spot and timeline lie on it', async ({ page }) => {
   await page.goto('/map#7/48.5/9');
   const map = page.locator('.maplibregl-canvas');
   await expect(map).toBeVisible();
@@ -141,23 +138,23 @@ test('the map fills the window under a floating header; the panel folds away, a 
   expect(box?.y).toBe(0);
   expect(box?.height).toBe(size?.height);
   await expect(page.getByRole('banner')).toBeVisible();
-  // Folded away, and so after a reload
-  const title = page.getByRole('heading', { name: 'Wind weltweit' });
-  await expect(title).toBeVisible();
-  await page.getByRole('button', { name: 'Seitenleiste einklappen' }).click();
-  await expect(title).toBeHidden();
-  await page.reload();
-  const open = page.getByRole('button', { name: 'Seitenleiste zeigen' });
-  await expect(open).toBeVisible();
-  await expect(title).toBeHidden();
-  // A place picked on the map opens it with the spot
+  // No panel: the pills, and the timeline without play, its hour on the slider
+  await expect(page.getByRole('combobox', { name: 'Ebene' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Abspielen' })).toHaveCount(0);
+  const slider = page.getByRole('slider', { name: 'Stunde' });
+  await expect(slider).toBeAttached();
+  // A step on the keys, then back to now
+  const before = await slider.inputValue();
+  await page.keyboard.press('ArrowRight');
+  await expect(slider).not.toHaveValue(before);
+  await page.getByRole('button', { name: 'Jetzt' }).click();
+  await expect(slider).toHaveValue(before);
+  // A place picked on the map shows its card under the pills
   await texture(page, 'icon_global');
   const now = await map.boundingBox();
   if (!now) throw new Error('no map');
   await page.mouse.click(now.x + now.width / 2, now.y + now.height / 2);
-  await expect(title).toBeVisible();
   await expect(page.getByRole('region').filter({ hasText: '° N' }).first()).toBeVisible();
-  await expect(open).toBeHidden();
 });
 
 test('on a phone the spot sheet starts as one line and is pulled up in two steps', async ({ page }) => {

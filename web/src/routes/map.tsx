@@ -1,17 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
 import { basemapFor } from '@/components/map/basemap';
-import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
+
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
 import { PillSelect } from '@/components/map/pill-select';
 import { withRelief } from '@/components/map/relief';
-import { ShareButton } from '@/components/map/share-button';
 import { SpotCard } from '@/components/map/spot-card';
-import { frameTime, Timeline } from '@/components/map/timeline';
+import { Timeline } from '@/components/map/timeline';
+import { TimelineSlim } from '@/components/map/timeline-slim';
 import { useGlide } from '@/components/map/use-glide';
 import { useMapKeys } from '@/components/map/use-map-keys';
 import { usePlayback, useWindPair } from '@/components/map/use-wind-pair';
@@ -28,7 +27,6 @@ import { useTitle } from '@/lib/use-title';
 import { cn } from '@/lib/utils';
 import {
   chooseLayers,
-  covers,
   framesFor,
   hoursAt,
   MAP_ONLY_MODELS,
@@ -38,7 +36,9 @@ import {
   startTime,
 } from '@/lib/wind-map';
 import { m } from '@/paraglide/messages';
-import { Button } from '@/ui/button';
+
+/** What the colour field shows */
+type FieldLayer = 'wind' | 'gusts';
 
 const NO_DETAIL: [number, number, number, number][] = [];
 
@@ -73,9 +73,6 @@ function MapPage() {
   const [initial] = useState(() => parseMapState(window.location.search));
   const [layerPref, setLayerPref] = usePref('wf.mapLayer');
   const [modelPref, setModelPref] = usePref('wf.mapModel');
-  // The desktop panel, folded away to see the whole map; a spot picked opens it again
-  const [panelPref, setPanel] = usePref('wf.mapPanel');
-  const panelOpen = panelPref !== 'closed';
   const [chosen, setChosenState] = useState<string | null>(initial.model ?? modelPref);
   const setChosen = (model: string) => {
     setChosenState(model);
@@ -99,11 +96,7 @@ function MapPage() {
   const mid = useWindPair(hoursAt(midFrames, windTime), windTime, playing);
   const detail = useWindPair(hoursAt(detailFrames, windTime), windTime, playing);
   const layers = useMemo(() => ({ base, mid, detail }), [base, mid, detail]);
-  const [pick, setPickState] = useState<Pick | null>(() => parseSpot(window.location.search));
-  const setPick = (p: Pick | null) => {
-    setPickState(p);
-    if (p && panelPref === 'closed') setPanel(null);
-  };
+  const [pick, setPick] = useState<Pick | null>(() => parseSpot(window.location.search));
   // A search result stays on the map: fly there and show the spot.
   const [focus, setFocus] = useState<{ lon: number; lat: number } | null>(null);
   // A place looked at gets detail on the server within a minute or two: ask again then.
@@ -171,85 +164,27 @@ function MapPage() {
     models.data?.find((x) => x.id === id) ?? (id ? MAP_ONLY_MODELS[id] : undefined);
   const nameOf = (id: string) => modelOf(id)?.name ?? id;
   const ready = index.data?.layers.filter((l) => l.frames.length > 0) ?? [];
-  // The model that draws the hour shown at the spot picked or else in the middle of the view,
-  // for its run: the finest whose texture holds the place.
-  const where = pick ?? center;
-  const drawing =
-    (
-      [
-        [detail, choice.detail],
-        [mid, choice.mid],
-      ] as const
-    ).find(([pair]) => pair !== null && (where === null || covers(pair.a.meta, where)))?.[1] ?? choice.base;
-  const drawingFrames = drawing?.frames ?? [];
-  const frame = time !== null && drawingFrames.length ? drawingFrames[positionAt(drawingFrames, time).i] : null;
   const station = pick?.slug ? (pins.data?.find((p) => p.slug === pick.slug) ?? null) : null;
-  const timeLabel = time !== null ? frameTime(time) : '';
   const empty = index.isSuccess && !choice.selected;
-  const runLine = frame && drawing && (
-    <>
-      {nameOf(drawing.model)} ·{' '}
-      {m.map_run({ run: runHour(frame.runAt), provider: modelOf(drawing.model)?.provider ?? '' })}
-    </>
-  );
+  // The run of the hour shown, beside the model in its pill on wide screens
+  const runOf = (list: readonly MapFrame[]) =>
+    time !== null && list.length > 0 ? list[positionAt(list, time).i].runAt : null;
 
-  const chips = ready.length > 0 && (
-    <fieldset aria-label={m.map_model()} className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
-      {ready.map((l) => {
-        const md = modelOf(l.model);
-        const on = l.model === choice.selected?.model;
-        return (
-          <button
-            key={l.model}
-            type="button"
-            aria-pressed={on}
-            onClick={() => setChosen(l.model)}
-            className={cn(
-              'inline-flex cursor-pointer items-baseline gap-1.5 rounded-md border px-2.5 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-              on ? 'border-border-strong bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <span className="font-semibold">{nameOf(l.model)}</span>
-            {md && (
-              <span className="font-mono text-muted-foreground text-xs">
-                {formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </fieldset>
+  // On phones: in the spot sheet, or alone in a sheet at the foot
+  const timeline = frames.length > 0 && time !== null && (
+    <Timeline
+      frames={frames}
+      time={time}
+      now={now}
+      playing={playing}
+      onTime={setTime}
+      onPlay={setPlaying}
+      band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
+      loading={loading && !playing}
+      compact
+      bare
+    />
   );
-
-  // The models drawn, finest first
-  const stack = [choice.detail, choice.mid, choice.base].flatMap((l) => (l ? [nameOf(l.model)] : []));
-  const modelInfo = ready.length > 0 && (
-    <div className="flex flex-col gap-2">
-      <h2 className="m-0 font-semibold text-sm">{m.map_model()}</h2>
-      {chips}
-      {stack.length > 1 && (
-        <p className="m-0 text-muted-foreground text-xs">{m.map_layered({ models: stack.join(' › ') })}</p>
-      )}
-      {runLine && <p className="m-0 font-mono text-muted-foreground text-xs">{runLine}</p>}
-    </div>
-  );
-
-  const timeline = (bare: boolean) =>
-    frames.length > 0 &&
-    time !== null && (
-      <Timeline
-        frames={frames}
-        time={time}
-        now={now}
-        playing={playing}
-        onTime={setTime}
-        onPlay={setPlaying}
-        band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
-        loading={loading && !playing}
-        compact={!desktop}
-        bare={bare}
-      />
-    );
 
   const spot = pick && (
     <SpotCard
@@ -266,65 +201,13 @@ function MapPage() {
       }}
       onClose={() => setPick(null)}
       compact={!desktop}
-      footer={desktop ? undefined : timeline(true) || undefined}
+      footer={desktop ? undefined : timeline || undefined}
     />
   );
 
   return (
-    // The map fills the window; header, panel and timeline float over it (styles.css, glass)
+    // The map fills the window; header, pills, spot and timeline float over it (styles.css, glass)
     <main className="relative min-h-0 flex-1">
-      {desktop && !panelOpen && (
-        <Button
-          variant="outline"
-          size="icon"
-          className="glass absolute top-[78px] left-3.5 z-20"
-          aria-label={m.map_panelOpen()}
-          aria-expanded={false}
-          onClick={() => setPanel(null)}
-        >
-          <PanelLeftOpen aria-hidden="true" />
-        </Button>
-      )}
-      {desktop && panelOpen && (
-        // Below the 64 px header (routes/__root.tsx), above the timeline
-        <aside className="glass absolute top-[78px] left-3.5 z-20 flex max-h-[calc(100%-240px)] w-[300px] flex-col gap-5 overflow-y-auto rounded-2xl border p-[18px]">
-          <div className="flex flex-col gap-1">
-            <div className="-my-2 flex items-center justify-between gap-2">
-              <p className="m-0 font-mono text-muted-foreground text-xs uppercase tracking-[0.08em]">
-                {m.map_eyebrow()}
-              </p>
-              <div className="-mr-2 flex shrink-0">
-                <ShareButton className="size-8" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label={m.map_panelClose()}
-                  aria-expanded={true}
-                  onClick={() => setPanel('closed')}
-                >
-                  <PanelLeftClose aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-            <h1 className="m-0 font-bold text-[32px] leading-tight tracking-[-0.04em]">{m.map_title()}</h1>
-            {timeLabel && <p className="m-0 font-mono text-muted-foreground text-sm">{timeLabel}</p>}
-          </div>
-          {modelInfo}
-          <div className="flex flex-col gap-2">
-            <h2 className="m-0 font-semibold text-sm">{gusts ? m.map_gustSpeed() : m.map_speed()}</h2>
-            <LayerSwitch value={field} onChange={setField} />
-            <Legend unit={unit} gusts={gusts} />
-            {gustless && (
-              <p className="m-0 text-muted-foreground text-xs">
-                {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
-              </p>
-            )}
-          </div>
-          {spot ?? <p className="m-0 text-muted-foreground text-sm">{m.map_hint()}</p>}
-          <p className="m-0 text-[11px] text-muted-foreground leading-snug">{m.map_keys()}</p>
-        </aside>
-      )}
       <div className="absolute inset-0">
         {index.isPending ? (
           <div className="h-full w-full animate-pulse bg-muted" />
@@ -343,47 +226,65 @@ function MapPage() {
             detail={info?.detail ?? NO_DETAIL}
           />
         )}
-        {!desktop && (
-          // As in the mockup: model and layer as two pills, the scale small beneath
-          <div className="absolute top-[76px] left-3 flex w-[min(300px,calc(100%-76px))] flex-col items-start gap-1.5">
-            <h1 className="sr-only">{m.map_title()}</h1>
-            <div className="flex max-w-full items-center gap-1.5">
-              {ready.length > 0 && (
-                <PillSelect
-                  label={m.map_model()}
-                  value={choice.selected?.model ?? ready[0].model}
-                  onChange={setChosen}
-                  options={ready.map((l) => {
-                    const md = modelOf(l.model);
-                    return {
-                      value: l.model,
-                      label: nameOf(l.model),
-                      detail: md ? `${formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km` : undefined,
-                    };
-                  })}
-                />
-              )}
+        {/* As in the mockups: model and layer as two pills, the scale slim beneath; on wide
+            screens the spot picked under them (on phones it is the sheet at the foot) */}
+        <div
+          className={cn(
+            'absolute flex flex-col items-start',
+            desktop
+              ? 'top-20 bottom-[120px] left-4 w-[320px] gap-2'
+              : 'top-[76px] left-3 w-[min(300px,calc(100%-76px))] gap-1.5',
+          )}
+        >
+          <h1 className="sr-only">{m.map_title()}</h1>
+          <div className={cn('flex items-center', desktop ? 'w-max gap-2' : 'max-w-full gap-1.5')}>
+            {ready.length > 0 && (
               <PillSelect
-                label={m.map_layer()}
-                value={field}
-                onChange={(f) => setField(f as FieldLayer)}
-                options={[
-                  { value: 'wind', label: m.map_layerWind() },
-                  { value: 'gusts', label: m.map_layerGusts() },
-                ]}
-                className="shrink-0"
+                label={m.map_model()}
+                value={choice.selected?.model ?? ready[0].model}
+                onChange={setChosen}
+                options={ready.map((l) => {
+                  const md = modelOf(l.model);
+                  const run = desktop ? runOf(l.frames) : null;
+                  const parts = [
+                    md && `${formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km`,
+                    run !== null && m.map_run({ run: runHour(run) }),
+                  ].filter(Boolean);
+                  return {
+                    value: l.model,
+                    label: nameOf(l.model),
+                    detail: parts.length > 0 ? parts.join(' · ') : undefined,
+                  };
+                })}
+                className={cn(desktop && 'h-10 px-3.5 text-sm')}
               />
-            </div>
-            <div className="glass flex w-[210px] flex-col gap-1 rounded-[10px] border px-2.5 pt-1.5 pb-1 shadow-none">
-              <Legend unit={unit} gusts={gusts} compact />
-              {gustless && (
-                <p className="m-0 text-[11px] text-muted-foreground">
-                  {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
-                </p>
-              )}
-            </div>
+            )}
+            <PillSelect
+              label={m.map_layer()}
+              value={field}
+              onChange={(f) => setField(f as FieldLayer)}
+              options={[
+                { value: 'wind', label: m.map_layerWind() },
+                { value: 'gusts', label: m.map_layerGusts() },
+              ]}
+              className={cn('shrink-0', desktop && 'h-10 px-3.5 text-sm')}
+            />
           </div>
-        )}
+          <div
+            className={cn(
+              'glass flex flex-col gap-1 rounded-[10px] border px-2.5 pt-1.5 pb-1 shadow-none',
+              desktop ? 'w-[268px]' : 'w-[210px]',
+            )}
+          >
+            <Legend unit={unit} gusts={gusts} compact />
+            {gustless && (
+              <p className="m-0 text-[11px] text-muted-foreground">
+                {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
+              </p>
+            )}
+          </div>
+          {desktop && spot && <div className="mt-1 min-h-0 w-full overflow-y-auto rounded-xl">{spot}</div>}
+        </div>
         {empty && (
           <p
             role="status"
@@ -393,25 +294,46 @@ function MapPage() {
           </p>
         )}
         {/* On phones a sheet at the foot, edge to edge (the spot and the timeline in it), the
-            sources above it; on wider screens timeline and sources float with a margin */}
-        <div className={cn('absolute flex flex-col gap-2', desktop ? 'right-3 bottom-3 left-3' : 'inset-x-0 bottom-0')}>
-          <Attribution
-            osm={!!index.data?.basemap}
-            relief={relief}
-            short={!desktop}
-            className={cn(
-              'glass ml-auto w-fit max-w-full rounded-md border text-right shadow-none',
-              desktop ? 'order-last px-2 py-1' : 'mr-2 px-1.5 py-0.5 text-[10px]',
+            sources above it. On wider screens the timeline lies on the map without a card, over a
+            soft shade, and the sources sit in the corner. */}
+        {desktop ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[130px] bg-gradient-to-b from-black/0 to-black/45"
+            />
+            {frames.length > 0 && time !== null && (
+              <TimelineSlim
+                frames={frames}
+                time={time}
+                now={now}
+                onTime={setTime}
+                onPlay={setPlaying}
+                band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
+                className="absolute bottom-10 left-1/2 w-[min(860px,calc(100%-32px))] -translate-x-1/2"
+              />
             )}
-          />
-          {!desktop && spot}
-          {desktop && timeline(false)}
-          {!desktop && !spot && (
-            <div className="glass rounded-t-[20px] rounded-b-none border border-x-0 border-b-0 px-4 pt-1 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgb(0_0_0/0.35)] pt-4">
-              {timeline(true)}
-            </div>
-          )}
-        </div>
+            <Attribution
+              osm={!!index.data?.basemap}
+              relief={relief}
+              className="glass absolute right-3 bottom-2.5 w-fit max-w-[calc(100%-24px)] rounded-md border px-2 py-1 text-right shadow-none"
+            />
+          </>
+        ) : (
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2">
+            <Attribution
+              osm={!!index.data?.basemap}
+              relief={relief}
+              short
+              className="glass mr-2 ml-auto w-fit max-w-full rounded-md border px-1.5 py-0.5 text-right text-[10px] shadow-none"
+            />
+            {spot || (
+              <div className="glass rounded-t-[20px] rounded-b-none border border-x-0 border-b-0 px-4 pt-4 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgb(0_0_0/0.35)]">
+                {timeline}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

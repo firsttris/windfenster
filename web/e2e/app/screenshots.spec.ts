@@ -42,11 +42,10 @@ test.describe('@screenshots', () => {
     await page.screenshot({ path: shot('screenshot') });
   });
 
-  test('the wind map with gusts, panel folded', async ({ page }) => {
+  test('the wind map with gusts', async ({ page }) => {
     await page.setViewportSize(desktop);
     await theme(page, 'dark');
     await openMap(page, '/map?layer=gusts#4.6/52.5/-4');
-    await page.getByRole('button', { name: 'Fold the panel away' }).click();
     await page.waitForTimeout(1_500);
     await page.screenshot({ path: shot('screenshot-map-gusts') });
   });

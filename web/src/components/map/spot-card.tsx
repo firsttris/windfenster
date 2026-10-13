@@ -74,10 +74,10 @@ export function SpotCard({
       aria-label={station?.name ?? m.map_spot()}
       className={cn(
         'flex flex-col',
-        // A sheet over the map on phones; inside the floating panel on wider screens
+        // A sheet over the map on phones; on wider screens a card floating under the pills
         compact
           ? 'glass rounded-t-[20px] rounded-b-none border border-x-0 border-b-0 px-4 pt-1 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgb(0_0_0/0.35)] gap-3'
-          : 'rounded-xl border gap-3 bg-card/60 p-4',
+          : 'glass rounded-xl border gap-3 p-4',
         sheet.dy === 0 && 'transition-transform duration-200',
         className,
       )}

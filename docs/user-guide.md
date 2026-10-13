@@ -103,24 +103,31 @@ made is in [Forecasts and models](forecasts.md#verification-and-ranking).
 
 ## The wind map
 
-![The wind map with the gust layer: a storm west of Ireland in yellow, orange and red over the British Isles and France, the panel folded away](screenshot-map-gusts.png)
+![The wind map with the gust layer: a storm west of Ireland in yellow, orange and red over the British Isles and France](screenshot-map-gusts.png)
+
+Over the map lie only two pills and the scale, top left, and the timeline at the foot.
 
 - **Models**: ICON-D2, ICON global and ECMWF IFS are drawn at once, the finest on top, blended
-  without an edge. Picking one draws it and the coarser ones only.
-- **Wind / Gusts**: the colour field and the particles show the mean wind or the gusts (key **G**).
-- **Timeline**: play (**Space**), step an hour (**←/→**, with **Shift** a day), tap a day, jump to
-  now (**N**). The bar is coloured by the wind at the picked spot.
-- **Tap a place**: the spot card shows the model's wind and gusts there and its coming hours; tap
-  an hour to go there. A station also shows its last measurement and six hours as a small curve.
-  **Escape** closes it.
+  without an edge. The model pill (with its resolution and, on a wide screen, its run) picks one;
+  it and the coarser ones are drawn.
+- **Wind / Gusts**: the second pill; the colour field and the particles show the mean wind or the
+  gusts (key **G**).
+- **Timeline**: on a wide screen a thin track straight on the map, the days under it and **Now**
+  at its end; drag the knob or tap a day. The keys play (**Space**), step an hour (**←/→**, with
+  **Shift** a day) and jump to now (**N**). On a phone it sits in a sheet at the foot, with play
+  and the hour. The track is coloured by the wind at the picked spot.
+- **Tap a place**: the spot card, under the pills on a wide screen, shows the model's wind and
+  gusts there and its coming hours; tap an hour to go there. A station also shows its last
+  measurement and six hours as a small curve. **Escape** closes it.
 - **Stations** show their measured wind as a dot in the scale's colour, from closer up as a badge
   with an arrow; from afar they are bundled, each bundle showing the strongest wind in it.
-- **Water gauges** show their level from zoom 8.5.
+- **Water gauges** show their level from zoom 8.5: blue normal, amber low, red high.
 - **Town zoom**: from zoom 9.5 the colour field fades out and the map comes forward; the particles
   take the scale's colours instead.
-- **Share**: the view, hour, layer and model stay in the address; the share button copies it.
+- **Share**: the view, hour, layer and model stay in the address; copy it from the browser, or on
+  a phone with the share button in the spot sheet.
 - With a mouse, the wind under the pointer shows without a click.
-- On a phone the panel is a bar at the top and the spot a sheet you pull up or swipe away.
+- On a phone the spot is a sheet you pull up or swipe away.
 
 <div class="grid" markdown>
 
