@@ -90,27 +90,101 @@ pub fn holds(a: &Area, z: u8, x: u32, y: u32) -> bool {
     (x0..=x1).contains(&x) && (y0..=y1).contains(&y)
 }
 
-/// Every tile of the areas, once, in the order of their ids (as the archive stores them).
-pub fn wanted(areas: &[Area]) -> Vec<TileCoord> {
-    let mut ids: Vec<u64> = Vec::new();
-    for a in areas {
-        for z in a.min_zoom..=a.max_zoom {
-            let (x0, y0) = tile_of(z, a.west, a.north);
-            let (x1, y1) = tile_of(z, a.east, a.south);
-            for x in x0..=x1 {
-                for y in y0..=y1 {
-                    if let Ok(c) = TileCoord::new(z, x, y) {
-                        ids.push(TileId::from(c).value());
-                    }
-                }
+/// Every tile of the areas, once, in the order of their ids (as the archive stores them),
+/// made one by one: the world at zoom 15 is over a billion tiles, too many to list first (the
+/// list of ids took 12.5 GB before the kernel ended the server).
+pub fn wanted(areas: &[Area]) -> impl Iterator<Item = TileCoord> + '_ {
+    let max = areas.iter().map(|a| a.max_zoom).max().unwrap_or(0);
+    (0..=max).flat_map(move |z| Level::new(areas, z))
+}
+
+/// The wanted tiles of one zoom, by going down the quadtree. PMTiles numbers a zoom's tiles
+/// along a Hilbert curve, which runs through every aligned square of tiles in one stretch of
+/// ids: a square the areas leave out is skipped whole, one they cover whole is a run of ids,
+/// and only squares on an area's edge are split. The work follows the tiles made, not the
+/// zoom's size.
+struct Level {
+    z: u8,
+    /// The areas' tiles at this zoom: x0, y0, x1, y1, inclusive
+    boxes: Vec<(u32, u32, u32, u32)>,
+    /// Squares still to look at, (depth, x, y), the next on top
+    stack: Vec<(u8, u32, u32)>,
+    /// Ids of a square covered whole, still to give
+    run: std::ops::Range<u64>,
+}
+
+impl Level {
+    fn new(areas: &[Area], z: u8) -> Self {
+        let boxes: Vec<_> = areas
+            .iter()
+            .filter(|a| (a.min_zoom..=a.max_zoom).contains(&z))
+            .map(|a| {
+                let (x0, y0) = tile_of(z, a.west, a.north);
+                let (x1, y1) = tile_of(z, a.east, a.south);
+                (x0, y0, x1, y1)
+            })
+            .collect();
+        let stack = if boxes.is_empty() {
+            vec![]
+        } else {
+            vec![(0, 0, 0)]
+        };
+        Level {
+            z,
+            boxes,
+            stack,
+            run: 0..0,
+        }
+    }
+
+    /// The id of tile x, y at this zoom
+    fn id(&self, x: u32, y: u32) -> u64 {
+        TileCoord::new(self.z, x, y).map_or(0, |c| TileId::from(c).value())
+    }
+}
+
+impl Iterator for Level {
+    type Item = TileCoord;
+
+    fn next(&mut self) -> Option<TileCoord> {
+        loop {
+            if let Some(id) = self.run.next() {
+                return TileId::new(id).ok().map(TileCoord::from);
+            }
+            let (depth, x, y) = self.stack.pop()?;
+            // The square's tiles at zoom z
+            let side = 1u32 << (self.z - depth);
+            let (tx0, ty0) = (x * side, y * side);
+            let (tx1, ty1) = (tx0 + side - 1, ty0 + side - 1);
+            let meets = |&(x0, y0, x1, y1): &(u32, u32, u32, u32)| {
+                tx0 <= x1 && x0 <= tx1 && ty0 <= y1 && y0 <= ty1
+            };
+            let covers = |&(x0, y0, x1, y1): &(u32, u32, u32, u32)| {
+                x0 <= tx0 && tx1 <= x1 && y0 <= ty0 && ty1 <= y1
+            };
+            if !self.boxes.iter().any(meets) {
+                continue;
+            }
+            if self.boxes.iter().any(covers) {
+                // The square is one stretch of ids, aligned to its size within the zoom.
+                let first = ((1u64 << (2 * self.z)) - 1) / 3;
+                let size = 1u64 << (2 * (self.z - depth));
+                let start = first + (self.id(tx0, ty0) - first) / size * size;
+                self.run = start..start + size;
+                continue;
+            }
+            // On an edge: its four quarters, the lowest ids on top
+            let mut quarters = [(0, 0), (1, 0), (0, 1), (1, 1)].map(|(dx, dy)| {
+                let (qx, qy) = (2 * x + dx, 2 * y + dy);
+                let half = side / 2;
+                (self.id(qx * half, qy * half), qx, qy)
+            });
+            quarters.sort_unstable_by_key(|q| std::cmp::Reverse(q.0));
+            for (_, qx, qy) in quarters {
+                self.stack.push((depth + 1, qx, qy));
             }
         }
     }
-    ids.sort_unstable();
-    ids.dedup();
-    ids.into_iter()
-        .filter_map(|id| TileId::new(id).ok().map(TileCoord::from))
-        .collect()
 }
 
 #[cfg(test)]
@@ -136,20 +210,80 @@ mod tests {
             min_zoom: 0,
             max_zoom: 3,
         };
-        let tiles = wanted(&[a, a]);
+        let tiles: Vec<_> = wanted(&[a, a]).collect();
         // One tile per zoom up to 3 for so small a box
         assert_eq!(tiles.len(), 4);
         let ids: Vec<u64> = tiles.iter().map(|c| TileId::from(*c).value()).collect();
         assert!(ids.windows(2).all(|w| w[0] < w[1]));
         // A spot is 40 km wide: at zoom 14 (1.6 km a tile there) some 25 × 25 tiles
-        let s = wanted(&[Area {
+        let s: Vec<_> = wanted(&[Area {
             min_zoom: 14,
             ..spot(48.78, 8.08, REGION_ZOOM + 1)
-        }]);
+        }])
+        .collect();
         assert!((500..900).contains(&s.len()), "{}", s.len());
         let airpark = spot(48.78, 8.08, REGION_ZOOM + 1);
         assert!(holds(&airpark, 12, 2139, 1410));
         assert!(!holds(&airpark, 12, 2200, 1410));
         assert!(!holds(&airpark, 8, 133, 88));
+    }
+
+    /// The way it was done before: every id listed, sorted, made unique.
+    fn by_list(areas: &[Area]) -> Vec<TileCoord> {
+        let mut ids: Vec<u64> = Vec::new();
+        for a in areas {
+            for z in a.min_zoom..=a.max_zoom {
+                let (x0, y0) = tile_of(z, a.west, a.north);
+                let (x1, y1) = tile_of(z, a.east, a.south);
+                for x in x0..=x1 {
+                    for y in y0..=y1 {
+                        ids.push(TileId::from(TileCoord::new(z, x, y).unwrap()).value());
+                    }
+                }
+            }
+        }
+        ids.sort_unstable();
+        ids.dedup();
+        ids.into_iter()
+            .map(|id| TileCoord::from(TileId::new(id).unwrap()))
+            .collect()
+    }
+
+    #[test]
+    fn gives_the_same_tiles_as_a_sorted_list() {
+        let europe = region([-25.0, 27.0, 45.0, 72.0], 9);
+        let rhine = region([7.5, 47.5, 9.0, 49.5], 12);
+        let cases: Vec<Vec<Area>> = vec![
+            vec![world(6)],
+            vec![world(4), europe],
+            vec![world(3), europe, rhine, spot(48.78, 8.08, 10)],
+            vec![spot(36.4, 28.1, 9), spot(36.45, 28.2, 9)],
+            vec![region([170.0, -50.0, 179.9, -30.0], 8)],
+            vec![],
+        ];
+        for areas in cases {
+            assert_eq!(
+                wanted(&areas).collect::<Vec<_>>(),
+                by_list(&areas),
+                "{areas:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn makes_the_world_one_tile_at_a_time() {
+        // The world at zoom 15 starts at once and counts right at a zoom we can walk through
+        let deep = world(15);
+        assert_eq!(wanted(std::slice::from_ref(&deep)).take(3).count(), 3);
+        let n = wanted(&[world(9)]).count() as u64;
+        assert_eq!(n, (0..=9).map(|z| 1u64 << (2 * z)).sum::<u64>());
+        // A spot at zoom 14 is found without walking the zoom's 268 million ids
+        let t = std::time::Instant::now();
+        let s = wanted(&[spot(48.78, 8.08, 9)]).count();
+        assert!(
+            s < 5_000 && t.elapsed() < std::time::Duration::from_secs(1),
+            "{s} {:?}",
+            t.elapsed()
+        );
     }
 }

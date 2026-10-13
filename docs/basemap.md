@@ -92,6 +92,8 @@ anew from the newest build:
   answer now and then over hours of requests) is asked again up to nine times, the wait doubling from 1 s to a
   minute (about five minutes in all); only when it keeps failing does the cut stop. A restart in the middle **starts over**; after an
   error it tries again in an hour;
+- the tiles are walked one at a time in the archive's order and only the directories in use
+  are kept (64 MB at most), so even the world at zoom 15 needs little memory, only time;
 - the detail spots stay as they are; from `WF_BASEMAP_ZOOM=14` none are made inside the region.
 
 Reload the map page in the browser afterwards.

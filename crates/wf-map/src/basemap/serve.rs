@@ -10,8 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use pmtiles::{
-    AsyncBackend, AsyncPmTilesReader, BackendResponse, Compression, HashMapCache, PmtResult,
-    TileCoord,
+    AsyncBackend, AsyncPmTilesReader, BackendResponse, Compression, PmtResult, TileCoord,
 };
 
 use super::spots::{self, Spot};
@@ -40,7 +39,7 @@ impl AsyncBackend for File {
 
 /// With its directories cached: a tile is one read then, not a leaf directory read and
 /// unpacked every time (Protomaps' leaves are tens to hundreds of KB).
-type Reader = AsyncPmTilesReader<File, HashMapCache>;
+type Reader = AsyncPmTilesReader<File, super::dircache::Bounded>;
 
 /// How long the list of spot files and a file's modification time are trusted before the disk
 /// is asked again: a map pan asks for 20 to 40 tiles, each up to 7 levels deep.
@@ -121,7 +120,7 @@ impl Readers {
         let reader = Arc::new(
             AsyncPmTilesReader::try_from_cached_source(
                 File(Arc::new(std::fs::File::open(path).ok()?)),
-                HashMapCache::default(),
+                super::dircache::Bounded::new(),
             )
             .await
             .ok()?,

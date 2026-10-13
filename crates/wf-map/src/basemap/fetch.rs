@@ -8,9 +8,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use pmtiles::{
-    AsyncBackend, AsyncPmTilesReader, BackendResponse, HashMapCache, PmtError, PmtResult,
-};
+use pmtiles::{AsyncBackend, AsyncPmTilesReader, BackendResponse, PmtError, PmtResult};
+
+use super::dircache::Bounded;
 use reqwest::header::RANGE;
 use serde::{Deserialize, Serialize};
 
@@ -194,7 +194,7 @@ impl AsyncBackend for Http {
     }
 }
 
-pub(crate) type Reader = AsyncPmTilesReader<Http, HashMapCache>;
+pub(crate) type Reader = AsyncPmTilesReader<Http, Bounded>;
 
 pub(crate) async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reader> {
     let backend = Http {
@@ -202,7 +202,7 @@ pub(crate) async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reade
         url,
         backoff: BACKOFF,
     };
-    AsyncPmTilesReader::try_from_cached_source(backend, HashMapCache::default()).await
+    AsyncPmTilesReader::try_from_cached_source(backend, Bounded::new()).await
 }
 
 /// The newest build that answers: YYYYMMDD and its reader.
@@ -262,7 +262,13 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
         writer.finalize()?;
         Ok(n)
     });
-    for batch in tiles::wanted(areas).chunks(PARALLEL) {
+    // A batch at a time from the tiles as they are made: the world deep is too many to list.
+    let mut tiles = tiles::wanted(areas);
+    loop {
+        let batch: Vec<_> = tiles.by_ref().take(PARALLEL).collect();
+        if batch.is_empty() {
+            break;
+        }
         let mut set = tokio::task::JoinSet::new();
         for (i, &coord) in batch.iter().enumerate() {
             let reader = reader.clone();

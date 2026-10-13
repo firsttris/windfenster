@@ -3,6 +3,7 @@
 //! next to it. The app reads the zoom range and bounds from the header and gets its tiles one by
 //! one from the server (`serve`).
 
+mod dircache;
 pub mod fetch;
 pub mod mvt;
 pub mod serve;
