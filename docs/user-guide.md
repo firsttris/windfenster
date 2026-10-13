@@ -63,6 +63,13 @@ Every day is a card, two side by side on a wide screen. The columns are every th
 the clock; with a fine regional model selected, today and tomorrow are **hourly from 7 to 19**
 instead. From day 8 the card says *Trend*: the models compute coarser there.
 
+**On a phone** the days do not scroll sideways. Above them a strip shows all ten days with their
+wind every 3 hours; a tap jumps to the day. Each day lists its hours under one another, as
+Windfinder does: a bar behind the row as long as the wind, in the scale's colour, and a line along
+its foot that runs on to the gust. On the row: time, direction, wind and gust, what was measured
+(framed) and the TAF (dashed), the gear that fits, the weather. The hours that are over fold into
+one line with what was measured in them; a tap opens them.
+
 The rows, in three blocks:
 
 | Block | Rows |

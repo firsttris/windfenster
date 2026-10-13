@@ -539,5 +539,12 @@
   "confirm_button": "Confirm address",
   "confirm_done": "Thanks, your address is confirmed.",
   "confirm_toAccount": "Go to your account",
-  "error_tooManyPlaces": "Very many new places were opened from your connection. Please try again in an hour; stations and places already open still work."
+  "error_tooManyPlaces": "Very many new places were opened from your connection. Please try again in an hour; stations and places already open still work.",
+  "rows_time": "Time",
+  "rows_checks": "Measured · TAF",
+  "rows_pastShow": "Show {count} past hours",
+  "rows_pastHide": "Hide past hours",
+  "rows_pastMeasured": "measured {range} {unit}",
+  "rows_legend": "Bar = wind · line below = wind, then on to the gust · framed = measured (wind/gust) · dashed = TAF",
+  "strip_label": "The ten days"
 }

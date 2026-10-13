@@ -11,7 +11,7 @@ import { RankingCard } from '@/components/verification/ranking-card';
 import { favoritesQuery, meQuery } from '@/lib/api';
 import { dayGlance, spotWorks } from '@/lib/day-glance';
 import { type FavoriteTarget, findFavorite } from '@/lib/favorites';
-import { autoModel, buildDays, initialModel, MIX, modeOf } from '@/lib/forecast';
+import { autoModel, buildDays, initialModel, localClock, MIX, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
 import type { Measured } from '@/lib/observations';
@@ -21,6 +21,7 @@ import { useGear } from '@/lib/use-gear';
 import { useNow } from '@/lib/use-now';
 import { m } from '@/paraglide/messages';
 import { Segmented } from '@/ui/segmented';
+import { DayStrip } from './day-strip';
 import { ForecastDays } from './forecast-days';
 import { ModelChips } from './model-chips';
 import { QuickView } from './quick-view';
@@ -137,7 +138,14 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
             </div>
           </div>
           <div className="flex flex-col gap-4 sm:p-3">
-            <QuickView fc={fc} days={threeHourly} glances={glances} unit={unit} spot={fav?.name} />
+            {/* Phones: the ten days as a strip to jump from, then the days hour by hour as rows */}
+            <div className="flex flex-col gap-2 sm:hidden">
+              <DayStrip days={threeHourly} today={localClock(fc.timezone ?? 'UTC')(now).date} />
+              <p className="m-0 px-1 text-[11px] text-muted-foreground leading-snug">{m.rows_legend()}</p>
+            </div>
+            <div className="hidden sm:block">
+              <QuickView fc={fc} days={threeHourly} glances={glances} unit={unit} spot={fav?.name} />
+            </div>
             <ForecastDays fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
           </div>
         </section>

@@ -183,3 +183,27 @@ test('the sources page, from the footer', async ({ page }) => {
   ])
     await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toBeVisible();
 });
+
+test('on a phone each day lists its hours under one another, the past folded, the strip jumps', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/station/edsb');
+  // Nothing wider than the phone
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  // The ten days as a strip; the tables are for wider screens
+  const strip = page.getByRole('navigation', { name: 'Die zehn Tage' });
+  await expect(strip.getByRole('button')).toHaveCount(10);
+  await expect(page.getByRole('table', { name: /^Vorhersage für / }).first()).toBeHidden();
+  // Tomorrow, the second day: every hour a row with its wind, gust and direction
+  const tomorrow = page.locator('section[id^="day-"]').nth(1);
+  await expect(tomorrow.getByText(/^Böen \d+$/).first()).toBeVisible();
+  // Today's hours that are over fold into one line, and open again
+  const today = page.locator('section[id^="day-"]').first();
+  const fold = today.getByRole('button', { name: /vergangene Stunden zeigen/ });
+  if (await fold.count()) {
+    await fold.click();
+    await expect(today.getByRole('button', { name: 'Vergangene Stunden ausblenden' })).toBeVisible();
+  }
+  // A day in the strip leads to its card
+  await strip.getByRole('button').nth(4).click();
+  await expect(page.locator('section[id^="day-"]').nth(4)).toBeInViewport();
+});

@@ -539,5 +539,12 @@
   "confirm_button": "Adresse bestätigen",
   "confirm_done": "Danke, deine Adresse ist bestätigt.",
   "confirm_toAccount": "Zur Kontoseite",
-  "error_tooManyPlaces": "Von deinem Anschluss wurden gerade sehr viele neue Orte geöffnet. Bitte versuch es in einer Stunde noch einmal; Stationen und schon geöffnete Orte gehen weiter."
+  "error_tooManyPlaces": "Von deinem Anschluss wurden gerade sehr viele neue Orte geöffnet. Bitte versuch es in einer Stunde noch einmal; Stationen und schon geöffnete Orte gehen weiter.",
+  "rows_time": "Zeit",
+  "rows_checks": "Gemessen · TAF",
+  "rows_pastShow": "{count} vergangene Stunden zeigen",
+  "rows_pastHide": "Vergangene Stunden ausblenden",
+  "rows_pastMeasured": "gemessen {range} {unit}",
+  "rows_legend": "Balken = Wind · Strich unten = Wind, dann bis zur Böe · gerahmt = gemessen (Wind/Böe) · gestrichelt = TAF",
+  "strip_label": "Die zehn Tage"
 }
