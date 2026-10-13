@@ -135,9 +135,20 @@ pub(crate) struct Http {
 /// Tries per range: a cut of a deep region is millions of requests over hours, and one 502 or
 /// connection cut among them ended the whole cut (seen against build.protomaps.com and
 /// download.mapterhorn.com, which answer 5xx now and then).
-const TRIES: u32 = 6;
-/// The first wait; with doubling 1, 2, 4, 8, 16 s, a minute in all before a range gives up
+/// Outages behind Cloudflare (520, 502) last minutes at times, and all ranges in flight fail at
+/// once: waiting longer costs nothing, giving up costs hours of cutting.
+const TRIES: u32 = 10;
+/// The first wait; it doubles up to `MAX_WAIT`: 1, 2, 4, 8, 16, 32, 60, 60, 60 s, about five
+/// minutes before a range gives up
 const BACKOFF: Duration = Duration::from_secs(1);
+const MAX_WAIT: Duration = Duration::from_secs(60);
+
+/// A wait stretched by up to half again, by the range's offset, so the ranges in flight do not
+/// all knock again at the same moment.
+fn spread(wait: Duration, offset: usize) -> Duration {
+    let share = (offset as u64).wrapping_mul(2_654_435_761) % 1_000;
+    wait + wait.mul_f64(share as f64 / 2_000.0)
+}
 
 /// Whether asking again may help: the server or the way to it failed for a moment (5xx, 429,
 /// a timeout, a cut connection, a body cut short). A 404 or 416 stays what it is: a build not
@@ -171,9 +182,10 @@ impl AsyncBackend for Http {
             match self.range(offset, length).await {
                 Ok(response) => return Ok(response),
                 Err(e) if attempt < TRIES && passing(&e) => {
-                    tracing::debug!("{}: {e}; again in {wait:?}", self.url);
-                    tokio::time::sleep(wait).await;
-                    wait *= 2;
+                    let pause = spread(wait, offset);
+                    tracing::debug!("{}: {e}; again in {pause:?}", self.url);
+                    tokio::time::sleep(pause).await;
+                    wait = (wait * 2).min(MAX_WAIT);
                 }
                 Err(e) => return Err(PmtError::Reading(std::io::Error::other(e))),
             }
@@ -348,6 +360,27 @@ mod tests {
             url,
             backoff: Duration::from_millis(1),
         }
+    }
+
+    #[test]
+    fn waits_spread_and_capped() {
+        let w = Duration::from_secs(8);
+        for offset in [0, 1, 127, 1 << 20, usize::MAX] {
+            let p = spread(w, offset);
+            assert!(p >= w && p < w + w / 2, "{offset}: {p:?}");
+        }
+        assert_ne!(spread(w, 1), spread(w, 2));
+        // The waits of all tries: doubling, then a minute each, about five minutes in all
+        let mut wait = BACKOFF;
+        let mut all = Duration::ZERO;
+        for _ in 1..TRIES {
+            all += wait;
+            wait = (wait * 2).min(MAX_WAIT);
+        }
+        assert_eq!(
+            all,
+            Duration::from_secs(1 + 2 + 4 + 8 + 16 + 32 + 60 + 60 + 60)
+        );
     }
 
     #[tokio::test]
