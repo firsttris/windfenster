@@ -247,6 +247,23 @@ struct ProbeArgs {
     lon: f64,
 }
 
+/// What goes wrong without a public https address: said at start, since a server reached from
+/// the internet needs one.
+fn public_url_warning(public_url: Option<&str>) -> Option<&'static str> {
+    match public_url {
+        None => Some(
+            "WF_PUBLIC_URL is not set: passkeys work on http://localhost:8080 only, the session \
+             cookie is not marked Secure and e-mail addresses cannot be confirmed. Set it to the \
+             address people open, e.g. https://windfenster.example",
+        ),
+        Some(u) if !u.starts_with("https://") && !u.starts_with("http://localhost") => Some(
+            "WF_PUBLIC_URL is not https: the session cookie is not marked Secure and browsers \
+             refuse passkeys and push messages there",
+        ),
+        Some(_) => None,
+    }
+}
+
 fn non_empty(v: &Option<String>) -> Option<String> {
     v.as_ref().filter(|s| !s.trim().is_empty()).cloned()
 }
@@ -397,6 +414,9 @@ async fn serve(args: ServeArgs) -> Result<()> {
             .run()
         });
     }
+    if let Some(warning) = public_url_warning(non_empty(&args.public_url).as_deref()) {
+        tracing::warn!("{warning}");
+    }
     let mut state = wf_api::AppState::new(
         db,
         forecasts,
@@ -504,6 +524,14 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn warns_without_a_public_https_address() {
+        assert!(public_url_warning(None).is_some());
+        assert!(public_url_warning(Some("http://wind.example")).is_some());
+        assert!(public_url_warning(Some("https://wind.example")).is_none());
+        assert!(public_url_warning(Some("http://localhost:8080")).is_none());
+    }
 
     #[test]
     fn reads_the_region() {

@@ -6,14 +6,24 @@ services:
     build: .
     container_name: windfenster
     restart: unless-stopped
+    # Reached from the network on 8080 (Caddy on another machine, say). With Caddy on this
+    # host: '127.0.0.1:8080:8080'. With only a Cloudflare Tunnel: leave ports out and run
+    # cloudflared in this file (see the docs, "Reaching it from outside").
     ports:
       - '8080:8080'
+    # The server runs as uid 10001 (WF_UID below); no way back to root from there.
+    security_opt:
+      - no-new-privileges:true
     volumes:
       # SQLite database (from Phase 3 also the map textures)
       - ./data:/data
     environment:
-      # Public address, for canonical links of station pages
+      # The address people open: passkeys belong to its domain, cookies are Secure with https,
+      # and e-mail confirmation links point there. Set it before the first sign-up.
       # - WF_PUBLIC_URL=https://windfenster.example
+      # The user the server runs as; ./data is handed to it on start. Your own uid (id -u)
+      # keeps the files yours on the host.
+      # - WF_UID=10001
       # Optional: Open-Meteo key for the customer API (commercial use)
       # - OPEN_METEO_API_KEY=
       - RUST_LOG=info

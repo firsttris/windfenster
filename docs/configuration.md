@@ -15,6 +15,7 @@ to start; set `WF_PUBLIC_URL` before people sign up.
 | `WF_DATA_DIR` | `/data` | Database and map textures |
 | `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
 | `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages and the passkeys' domain; without it passkeys work on `http://localhost:8080` only |
+| `WF_UID`, `WF_GID` | 10001 (Docker) | User the server runs as in the container; the data folder is handed to it on start. Under rootless Podman only when set ([Without root](installation.md#without-root)) |
 | `WF_CLIENT_IP_HEADER` | `CF-Connecting-IP` | Header the proxy in front puts the client's address in, for the per-client limits: `CF-Connecting-IP` behind Cloudflare Tunnel, `X-Forwarded-For` behind Caddy or nginx open to the internet (its last entry counts), `none` for the connection's address |
 | `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
 | `OPEN_METEO_BASE_URL` | | Own Open-Meteo instance |

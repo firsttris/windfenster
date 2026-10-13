@@ -124,3 +124,22 @@ jobs:
           file: Dockerfile
           push: false
           cache-from: type=gha,scope=linux-amd64
+          load: true
+          tags: windfenster:ci
+      # The image starts on a data folder of an older version (owned by root), hands it to its
+      # user and serves without root.
+      - name: Start the image
+        run: |
+          mkdir data && sudo touch data/windfenster-old.txt && sudo chown -R root:root data
+          docker run -d --name wf -p 127.0.0.1:8080:8080 -v "$PWD/data:/data" \
+            -e WF_SCHEDULER=false -e WF_MAP=false windfenster:ci
+          for i in $(seq 60); do
+            curl -fsS http://127.0.0.1:8080/api/health && break
+            sleep 2
+          done
+          docker logs wf
+          curl -fsS http://127.0.0.1:8080/api/health
+          docker exec wf sh -c 'for p in /proc/[0-9]*; do grep -q "^Name:[[:space:]]*windfenster" $p/status 2>/dev/null && grep "^Uid:" $p/status; done; true' | tee uid.txt
+          grep -qE '^Uid:\s+10001\s' uid.txt
+          test "$(stat -c %u data/windfenster-old.txt)" = 10001
+          test "$(stat -c %u data/windfenster.db)" = 10001

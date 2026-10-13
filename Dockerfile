@@ -30,6 +30,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tini \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=server /windfenster /usr/local/bin/windfenster
+# Drops root before the server starts (setpriv from util-linux, in every Debian image)
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV WF_DATA_DIR=/data \
     WF_LISTEN=0.0.0.0:8080
@@ -38,5 +40,5 @@ ENV WF_DATA_DIR=/data \
 VOLUME ["/data"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s CMD ["/bin/bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q schemaVersion <&3"]
-ENTRYPOINT ["/usr/bin/tini", "--", "windfenster"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh", "windfenster"]
 CMD ["serve"]

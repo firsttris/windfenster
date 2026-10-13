@@ -126,6 +126,36 @@ that domain, and changing it later makes them useless.
     Push messages need HTTPS, which the tunnel brings; a `.app` domain works only over HTTPS
     anyway.
 
+    With the tunnel only, nothing needs port 8080 on the network: leave `ports:` out (or publish
+    on `127.0.0.1` only), so the way in is the tunnel and Cloudflare's protection in front of it.
+    The per-client limits read the client's address from `CF-Connecting-IP`, which Cloudflare
+    sets ([`WF_CLIENT_IP_HEADER`](configuration.md)). In the Cloudflare dashboard, a rate limiting
+    rule on `/api/` stops floods before they reach the server.
+
+=== "Both: Caddy at home, the tunnel from outside"
+
+    The same server can be reached at home through Caddy and from the internet through the
+    tunnel. Two things to know:
+
+    - **Passkeys belong to one domain**, the one in `WF_PUBLIC_URL`. Use that domain at home
+      too (a local DNS entry pointing it to Caddy, Caddy with a certificate for it), or sign in
+      at home with e-mail and password.
+    - **With an https `WF_PUBLIC_URL` the session cookie is Secure**: the browser keeps you
+      signed in only over https, so open it at home through Caddy, not at `http://…:8080`.
+
+    Requests through Caddy carry no `CF-Connecting-IP`; the limits then count Caddy's address,
+    so everyone at home shares one count (30 new places an hour), plenty for a household.
+    If Caddy itself is open to the internet, set `WF_CLIENT_IP_HEADER=X-Forwarded-For`.
+
+## Without root
+
+The server in the container does not run as root. Under Docker the container starts as root
+only to hand the data folder to its user (uid 10001, or `WF_UID`/`WF_GID`) and then drops to it,
+with no way back (`no-new-privileges`). A data folder from an older version is handed over once
+on the first start. On the host the files then belong to uid 10001: set `WF_UID` to your own
+(`id -u`) to keep them yours, or use `sudo` for backups. Under rootless Podman root in the
+container is your user on the host already; nothing changes there unless `WF_UID` is set.
+
 ## What happens on the first start
 
 - The server creates the database and fetches the station lists, the measurements and the newest
