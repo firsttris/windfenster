@@ -54,20 +54,26 @@ async fn alarms_on_ones_own_favourites() -> Result<()> {
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // A browser takes the push messages, and stops.
-    let sub = json!({"endpoint": "https://push.example/abc", "p256dh": "key", "auth": "secret"});
+    let sub = json!({"endpoint": "https://fcm.googleapis.com/fcm/send/abc", "p256dh": "key", "auth": "secret"});
     let (status, _) = call(&app, "POST", "/api/push/subscriptions", Some(sub), true).await?;
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert_eq!(wf_core::alarm::subscriptions(&db, me).await?.len(), 1);
-    let plain = json!({"endpoint": "http://push.example/abc", "p256dh": "key", "auth": "secret"});
-    let (status, body) = call(&app, "POST", "/api/push/subscriptions", Some(plain), true).await?;
-    assert_eq!(
-        (status, body),
-        (
-            StatusCode::BAD_REQUEST,
-            json!({"code": "invalid_subscription"})
-        )
-    );
-    let gone = json!({"endpoint": "https://push.example/abc"});
+    // Plain http, or an address that is no push service (the home network behind the server)
+    for endpoint in [
+        "http://fcm.googleapis.com/fcm/send/abc",
+        "https://192.168.1.1/x",
+    ] {
+        let bad = json!({"endpoint": endpoint, "p256dh": "key", "auth": "secret"});
+        let (status, body) = call(&app, "POST", "/api/push/subscriptions", Some(bad), true).await?;
+        assert_eq!(
+            (status, body),
+            (
+                StatusCode::BAD_REQUEST,
+                json!({"code": "invalid_subscription"})
+            )
+        );
+    }
+    let gone = json!({"endpoint": "https://fcm.googleapis.com/fcm/send/abc"});
     call(&app, "DELETE", "/api/push/subscriptions", Some(gone), true).await?;
     assert!(wf_core::alarm::subscriptions(&db, me).await?.is_empty());
     // Without alarms set up a test reaches nothing.

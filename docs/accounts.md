@@ -51,6 +51,11 @@ language, time zone and wind unit. Push works on Android and desktop browsers ri
 iPhone or iPad once Windfenster is added to the home screen (iOS 16.4 and later); the account
 page turns it on per device and sends a test.
 
+The server posts push messages only to the browsers' push services (Google's for Chrome, Edge,
+Opera, Samsung Internet and Brave, Mozilla's for Firefox, Apple's for Safari, Microsoft's for old
+Edge), follows no redirect and keeps at most ten browsers per account. Any other address is
+refused: otherwise a signed-in user could make the server post into the network it runs in.
+
 ```mermaid
 flowchart LR
   T[every 10 minutes] --> C{each alarm}

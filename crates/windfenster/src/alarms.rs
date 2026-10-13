@@ -25,7 +25,6 @@ pub struct MailArgs {
 pub fn build(
     db: SqlitePool,
     data_dir: &Path,
-    http: reqwest::Client,
     map: Option<Arc<MapData>>,
     mail: &MailArgs,
     public_url: Option<String>,
@@ -37,7 +36,7 @@ pub fn build(
         (_, Some(f)) => format!("mailto:{}", address(f)),
         _ => "https://github.com/firsttris/windfenster".into(),
     };
-    let push = Push::load_or_create(&data_dir.join("vapid.pem"), contact, http)
+    let push = Push::load_or_create(&data_dir.join("vapid.pem"), contact)
         .context("the push key (vapid.pem)")?;
     let mail = match (crate::non_empty(&mail.smtp_url), from) {
         (Some(url), Some(from)) => {

@@ -124,11 +124,8 @@ async fn tells_once_when_the_station_measures_it() -> Result<(), Box<dyn std::er
     let (url, seen) = push_service().await;
     alarm::subscribe(&db, me, &browser(format!("{url}/ok/1")), 1).await?;
     alarm::subscribe(&db, me, &browser(format!("{url}/gone/2")), 1).await?;
-    let push = Push::load_or_create(
-        &dir.path().join("vapid.pem"),
-        "mailto:a@b.c".into(),
-        reqwest::Client::new(),
-    )?;
+    let push = Push::load_or_create(&dir.path().join("vapid.pem"), "mailto:a@b.c".into())?
+        .allowing_any_host();
     let alarms = Alarms {
         db: db.clone(),
         map: None,
@@ -223,11 +220,8 @@ async fn sleeps_at_night_and_needs_the_direction() -> Result<(), Box<dyn std::er
     alarm::set(&db, me, fav.id, &settings, 1).await?;
     let (url, seen) = push_service().await;
     alarm::subscribe(&db, me, &browser(format!("{url}/ok/1")), 1).await?;
-    let push = Push::load_or_create(
-        &dir.path().join("vapid.pem"),
-        "mailto:a@b.c".into(),
-        reqwest::Client::new(),
-    )?;
+    let push = Push::load_or_create(&dir.path().join("vapid.pem"), "mailto:a@b.c".into())?
+        .allowing_any_host();
     let alarms = Alarms {
         db: db.clone(),
         map: None,
@@ -260,5 +254,31 @@ async fn sleeps_at_night_and_needs_the_direction() -> Result<(), Box<dyn std::er
     .await?;
     alarms.check(night).await?;
     assert!(seen.lock().unwrap().is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn posts_nothing_to_an_address_outside_the_push_services()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempfile::tempdir()?;
+    let db = wf_core::db::connect(&dir.path().join("t.db")).await?;
+    wf_core::db::migrate(&db).await?;
+    let me = wf_core::account::create(&db, "u1", "Ana", "c1", "{}", 0).await?;
+    // A local address, as one stored before only the known services were taken could be
+    let (url, seen) = push_service().await;
+    alarm::subscribe(&db, me, &browser(format!("{url}/ok/1")), 1).await?;
+    let push = Push::load_or_create(&dir.path().join("vapid.pem"), "mailto:a@b.c".into())?;
+    let alarms = Alarms {
+        db: db.clone(),
+        map: None,
+        push: Some(push),
+        mail: None,
+        public_url: None,
+    };
+    let reached = alarms.test(me, None, "de").await;
+    assert_eq!(reached.browsers, 0);
+    assert!(seen.lock().unwrap().is_empty());
+    // and it is forgotten
+    assert!(alarm::subscriptions(&db, me).await?.is_empty());
     Ok(())
 }

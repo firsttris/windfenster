@@ -92,11 +92,49 @@ pub struct PushSubscription {
 
 impl PushSubscription {
     pub fn valid(&self) -> bool {
-        self.endpoint.starts_with("https://")
+        known_push_service(&self.endpoint)
             && self.endpoint.len() <= 1024
             && (1..=200).contains(&self.p256dh.len())
             && (1..=100).contains(&self.auth.len())
     }
+}
+
+/// The push services browsers subscribe with, by host and its subdomains: Chrome, Edge, Opera,
+/// Samsung Internet and Brave use Google's (FCM), Firefox Mozilla's (autopush), Safari Apple's,
+/// old Edge Windows' (WNS). The server posts to the endpoint a browser gives; with any address
+/// allowed, a signed-in user could make it post into the network it runs in.
+const PUSH_SERVICES: &[&str] = &[
+    "fcm.googleapis.com",
+    "android.googleapis.com",
+    "push.services.mozilla.com",
+    "push.apple.com",
+    "notify.windows.com",
+];
+
+/// Most browsers an account takes push messages in; a new one drops the oldest.
+pub const MAX_PUSH_SUBSCRIPTIONS: i64 = 10;
+
+/// Whether the endpoint is an https address on a known push service, without user, port or
+/// anything else in the address's authority that could point it elsewhere.
+pub fn known_push_service(endpoint: &str) -> bool {
+    let Some(rest) = endpoint.strip_prefix("https://") else {
+        return false;
+    };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if host.is_empty()
+        || !host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-.".contains(c))
+    {
+        return false;
+    }
+    let host = host.to_ascii_lowercase();
+    PUSH_SERVICES.iter().any(|s| {
+        host == *s
+            || host
+                .strip_suffix(s)
+                .is_some_and(|sub| sub.len() > 1 && sub.ends_with('.'))
+    })
 }
 
 type SettingsRow = (f64, bool, bool, bool, bool, bool);
@@ -223,13 +261,26 @@ pub async fn subscribe(
     sqlx::query(
         "INSERT INTO push_subscription (endpoint, account_id, p256dh, auth, created_at) \
          VALUES (?, ?, ?, ?, ?) ON CONFLICT (endpoint) DO UPDATE SET \
-         account_id = excluded.account_id, p256dh = excluded.p256dh, auth = excluded.auth",
+         account_id = excluded.account_id, p256dh = excluded.p256dh, auth = excluded.auth, \
+         created_at = excluded.created_at",
     )
     .bind(&s.endpoint)
     .bind(account_id)
     .bind(&s.p256dh)
     .bind(&s.auth)
     .bind(now)
+    .execute(db)
+    .await?;
+    // A browser that was reset or reinstalled leaves its old subscription behind: the ones not
+    // turned on longest go.
+    sqlx::query(
+        "DELETE FROM push_subscription WHERE account_id = ?1 AND endpoint NOT IN \
+         (SELECT endpoint FROM push_subscription WHERE account_id = ?1 \
+          ORDER BY endpoint = ?2 DESC, created_at DESC LIMIT ?3)",
+    )
+    .bind(account_id)
+    .bind(&s.endpoint)
+    .bind(MAX_PUSH_SUBSCRIPTIONS)
     .execute(db)
     .await?;
     Ok(())
@@ -516,6 +567,66 @@ mod tests {
         // Gone with the favourite
         assert!(remove(&db, me, fav.id).await?);
         assert!(list(&db, me).await?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn push_goes_only_to_the_known_services() {
+        for ok in [
+            "https://fcm.googleapis.com/fcm/send/abc",
+            "https://updates.push.services.mozilla.com/wpush/v2/abc",
+            "https://web.push.apple.com/QGh",
+            "https://wns2-par02p.notify.windows.com/w/?token=abc",
+            "https://FCM.googleapis.com/wp/abc",
+        ] {
+            assert!(known_push_service(ok), "{ok}");
+        }
+        for bad in [
+            "http://fcm.googleapis.com/fcm/send/abc",
+            "https://192.168.1.1/x",
+            "https://fcm.googleapis.com.evil.example/x",
+            "https://evilfcm.googleapis.com/x",
+            "https://user@fcm.googleapis.com/x",
+            "https://fcm.googleapis.com:8443/x",
+            "https://evil.example/fcm.googleapis.com",
+            "https://evil.example?fcm.googleapis.com",
+            "https://.push.apple.com/x",
+            "https://",
+        ] {
+            assert!(!known_push_service(bad), "{bad}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_account_keeps_its_newest_browsers() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let db = crate::db::connect(&dir.path().join("t.db")).await?;
+        crate::db::migrate(&db).await?;
+        let me = crate::account::create(&db, "u1", "Ana", "c1", "{}", 0).await?;
+        let sub = |i: i64| PushSubscription {
+            endpoint: format!("https://fcm.googleapis.com/fcm/send/{i}"),
+            p256dh: "k".into(),
+            auth: "a".into(),
+        };
+        for i in 0..15 {
+            subscribe(&db, me, &sub(i), i).await?;
+        }
+        let kept: Vec<String> = subscriptions(&db, me)
+            .await?
+            .into_iter()
+            .map(|s| s.endpoint)
+            .collect();
+        assert_eq!(kept.len(), MAX_PUSH_SUBSCRIPTIONS as usize);
+        assert!(!kept.contains(&sub(4).endpoint) && kept.contains(&sub(5).endpoint));
+        // A browser that subscribes again counts as new: the next oldest goes instead.
+        subscribe(&db, me, &sub(5), 99).await?;
+        subscribe(&db, me, &sub(15), 100).await?;
+        let kept: Vec<String> = subscriptions(&db, me)
+            .await?
+            .into_iter()
+            .map(|s| s.endpoint)
+            .collect();
+        assert!(kept.contains(&sub(15).endpoint) && !kept.contains(&sub(6).endpoint));
         Ok(())
     }
 }

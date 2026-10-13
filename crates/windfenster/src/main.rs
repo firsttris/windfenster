@@ -353,7 +353,6 @@ async fn serve(args: ServeArgs) -> Result<()> {
     let alarms = Arc::new(alarms::build(
         db.clone(),
         &args.data.data_dir,
-        http.clone(),
         map.clone(),
         &args.mail,
         non_empty(&args.public_url),
