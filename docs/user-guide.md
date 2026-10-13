@@ -24,7 +24,9 @@ its point page. On the map, a result flies there and opens the spot instead.
 From the top:
 
 1. **Measured now** (stations): the newest METAR or DWD value, then two folds: the airport
-   forecast (TAF) in plain words and the raw METAR translated group by group.
+   forecast (TAF) in plain words and the raw METAR translated group by group. Beside it **Do the
+   models agree?**: the spread between the models at the windiest daytime hour of the next two
+   days.
 2. **Model chips**, right above the forecast, in two rows: **Fine · hourly** for the regional
    high-resolution models (ICON-D2, AROME, HARMONIE), **Global · every 3 hours** for the global
    ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. The model chosen
@@ -36,9 +38,8 @@ From the top:
 5. **Wind statistics** (stations): ten years of wind per month as a rose and the share of windy
    days; then *Water* (within 15 km of a gauge): level, flood state and, on the Rhine, the
    estimated current.
-6. **Do the models agree?**, **Models compared · today** and **Who hits here?**: the spread
-   between the models at the windiest daytime hour of the next two days, the models' wind for
-   today against what was measured so far, and the ranking from the last 30 days.
+6. **Models compared · today** and **Who hits here?**: the models' wind for today against what
+   was measured so far, and the ranking from the last 30 days.
 
 ### The ten days at a glance
 

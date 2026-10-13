@@ -85,7 +85,12 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
   return (
     <div className="flex flex-col gap-4">
       {/* What is measured now first, then the run, the unit and the models right above the days */}
-      {tiles && <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{tiles}</div>}
+      {(tiles || fc.series.length > 1) && (
+        <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {tiles}
+          {fc.series.length > 1 && <AgreementTile fc={fc} />}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
@@ -161,8 +166,6 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
 
       {fc.series.length > 0 && (
         <div className="flex flex-wrap items-start gap-4">
-          {/* How far the models agree, beside their comparison: below the forecast, not before it */}
-          {fc.series.length > 1 && <AgreementTile fc={fc} />}
           <CompareChart
             fc={fc}
             selected={selected}
