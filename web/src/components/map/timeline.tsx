@@ -18,6 +18,10 @@ interface Props {
   band?: string;
   /** The hour shown is still loading */
   loading?: boolean;
+  /** One row for phones: without the day segments */
+  compact?: boolean;
+  /** Without its own card, inside the spot sheet */
+  bare?: boolean;
   className?: string;
 }
 
@@ -35,7 +39,19 @@ export function frameTime(unix: number): string {
 
 /** Play, the hours on a slider and the days as segments to jump to. The slider steps an hour
  * with the arrow keys and a day with Page up/down; "now" is marked and one tap away. */
-export function Timeline({ frames, time, now, playing, onTime, onPlay, band, loading = false, className }: Props) {
+export function Timeline({
+  frames,
+  time,
+  now,
+  playing,
+  onTime,
+  onPlay,
+  band,
+  loading = false,
+  compact = false,
+  bare = false,
+  className,
+}: Props) {
   const from = frames[0]?.validAt ?? 0;
   const to = frames.at(-1)?.validAt ?? 0;
   const span = Math.max(1, to - from);
@@ -50,7 +66,7 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, band, loa
   const nowInRange = now >= from && now <= to;
 
   return (
-    <div className={cn('glass flex items-center gap-3 rounded-xl border p-3', className)}>
+    <div className={cn('flex items-center gap-3', !bare && 'glass rounded-xl border p-3', className)}>
       <Button
         size="icon"
         aria-label={playing ? m.map_pause() : m.map_play()}
@@ -138,25 +154,27 @@ export function Timeline({ frames, time, now, playing, onTime, onPlay, band, loa
             </span>
           )}
         </div>
-        <div className="relative h-5">
-          {daySegments(from, to).map((d) => {
-            const active = time >= d.from && (time < d.to || d.to === to);
-            return (
-              <button
-                key={d.day}
-                type="button"
-                onClick={() => go(onDay(time, d.day, from, to))}
-                className={cn(
-                  'absolute top-0 h-5 cursor-pointer truncate rounded border-line border-l px-1 text-left font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                  active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
-                )}
-                style={{ left: pct(d.from), width: `calc(${pct(d.to)} - ${pct(d.from)})` }}
-              >
-                {dayFmt.format(new Date(d.day * 1000))}
-              </button>
-            );
-          })}
-        </div>
+        {!compact && (
+          <div className="relative h-5">
+            {daySegments(from, to).map((d) => {
+              const active = time >= d.from && (time < d.to || d.to === to);
+              return (
+                <button
+                  key={d.day}
+                  type="button"
+                  onClick={() => go(onDay(time, d.day, from, to))}
+                  className={cn(
+                    'absolute top-0 h-5 cursor-pointer truncate rounded border-line border-l px-1 text-left font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                    active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  style={{ left: pct(d.from), width: `calc(${pct(d.to)} - ${pct(d.from)})` }}
+                >
+                  {dayFmt.format(new Date(d.day * 1000))}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

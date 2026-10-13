@@ -233,6 +233,23 @@ function MapPage() {
     </div>
   );
 
+  const timeline = (bare: boolean) =>
+    frames.length > 0 &&
+    time !== null && (
+      <Timeline
+        frames={frames}
+        time={time}
+        now={now}
+        playing={playing}
+        onTime={setTime}
+        onPlay={setPlaying}
+        band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
+        loading={loading && !playing}
+        compact={!desktop}
+        bare={bare}
+      />
+    );
+
   const spot = pick && (
     <SpotCard
       pick={pick}
@@ -248,6 +265,7 @@ function MapPage() {
       }}
       onClose={() => setPick(null)}
       compact={!desktop}
+      footer={desktop ? undefined : timeline(true) || undefined}
     />
   );
 
@@ -374,31 +392,37 @@ function MapPage() {
           </p>
         )}
         <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-2">
-          {!desktop && spot}
-          {frames.length > 0 && time !== null && (
-            <Timeline
-              frames={frames}
-              time={time}
-              now={now}
-              playing={playing}
-              onTime={setTime}
-              onPlay={setPlaying}
-              band={hours && windGradient(hours, frames[0].validAt, frames[frames.length - 1].validAt, gusts)}
-              loading={loading && !playing}
-            />
-          )}
+          {/* On phones the sources sit above the spot sheet, which holds the timeline */}
           <Attribution
             osm={!!index.data?.basemap}
             relief={relief}
-            className="glass ml-auto w-fit max-w-full rounded-md border px-2 py-1 text-right shadow-none"
+            short={!desktop}
+            className={cn(
+              'glass ml-auto w-fit max-w-full rounded-md border text-right shadow-none',
+              desktop ? 'order-last px-2 py-1' : 'px-1.5 py-0.5 text-[10px]',
+            )}
           />
+          {!desktop && spot}
+          {(desktop || !spot) && timeline(false)}
         </div>
       </div>
     </main>
   );
 }
 
-function Attribution({ osm, relief, className }: { osm: boolean; relief: boolean; className?: string }) {
+/** The sources the map shows, with their licences; `short` on phones keeps the ones the licences
+ * ask to name on the map itself (CC BY, OpenStreetMap) and leaves the rest to the sources page. */
+function Attribution({
+  osm,
+  relief,
+  short = false,
+  className,
+}: {
+  osm: boolean;
+  relief: boolean;
+  short?: boolean;
+  className?: string;
+}) {
   const link = (href: string, label: string) => (
     <a href={href} className="text-subtle hover:text-foreground">
       {label}
@@ -417,7 +441,11 @@ function Attribution({ osm, relief, className }: { osm: boolean; relief: boolean
         link('https://www.naturalearthdata.com/', 'Natural Earth')
       )}{' '}
       {relief && <>· {link('https://mapterhorn.com/attribution', '© Mapterhorn')} </>}·{' '}
-      {link('https://www.pegelonline.wsv.de/', 'PEGELONLINE (WSV)')} · {link('https://maplibre.org/', 'MapLibre')} ·{' '}
+      {!short && (
+        <>
+          {link('https://www.pegelonline.wsv.de/', 'PEGELONLINE (WSV)')} · {link('https://maplibre.org/', 'MapLibre')} ·{' '}
+        </>
+      )}
       <Link to="/sources" className="text-subtle hover:text-foreground">
         {m.sources_all()}
       </Link>

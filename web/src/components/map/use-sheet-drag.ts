@@ -1,10 +1,10 @@
-/** Dragging a sheet up and down by its top: follows the finger, then opens, folds or closes it
- * (lib/swipe.ts). Pointer events, so mouse and touch alike; the dragged area does not scroll the
+/** Dragging a sheet up and down by its top: follows the finger, then raises or lowers it a step
+ * or closes it (lib/swipe.ts). Pointer events, so mouse and touch alike; the dragged area does not scroll the
  * page (touch-action: none). */
 import { type PointerEvent, useRef, useState } from 'react';
 import { swipeAction } from '@/lib/swipe';
 
-export function useSheetDrag(expanded: boolean, onExpand: (e: boolean) => void, onClose: () => void) {
+export function useSheetDrag(step: number, top: number, onStep: (s: number) => void, onClose: () => void) {
   const start = useRef<{ y: number; t: number; id: number } | null>(null);
   const [dy, setDy] = useState(0);
   const moved = useRef(false);
@@ -34,9 +34,9 @@ export function useSheetDrag(expanded: boolean, onExpand: (e: boolean) => void, 
       setDy(0);
       if (!s || !moved.current) return;
       const d = e.clientY - s.y;
-      const action = swipeAction(d, d / Math.max(1, e.timeStamp - s.t), expanded);
-      if (action === 'expand') onExpand(true);
-      if (action === 'collapse') onExpand(false);
+      const action = swipeAction(d, d / Math.max(1, e.timeStamp - s.t), step, top);
+      if (action === 'up') onStep(step + 1);
+      if (action === 'down') onStep(step - 1);
       if (action === 'close') onClose();
     },
     onPointerCancel: () => {

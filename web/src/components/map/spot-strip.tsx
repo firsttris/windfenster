@@ -96,7 +96,7 @@ export function SpotStrip({ hours, time, unit, onTime, className }: Props) {
                 {day.format(d)}
               </span>
             )}
-            <span className="font-mono text-[10px] text-muted-foreground">{hour.format(d)}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">{hourOf(hour, d)}</span>
             <WindArrow deg={h.dir} className="size-3.5 text-foreground" />
             <span
               className="w-8 rounded py-0.5 text-center font-mono font-semibold text-xs"
@@ -112,6 +112,11 @@ export function SpotStrip({ hours, time, unit, onTime, className }: Props) {
       })}
     </fieldset>
   );
+}
+
+/** The hour alone, "13": German formats it "13 Uhr" */
+function hourOf(fmt: Intl.DateTimeFormat, d: Date): string {
+  return fmt.formatToParts(d).find((p) => p.type === 'hour')?.value ?? fmt.format(d);
 }
 
 /** The hour closest to `time` */

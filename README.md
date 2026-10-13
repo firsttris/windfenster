@@ -115,7 +115,7 @@ Cloudflare Tunnel, settings, disk space and backups are in the
     <td><img src="docs/screenshot-models.png" alt="Weather models compared with the measured wind at the station, and the model ranking card"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshot-phone-map.png" alt="The wind map on a phone with the spot sheet showing the coming hours" width="390"></td>
+    <td><img src="docs/screenshot-phone-map.png" alt="The wind map on a phone with the spot sheet folded to one line and the timeline" width="390"></td>
     <td><img src="docs/screenshot-day-dark.png" alt="A forecast day card in dark mode, hour by hour with wind bars and gusts"></td>
   </tr>
 </table>

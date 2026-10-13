@@ -159,3 +159,28 @@ test('the map fills the window under a floating header; the panel folds away, a 
   await expect(page.getByRole('region').filter({ hasText: '° N' }).first()).toBeVisible();
   await expect(open).toBeHidden();
 });
+
+test('on a phone the spot sheet starts as one line and is pulled up in two steps', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(EDSB);
+  const sheet = page.getByRole('region', { name: 'Karlsruhe Baden-Baden Airport' });
+  await expect(sheet).toBeVisible();
+  const hours = sheet.getByRole('group', { name: 'Die nächsten Stunden an diesem Ort' });
+  const open = sheet.getByRole('link', { name: 'Station öffnen' });
+  // One line and the timeline in it; the sources above
+  await expect(sheet.getByRole('slider', { name: 'Stunde' })).toBeVisible();
+  await expect(hours).toBeHidden();
+  await expect(page.getByRole('link', { name: 'ECMWF' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeHidden();
+  // Up a step: the hours
+  await sheet.getByRole('button', { name: 'Mehr zeigen' }).last().click();
+  await expect(hours).toBeVisible();
+  await expect(open).toBeHidden();
+  // Up again: the measurement and the station's page
+  await sheet.getByRole('button', { name: 'Mehr zeigen' }).click();
+  await expect(open).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('phone-sheet-top.png') });
+  // The grip at the top folds it back to one line
+  await sheet.getByRole('button', { name: 'Weniger zeigen' }).click();
+  await expect(hours).toBeHidden();
+});

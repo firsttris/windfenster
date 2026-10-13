@@ -181,6 +181,14 @@ The spot card and the readout under the mouse read the same texels in JavaScript
 (`lib/wind-map.ts`, `sampleWind`) with the same mean of four neighbours as the shader, so the
 number always matches the colour under it. The spot card's hours come from `/api/map/series`.
 
+On a phone the spot card is a sheet at the foot of the map, with the timeline in it, and opens
+as **one line**: name, model, wind, gusts and direction. Pulled up (or tapped) it shows the
+hours, pulled up again the last measurement with its curve and the link to the station; pulled
+down it goes back a step and from the one line it closes. Another spot picked keeps the step.
+Above the sheet one line names the sources the licences ask to see on the map (DWD, ECMWF with
+CC BY 4.0, OpenStreetMap and Protomaps or Natural Earth, Mapterhorn with the relief); the rest
+is on the sources page.
+
 ### Precision
 
 Every shader declares `precision highp` for floats, integers and samplers. Some drivers (Mesa on
