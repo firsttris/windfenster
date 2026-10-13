@@ -146,7 +146,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
             <div className="hidden sm:block">
               <QuickView fc={fc} days={threeHourly} glances={glances} unit={unit} spot={fav?.name} />
             </div>
-            <ForecastDays fc={fc} days={days} unit={unit} now={now} measured={measured} taf={taf} gear={gear} />
+            <ForecastDays fc={fc} days={days} unit={unit} now={now} taf={taf} gear={gear} />
           </div>
         </section>
       ) : (

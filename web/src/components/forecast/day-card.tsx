@@ -4,18 +4,19 @@ import type { GearItem } from '@/bindings/GearItem';
 import type { Taf } from '@/bindings/Taf';
 import type { WindUnit } from '@/bindings/WindUnit';
 import { dayAgreement } from '@/lib/agreement';
+import { nowIndex, overHours } from '@/lib/day-now';
 import { barShare, type Cell, type Day, isNight } from '@/lib/forecast';
 import { compass, dayMonth, formatNumber, hour, weekday } from '@/lib/format';
 import { gearFor } from '@/lib/gear';
-import type { Measured } from '@/lib/observations';
-import { groupsBetween, groupWhat, groupWhen, tafHour } from '@/lib/taf-text';
+import { tafSegments } from '@/lib/taf-segments';
+import { groupsBetween, groupWhat, groupWhen } from '@/lib/taf-text';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 import { GearFitCell } from '../gear-fit';
-import { Dash, MeasuredCell, TafCell } from './compare-cells';
+import { Dash } from './compare-cells';
 import { DayRows } from './day-rows';
 import { AGREE_DOT, AGREE_LABEL, modelName, StageChip, Weather } from './shared';
 
@@ -25,7 +26,6 @@ interface Props {
   unit: WindUnit;
   /** Unix seconds */
   now: number;
-  measured?: Measured;
   taf?: Taf | null;
   gear?: readonly GearItem[];
 }
@@ -34,24 +34,28 @@ interface Props {
 const BAR = 40;
 
 /** One day of the forecast, as its own card: what the model says (wind as a growing bar, the
- * gust set right under it, the direction), then what checks it (measured, the TAF), then the
- * weather. */
-export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props) {
+ * gust set right under it), the TAF under it in sections, the direction, then the weather. What
+ * was measured is in the measurements further down, not here. Hours that are over stay readable,
+ * only slightly shaded, and a line marks now. */
+export function DayCard({ fc, day, unit, now, taf, gear = [] }: Props) {
   const title = `${weekday(day.date, 'long')}, ${dayMonth(day.date)}`;
-  // What was measured belongs to hours that are over; the TAF to the hours it covers.
-  const showMeasured = !!measured && day.cells.some((c) => c.past);
-  const showTaf = !!taf && day.cells.some((c) => tafHour(taf, c.time)?.wind != null);
+  // The TAF for the hours to come, a value written once per section (lib/taf-segments.ts)
+  const segments = tafSegments(day.cells, taf, unit);
+  const showTaf = segments.some((s) => s.text !== null);
   const hourly = day.stage === 'hourly';
-  // The "?" of a row opens its sentence under the table: touch screens have no hover
-  const [help, setHelp] = useState<'measured' | 'taf' | null>(null);
-  const toggle = (row: 'measured' | 'taf') => setHelp((h) => (h === row ? null : row));
+  // Today: the first hour still to come gets the "now" line
+  const over = overHours(day.cells);
+  const nowAt = nowIndex(day.cells);
+  // The "?" of the TAF row opens its sentence under the table: touch screens have no hover
+  const [help, setHelp] = useState(false);
 
-  const td = (c: Cell, opts: { fade?: boolean; className?: string } = {}) =>
+  const td = (c: Cell, opts: { className?: string } = {}) =>
     cn(
       'p-0 text-center align-middle',
       hourly ? 'min-w-[34px]' : 'min-w-[40px]',
-      (opts.fade ?? true) && c.past && 'opacity-40',
-      (opts.fade ?? true) && !c.past && !hourly && isNight(c.hour) && 'opacity-55',
+      over[day.cells.indexOf(c)] && 'bg-foreground/[0.04]',
+      !c.past && !hourly && isNight(c.hour) && 'opacity-55',
+      day.cells.indexOf(c) === nowAt && 'border-l-2 border-l-foreground/60',
       opts.className,
     );
 
@@ -78,7 +82,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
         </span>
       </header>
       {/* Phones: the hours as rows under one another (day-rows.tsx); wider screens: the table */}
-      <DayRows day={day} unit={unit} now={now} measured={measured} taf={taf} gear={gear} className="sm:hidden" />
+      <DayRows day={day} unit={unit} taf={taf} gear={gear} className="sm:hidden" />
       <div className="relative hidden overflow-x-auto px-2 sm:block">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only">{m.table_dayCaption({ day: title })}</caption>
@@ -87,9 +91,14 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
               <th scope="row" className={label('h-6')}>
                 {m.table_time()}
               </th>
-              {day.cells.map((c) => (
-                <td key={c.hour} className={td(c)}>
+              {day.cells.map((c, i) => (
+                <td key={c.hour} className={td(c, { className: 'relative' })}>
                   <span className="font-mono text-[11px] text-muted-foreground">{hour(c.hour)}</span>
+                  {i === nowAt && (
+                    <span className="absolute -top-0.5 left-1 font-bold font-mono text-[9px] text-foreground">
+                      {m.table_now()}
+                    </span>
+                  )}
                 </td>
               ))}
             </tr>
@@ -117,6 +126,30 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
                 </td>
               ))}
             </tr>
+            {showTaf && (
+              <tr>
+                <th scope="row" className={label('h-8')}>
+                  <span className="flex items-center gap-1 font-semibold text-foreground">
+                    {m.taf_row()}
+                    <Help text={m.taf_help()} open={help} onToggle={() => setHelp(!help)} />
+                    <span className="font-mono font-normal text-[10px] text-muted-foreground">{m.taf_rowSub()}</span>
+                  </span>
+                </th>
+                {segments.map((seg) => (
+                  <td
+                    key={seg.from}
+                    colSpan={seg.span}
+                    className={cn(
+                      'p-0',
+                      over[seg.from] && 'bg-foreground/[0.04]',
+                      seg.from === nowAt && 'border-l-2 border-l-foreground/60',
+                    )}
+                  >
+                    {seg.text !== null && <TafSection text={seg.text} high={seg.high} unit={unit} />}
+                  </td>
+                ))}
+              </tr>
+            )}
             <tr>
               <th scope="row" className={label('h-11')}>
                 {m.table_direction()}
@@ -142,48 +175,6 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
                 {day.cells.map((c) => (
                   <td key={c.hour} className={td(c)}>
                     <GearFitCell fit={c.wind === null ? null : gearFor(gear, c.wind, c.gust)} />
-                  </td>
-                ))}
-              </tr>
-            )}
-
-            {(showMeasured || showTaf) && <GroupRow span={day.cells.length} title={m.table_compare()} />}
-            {showMeasured && measured && (
-              <tr>
-                <th scope="row" className={label('h-9')}>
-                  <span className="flex flex-col leading-tight">
-                    <span className="flex items-center gap-1 font-semibold text-success-foreground">
-                      {m.table_measured()}
-                      <Help
-                        text={m.table_measuredHelp()}
-                        open={help === 'measured'}
-                        onToggle={() => toggle('measured')}
-                      />
-                    </span>
-                    <span className="font-mono text-[10px]">{measured.source}</span>
-                  </span>
-                </th>
-                {day.cells.map((c) => (
-                  <td key={c.hour} className={td(c, { fade: false })}>
-                    <MeasuredCell cell={c} now={now} measured={measured} unit={unit} />
-                  </td>
-                ))}
-              </tr>
-            )}
-            {showTaf && taf && (
-              <tr>
-                <th scope="row" className={label('h-9')}>
-                  <span className="flex flex-col leading-tight">
-                    <span className="flex items-center gap-1 font-semibold text-foreground">
-                      {m.taf_row()}
-                      <Help text={m.taf_help()} open={help === 'taf'} onToggle={() => toggle('taf')} />
-                    </span>
-                    <span className="font-mono text-[10px]">{m.taf_rowSub()}</span>
-                  </span>
-                </th>
-                {day.cells.map((c) => (
-                  <td key={c.hour} className={td(c, { fade: false })}>
-                    <TafCell cell={c} taf={taf} unit={unit} />
                   </td>
                 ))}
               </tr>
@@ -233,7 +224,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
       </div>
       {help && (
         <p role="note" className="m-0 mx-4 mt-2 rounded-lg bg-muted px-3 py-2 text-[12px] text-muted-foreground">
-          {help === 'measured' ? m.table_measuredHelp() : m.taf_help()}
+          {m.taf_help()}
         </p>
       )}
       {showTaf && taf && <TafNotes fc={fc} day={day} taf={taf} unit={unit} now={now} />}
@@ -256,6 +247,22 @@ function WindBar({ kn, unit }: { kn: number; unit: WindUnit }) {
         className="block w-[80%] rounded-t-[4px]"
         style={{ height: Math.max(3, barShare(kn) * BAR), background: windBand(kn).bg }}
       />
+    </span>
+  );
+}
+
+/** A TAF section: its value once, on a dashed line in the scale's colour as long as it holds */
+function TafSection({ text, high, unit }: { text: string; high: number; unit: WindUnit }) {
+  return (
+    <span className="relative flex h-7 items-center justify-center">
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-2 top-1/2 border-t-[1.5px] border-dashed"
+        style={{ borderColor: windBand(high).bg }}
+      />
+      <span className="relative bg-card px-2 font-mono font-semibold text-[13px]">
+        {text} <span className="font-normal text-[10px] text-muted-foreground">{UNIT_LABEL[unit]}</span>
+      </span>
     </span>
   );
 }

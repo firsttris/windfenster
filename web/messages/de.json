@@ -92,7 +92,6 @@
   "compass_points": "N,NNO,NO,ONO,O,OSO,SO,SSO,S,SSW,SW,WSW,W,WNW,NW,NNW",
   "scale_windIn": "Wind in {unit}",
   "time_justNow": "gerade eben",
-  "table_measured": "Gemessen",
   "live_title": "Jetzt gemessen",
   "live_clock": "{time} Uhr",
   "live_old": "veraltet",
@@ -516,8 +515,6 @@
   "stats_roseLabel": "Windrose, Hauptrichtung {main}, Flaute {calm}",
   "sources_iem": "Zehn Jahre METAR der Flughäfen für die Windstatistik",
   "table_dayCaption": "Vorhersage für {day}",
-  "table_compare": "Zum Vergleich",
-  "table_measuredHelp": "Gemessen: der echte Messwert der Station zur jeweiligen Stunde, daneben die gemessene Böe.",
   "taf_help": "TAF: die Flugwetter-Vorhersage, von Meteorologen für den Flughafen geschrieben, für 24 bis 30 Stunden. Eine Spanne heißt zeitweise oder im Übergang.",
   "glance_title": "Auf einen Blick",
   "glance_note": "Balken alle 3 Stunden, Strich = Böe, Pfeil = Hauptrichtung tagsüber",
@@ -541,10 +538,8 @@
   "confirm_toAccount": "Zur Kontoseite",
   "error_tooManyPlaces": "Von deinem Anschluss wurden gerade sehr viele neue Orte geöffnet. Bitte versuch es in einer Stunde noch einmal; Stationen und schon geöffnete Orte gehen weiter.",
   "rows_time": "Zeit",
-  "rows_checks": "Gemessen · TAF",
-  "rows_pastShow": "{count} vergangene Stunden zeigen",
-  "rows_pastHide": "Vergangene Stunden ausblenden",
-  "rows_pastMeasured": "gemessen {range} {unit}",
-  "rows_legend": "Balken = Wind · Strich unten = Wind, dann bis zur Böe · gerahmt = gemessen (Wind/Böe) · gestrichelt = TAF",
-  "strip_label": "Die zehn Tage"
+  "rows_checks": "TAF",
+  "rows_legend": "Balken = Wind · Strich unten = Wind, dann bis zur Böe · gestrichelt = TAF (Flugwetter-Vorhersage)",
+  "strip_label": "Die zehn Tage",
+  "table_now": "jetzt"
 }

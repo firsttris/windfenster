@@ -66,20 +66,19 @@ instead. From day 8 the card says *Trend*: the models compute coarser there.
 **On a phone** the days do not scroll sideways. Above them a strip shows all ten days with their
 wind every 3 hours; a tap jumps to the day. Each day lists its hours under one another, as
 Windfinder does: a bar behind the row as long as the wind, in the scale's colour, and a line along
-its foot that runs on to the gust. On the row: time, direction, wind and gust, what was measured
-(framed) and the TAF (dashed), the gear that fits, the weather. The hours that are over fold into
-one line with what was measured in them; a tap opens them.
+its foot that runs on to the gust. On the row: time, direction, wind and gust, the TAF where it
+starts (dashed, a dashed line below while it holds), the gear that fits, the weather.
 
-The rows, in three blocks:
+The rows of a wide screen:
 
 | Block | Rows |
 |---|---|
-| The forecast | **Wind** as a bar that grows with it, the number above; **Gusts** set right under it; **Direction**; **Your gear** (signed in, or with gear entered): the piece that fits each hour |
-| To compare | **Measured**: what the station reported at that hour, framed in the scale's colour, the gust beside it (`22/31`); **TAF**: the airport forecast's wind, or the span its TEMPO and PROB groups allow (`12–18`). A **?** says what each row is. Under the table the TAF's notes for the day in words: showers, a temporary gust, a change |
+| The forecast | **Wind** as a bar that grows with it, the number above; **Gusts** set right under it; **TAF** (for the hours to come, usually tomorrow): the airport forecast's wind, or the span its TEMPO and PROB groups allow (`12–18`), written once per section on a dashed line as long as it holds, a **?** says what it is; **Direction**; **Your gear** (signed in, or with gear entered): the piece that fits each hour. Under the table the TAF's notes for the day in words: showers, a temporary gust, a change |
 | Weather | symbol (sun, clouds, rain), temperature, rain in mm |
 
-Hours that are over are faded, so the comparison with the measurement stands out. The card's
-header names the model and the models' agreement for that day.
+Hours that are over stay readable, only slightly shaded, and a line marks now. What was measured
+is not in the days: the tile *Measured now* at the top and the measurements further down show it.
+The card's header names the model and the models' agreement for that day.
 
 ![A day card in dark mode: Tuesday hour by hour with the wind bars from 22 to 28 kn, the gusts under them, the direction, the TAF row and the weather](screenshot-day-dark.png)
 

@@ -92,7 +92,6 @@
   "compass_points": "N,NNE,NE,ENE,E,ESE,SE,SSE,S,SSW,SW,WSW,W,WNW,NW,NNW",
   "scale_windIn": "Wind in {unit}",
   "time_justNow": "just now",
-  "table_measured": "Measured",
   "live_title": "Measured now",
   "live_clock": "{time}",
   "live_old": "out of date",
@@ -516,8 +515,6 @@
   "stats_roseLabel": "Wind rose, main direction {main}, calm {calm}",
   "sources_iem": "Ten years of airport METARs for the wind statistics",
   "table_dayCaption": "Forecast for {day}",
-  "table_compare": "To compare",
-  "table_measuredHelp": "Measured: the station's real reading at that hour, with the measured gust beside it.",
   "taf_help": "TAF: the aviation forecast, written by meteorologists for the airport, for 24 to 30 hours. A span means at times or while changing.",
   "glance_title": "At a glance",
   "glance_note": "Bars every 3 hours, tick = gust, arrow = main direction by day",
@@ -541,10 +538,8 @@
   "confirm_toAccount": "Go to your account",
   "error_tooManyPlaces": "Very many new places were opened from your connection. Please try again in an hour; stations and places already open still work.",
   "rows_time": "Time",
-  "rows_checks": "Measured · TAF",
-  "rows_pastShow": "Show {count} past hours",
-  "rows_pastHide": "Hide past hours",
-  "rows_pastMeasured": "measured {range} {unit}",
-  "rows_legend": "Bar = wind · line below = wind, then on to the gust · framed = measured (wind/gust) · dashed = TAF",
-  "strip_label": "The ten days"
+  "rows_checks": "TAF",
+  "rows_legend": "Bar = wind · line below = wind, then on to the gust · dashed = TAF (aerodrome forecast)",
+  "strip_label": "The ten days",
+  "table_now": "now"
 }

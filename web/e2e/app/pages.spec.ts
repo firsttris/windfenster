@@ -85,37 +85,27 @@ test("tomorrow's table shows the chosen model hour by hour: wind, the gust under
   await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
 });
 
-test('measured values and the TAF stand under the forecast, to compare', async ({ page, request }) => {
+test('the TAF stands under the forecast in sections, what was measured is not in the table', async ({ page }) => {
   await page.goto('/station/edsb');
   // A global model, every 3 hours around the clock: the stand-in's TEMPO (five hours around now)
-  // always meets a column of today or tomorrow, at any time of day; hour by hour today shows only
-  // 7 to 19
+  // always meets an hour still to come of today or tomorrow; hour by hour today shows only 7 to 19
   await page
     .getByRole('region', { name: 'Wettermodell wählen' })
     .getByRole('button', { name: /^ECMWF IFS/ })
     .click();
-  const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
-  await expect(today.getByText('Zum Vergleich')).toBeVisible();
-  const row = (name: RegExp) =>
-    today
-      .getByRole('row')
-      .filter({ has: page.getByRole('rowheader', { name }) })
-      .getByRole('cell');
-  // Measured: the hours that are over show values the station reported
-  const live = await (await request.get('/api/stations/edsb/live')).json();
-  const reported = new Set(live.observations.map((o: { wind: number }) => String(Math.round(o.wind))));
-  const measured = (await row(/Gemessen/).allInnerTexts()).map((t) => t.split('/')[0].trim()).filter(Boolean);
-  expect(measured.filter((t) => /^\d+$/.test(t)).length).toBeGreaterThan(0);
-  for (const t of measured.filter((t) => /^\d+$/.test(t))) expect(reported, `measured ${t}`).toContain(t);
-  // TAF: the span TEMPO allows, 12 to 18 kn, in some column of today or tomorrow
+  // The measurements are further down, not in the days
+  await expect(page.getByRole('rowheader', { name: /Gemessen/ })).toHaveCount(0);
+  // TAF: a value once per section, the span TEMPO allows among them
   const taf = (
     await page
       .getByRole('row')
       .filter({ has: page.getByRole('rowheader', { name: /^TAF/ }) })
       .getByRole('cell')
       .allInnerTexts()
-  ).map((t) => t.trim());
-  expect(taf).toContain('12–18');
+  ).map((t) => t.replace(/\s+/g, ' ').trim());
+  expect(taf.some((t) => t.startsWith('12–18'))).toBe(true);
+  // a section spans its hours: fewer cells than hours in the row
+  expect(taf.length).toBeLessThan(8 * 2);
   // and what the numbers do not show, in words: the TEMPO's showers
   const notes = page.locator('section[id^="day-"]').getByText(/^TAF · zeitw\./);
   await expect(notes.first()).toBeVisible();
@@ -184,7 +174,7 @@ test('the sources page, from the footer', async ({ page }) => {
     await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toBeVisible();
 });
 
-test('on a phone each day lists its hours under one another, the past folded, the strip jumps', async ({ page }) => {
+test('on a phone each day lists its hours under one another, the strip jumps', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/station/edsb');
   // Nothing wider than the phone
@@ -196,13 +186,9 @@ test('on a phone each day lists its hours under one another, the past folded, th
   // Tomorrow, the second day: every hour a row with its wind, gust and direction
   const tomorrow = page.locator('section[id^="day-"]').nth(1);
   await expect(tomorrow.getByText(/^Böen \d+$/).first()).toBeVisible();
-  // Today's hours that are over fold into one line, and open again
+  // Today's hours that are over stay, shaded, nothing folds them away
   const today = page.locator('section[id^="day-"]').first();
-  const fold = today.getByRole('button', { name: /vergangene Stunden zeigen/ });
-  if (await fold.count()) {
-    await fold.click();
-    await expect(today.getByRole('button', { name: 'Vergangene Stunden ausblenden' })).toBeVisible();
-  }
+  await expect(today.getByRole('button', { name: /vergangene Stunden/ })).toHaveCount(0);
   // A day in the strip leads to its card
   await strip.getByRole('button').nth(4).click();
   await expect(page.locator('section[id^="day-"]').nth(4)).toBeInViewport();
