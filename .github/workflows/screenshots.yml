@@ -15,13 +15,23 @@ jobs:
   server:
     uses: ./.github/workflows/e2e-server.yml
 
+  # The official Playwright image of the @playwright/test version in the lockfile, as in ci.yml
+  playwright-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.playwright.outputs.image }}
+    steps:
+      - id: playwright
+        uses: firsttris/workflows/actions/playwright-image@v1
+        with:
+          lockfile: pnpm-lock.yaml
+
   screenshots:
-    needs: server
+    needs: [server, playwright-image]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Its version must match @playwright/test in web/package.json, as in ci.yml
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: ${{ needs.playwright-image.outputs.image }}
       options: --ipc=host
     # Two runs at once would push on top of each other
     concurrency:

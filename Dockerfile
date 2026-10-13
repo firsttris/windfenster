@@ -11,18 +11,31 @@ COPY web web
 RUN pnpm --filter @windfenster/web build
 
 # ---- 2. Server binary, SPA embedded via rust-embed ---------------------------------------
-FROM rust:1-trixie AS server
+# cargo-chef splits the build: the dependencies are cooked from a recipe of the manifests alone,
+# a layer the build cache keeps until Cargo.toml or Cargo.lock change (the recipe leaves out the
+# workspace crates' versions, so a release does not change it); only the workspace crates
+# compile on a code change.
+FROM rust:1-trixie AS chef
+RUN cargo install cargo-chef --version 0.1.78 --locked
 WORKDIR /src
+
+FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
+COPY crates crates
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS server
+COPY --from=planner /src/recipe.json recipe.json
+COPY .cargo .cargo
+RUN cargo chef cook --release --locked -p windfenster --recipe-path recipe.json
+COPY Cargo.toml Cargo.lock ./
 COPY crates crates
 COPY migrations migrations
 # Station pages take their meta texts from the SPA's message files.
 COPY web/messages web/messages
 COPY --from=web /src/web/dist web/dist
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
-    cargo build --release --locked -p windfenster && cp target/release/windfenster /windfenster
+RUN cargo build --release --locked -p windfenster && cp target/release/windfenster /windfenster
 
 # ---- 3. Runtime --------------------------------------------------------------------------
 FROM debian:trixie-slim

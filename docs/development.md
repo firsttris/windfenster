@@ -37,8 +37,11 @@ local stand-ins for the data sources) and Vitest for the logic in `web/src/lib`.
 
 `pnpm e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
 Playwright's Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or
-another one in `PW_CHROMIUM`. CI runs them in the official Playwright image, in about four
-minutes.
+another one in `PW_CHROMIUM`. CI runs them in the official Playwright image of the version in
+the lockfile, in two halves at once (`--shard`), each in about two minutes. CI builds the Docker
+image only when its own files change (`Dockerfile`, `docker/`, `Cargo.lock`, the package
+manifests), by hand and on its weekly run; the image's build cooks the Rust dependencies in a
+layer of their own with cargo-chef, so a code change compiles only the workspace crates.
 
 - **gpu** (`web/e2e/*.spec.ts`): the map's shaders in a test page. How the three models lie over
   one another, compared with what the readout under the pointer shows, for wind and gusts; the

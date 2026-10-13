@@ -11,6 +11,9 @@ on:
   # release.yml runs the same checks before it publishes anything
   workflow_call:
   workflow_dispatch:
+  # Weekly on what is on main: new clippy lints of the newest Rust, the image's base images
+  schedule:
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -68,23 +71,76 @@ jobs:
       - name: Route tree is up to date
         run: git diff --exit-code -- web/src/routeTree.gen.ts
 
+  # Whether this push touches what the image is built from beyond the code the other jobs build
+  # and test: then the docker job builds it. By hand and on the weekly run always; never for a
+  # release tag, whose images release.yml builds right after.
+  changes:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      docker: ${{ steps.diff.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "docker=false" | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$EVENT" in
+            push) from="$BEFORE" ;;
+            pull_request) from="$BASE" ;;
+            *) from="" ;;
+          esac
+          if [ -z "$from" ] || ! git cat-file -e "$from^{commit}" 2>/dev/null; then
+            docker=true
+          elif git diff --name-only "$from" HEAD | grep -qE '^(Dockerfile|\.dockerignore|docker/|\.cargo/|Cargo\.lock|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|web/package\.json)'; then
+            docker=true
+          else
+            docker=false
+          fi
+          echo "docker=$docker" | tee -a "$GITHUB_OUTPUT"
+
   # The server for the browser tests' app project, built next to the checks (e2e-server.yml,
   # shared with the screenshots)
   e2e-server:
     if: ${{ !github.event.pull_request.draft }}
     uses: ./.github/workflows/e2e-server.yml
 
+  # The official Playwright image of the @playwright/test version in the lockfile
+  playwright-image:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.playwright.outputs.image }}
+    steps:
+      - id: playwright
+        uses: firsttris/workflows/actions/playwright-image@v1
+        with:
+          lockfile: pnpm-lock.yaml
+
   browser:
     # The browser tests (web/e2e): the wind map's shaders on SwiftShader, and the whole app
     # against the server above, which takes everything from the outside from a local stand-in.
-    # In the official Playwright image; its version must match @playwright/test in
-    # web/package.json.
+    # In two halves at once, in the Playwright image.
     if: ${{ !github.event.pull_request.draft }}
-    needs: e2e-server
+    needs: [e2e-server, playwright-image]
+    name: browser ${{ matrix.shard }}/2
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: ${{ needs.playwright-image.outputs.image }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -100,19 +156,20 @@ jobs:
       - run: chmod +x e2e-server/windfenster
       # $GITHUB_WORKSPACE is the checkout's path inside the container (github.workspace is the
       # runner's)
-      - run: WF_BIN="$GITHUB_WORKSPACE/e2e-server/windfenster" pnpm e2e
+      - run: WF_BIN="$GITHUB_WORKSPACE/e2e-server/windfenster" pnpm e2e --shard=${{ matrix.shard }}/2
       # The pictures that differed, with their diffs, to look at or to take as the new ones
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: web/test-results
           retention-days: 7
 
   docker:
-    # Build check only; release.yml publishes the images
-    if: ${{ !github.event.pull_request.draft }}
-    needs: check
+    # Build check only, when the image's own files change (see changes); release.yml publishes
+    # the images. Next to the other jobs, its cache shared with the release's amd64 build.
+    needs: changes
+    if: ${{ needs.changes.outputs.docker == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -124,6 +181,7 @@ jobs:
           file: Dockerfile
           push: false
           cache-from: type=gha,scope=linux-amd64
+          cache-to: type=gha,mode=max,scope=linux-amd64
           load: true
           tags: windfenster:ci
       # The image starts on a data folder of an older version (owned by root), hands it to its
