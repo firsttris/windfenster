@@ -248,6 +248,29 @@ pub fn test(lang: Lang) -> Text {
     }
 }
 
+/// The e-mail with the link that confirms an address: subject and body. Says what happens if
+/// the reader did not ask for it (nothing), so a mail sent to the wrong person does no harm.
+pub fn confirm_email(lang: Lang, link: &str, hours: i64) -> (String, String) {
+    match lang {
+        Lang::De => (
+            "Windfenster: E-Mail-Adresse bestätigen".into(),
+            format!(
+                "Bitte bestätige diese Adresse für deine Windfenster-Alarme:\n\n{link}\n\n\
+                 Der Link gilt {hours} Stunden. Wenn du das nicht warst, ignorier diese E-Mail: \
+                 ohne Bestätigung schicken wir dir nichts.\n"
+            ),
+        ),
+        Lang::En => (
+            "Windfenster: confirm your e-mail address".into(),
+            format!(
+                "Please confirm this address for your Windfenster alarms:\n\n{link}\n\n\
+                 The link works for {hours} hours. If this was not you, ignore this e-mail: \
+                 without confirmation we send you nothing.\n"
+            ),
+        ),
+    }
+}
+
 /// The e-mail's text: the message, where to look and where to change the alarms.
 pub fn email_body(lang: Lang, text: &Text, link: Option<&str>, account: Option<&str>) -> String {
     let mut out = format!("{}\n", text.body);

@@ -4,6 +4,7 @@
 //! minutes. Passkeys are made discoverable, so the browser can offer them in the name field
 //! (conditional UI, as in firsttris/haben's login) without the user typing anything.
 
+pub mod email;
 pub mod password;
 mod routes;
 

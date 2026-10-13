@@ -363,7 +363,8 @@ pub async fn jobs(db: &SqlitePool) -> sqlx::Result<Vec<Job>> {
     let rows: Vec<JobRow> = sqlx::query_as(
         "SELECT f.id, f.slug, f.lat, f.lon, f.name, f.wind_from, f.wind_to, \
          a.min_kn, a.gear, a.forecast, a.live, a.push, a.email, \
-         c.id AS account_id, c.email AS account_email, c.locale, c.time_zone, c.unit \
+         c.id AS account_id, \
+         CASE WHEN c.email_confirmed THEN c.email END AS account_email, c.locale, c.time_zone, c.unit \
          FROM alarm a JOIN favorite f ON f.id = a.favorite_id JOIN account c ON c.id = f.account_id",
     )
     .fetch_all(db)

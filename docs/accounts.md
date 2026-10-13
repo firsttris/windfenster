@@ -11,7 +11,9 @@ gear and your alarms.
 
 Signing in works with a passkey (WebAuthn, [webauthn-rs](https://github.com/kanidm/webauthn-rs)
 on the server, OpenSSL built into the binary) or with e-mail and password (Argon2id, at most
-ten failed attempts per address in 15 minutes). Sign-up asks for a name and then either a
+ten attempts per address in 15 minutes, counted before the check so parallel guesses count too).
+Alarm e-mails go only to an address confirmed by the link the server sends to it; the link opens
+a page that confirms with a button, so a mail scanner opening links confirms nothing. Sign-up asks for a name and then either a
 passkey or an address and a password (at least 10 characters); either can be added later on the
 account page. Passkeys are made discoverable, so the browser offers them in the sign-in field
 by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain later makes them

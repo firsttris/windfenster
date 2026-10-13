@@ -527,5 +527,18 @@
   "glance_jump": "Zu {day} springen",
   "glance_max": "max {wind} {unit}",
   "glance_dayWorks": "An diesem Tag gehen Stunden an deinem Spot.",
-  "glance_agree": "Einigkeit der Modelle:"
+  "glance_agree": "Einigkeit der Modelle:",
+  "error_emailOff": "E-Mails sind auf diesem Server nicht eingerichtet.",
+  "error_tooSoon": "Gerade eben schon geschickt. Bitte versuch es in ein paar Minuten noch einmal.",
+  "error_invalidLink": "Der Link ist ungültig, schon benutzt oder abgelaufen. Fordere auf der Kontoseite einen neuen an.",
+  "notify_emailUnconfirmed": "{email} ist noch nicht bestätigt. Bis dahin gehen keine Alarme per E-Mail raus.",
+  "notify_sendConfirmation": "Bestätigungslink schicken",
+  "notify_confirmationSent": "Geschickt. Öffne den Link in der E-Mail, er gilt 24 Stunden.",
+  "alarm_emailUnconfirmed": "E-Mail: bestätige erst deine Adresse auf der Kontoseite",
+  "title_confirmEmail": "Adresse bestätigen | Windfenster",
+  "confirm_title": "E-Mail-Adresse bestätigen",
+  "confirm_lead": "Bestätige, dass Windfenster dir Alarme an diese Adresse schicken darf.",
+  "confirm_button": "Adresse bestätigen",
+  "confirm_done": "Danke, deine Adresse ist bestätigt.",
+  "confirm_toAccount": "Zur Kontoseite"
 }

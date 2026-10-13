@@ -87,6 +87,11 @@ WF_MAIL_FROM=Windfenster <alarm@example.org>
 
 An `@` in the user name is written `%40`.
 
+Alarm e-mails go only to an address its owner confirmed: setting an address sends a link
+(valid 24 hours) to `WF_PUBLIC_URL`'s `/confirm-email`, so confirming needs `WF_PUBLIC_URL` too.
+At most one such mail per address in ten minutes and 200 a day per server. Addresses stored
+before this check existed (up to version 0.1.8) count as confirmed.
+
 ## The binary's commands
 
 - `windfenster serve` (default): migrates the database, serves the API and the web app, keeps

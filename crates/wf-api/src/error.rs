@@ -40,6 +40,12 @@ pub enum ErrorCode {
     InvalidAlarm,
     /// Not a push subscription a browser would send
     InvalidSubscription,
+    /// This server sends no e-mail (no SMTP or no public address for links)
+    EmailOff,
+    /// The same was asked a moment ago; try again in a few minutes
+    TooSoon,
+    /// A confirmation link that is unknown, used or ran out
+    InvalidLink,
     Internal,
 }
 
@@ -69,6 +75,9 @@ pub enum ApiError {
     InvalidGear,
     InvalidAlarm,
     InvalidSubscription,
+    EmailOff,
+    TooSoon,
+    InvalidLink,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -114,6 +123,9 @@ impl IntoResponse for ApiError {
             ApiError::InvalidSubscription => {
                 (StatusCode::BAD_REQUEST, ErrorCode::InvalidSubscription)
             }
+            ApiError::EmailOff => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::EmailOff),
+            ApiError::TooSoon => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooSoon),
+            ApiError::InvalidLink => (StatusCode::BAD_REQUEST, ErrorCode::InvalidLink),
             ApiError::TooManyAttempts => {
                 (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
             }

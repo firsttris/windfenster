@@ -527,5 +527,18 @@
   "glance_jump": "Go to {day}",
   "glance_max": "max {wind} {unit}",
   "glance_dayWorks": "Some hours this day work at your spot.",
-  "glance_agree": "Model agreement:"
+  "glance_agree": "Model agreement:",
+  "error_emailOff": "E-mail is not set up on this server.",
+  "error_tooSoon": "Sent a moment ago. Please try again in a few minutes.",
+  "error_invalidLink": "This link is invalid, already used or expired. Ask for a new one on the account page.",
+  "notify_emailUnconfirmed": "{email} is not confirmed yet. Until then no alarms go out by e-mail.",
+  "notify_sendConfirmation": "Send confirmation link",
+  "notify_confirmationSent": "Sent. Open the link in the e-mail; it works for 24 hours.",
+  "alarm_emailUnconfirmed": "E-mail: confirm your address on the account page first",
+  "title_confirmEmail": "Confirm address | Windfenster",
+  "confirm_title": "Confirm your e-mail address",
+  "confirm_lead": "Confirm that Windfenster may send alarms to this address.",
+  "confirm_button": "Confirm address",
+  "confirm_done": "Thanks, your address is confirmed.",
+  "confirm_toAccount": "Go to your account"
 }

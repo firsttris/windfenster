@@ -98,7 +98,7 @@ async fn the_signed_in_user_and_signing_out() -> Result<()> {
     let (_, me) = call(&app, "GET", "/api/me", None, true).await?;
     assert_eq!(
         me,
-        json!({"id": id, "name": "Tristan", "email": null, "passkeys": 1})
+        json!({"id": id, "name": "Tristan", "email": null, "emailConfirmed": false, "passkeys": 1})
     );
 
     let (status, me) = call(&app, "PATCH", "/api/me", Some(json!({"name": "T."})), true).await?;
@@ -295,6 +295,70 @@ async fn a_passkey_account_adds_a_password() -> Result<()> {
     )
     .await?;
     assert_eq!(status, StatusCode::OK);
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_address_is_confirmed_by_its_link() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    let id = signed_in(&dir).await?;
+    // Without an address nothing is sent; without e-mail set up neither.
+    let (status, body) = call(&app, "POST", "/api/me/email/confirm", None, true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::BAD_REQUEST, json!({"code": "invalid_email"}))
+    );
+    let set = json!({"email": "t@x.de", "password": "long enough!", "current": null});
+    let (_, me) = call(&app, "PUT", "/api/me/password", Some(set), true).await?;
+    assert_eq!(me["emailConfirmed"], json!(false));
+    let (status, body) = call(&app, "POST", "/api/me/email/confirm", None, true).await?;
+    assert_eq!(
+        (status, body),
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"code": "email_off"})
+        )
+    );
+    // A made-up link confirms nothing; the one sent does, once, signed in or not.
+    let made_up = json!({"token": "nope"});
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/auth/email/confirm",
+        Some(made_up),
+        false,
+    )
+    .await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::BAD_REQUEST, json!({"code": "invalid_link"}))
+    );
+    let db = wf_core::db::connect(&dir.path().join("test.db")).await?;
+    let now = wf_core::time::now();
+    let hash = common::session::token_hash("abc123");
+    wf_core::account::add_email_confirmation(&db, &hash, id, "t@x.de", now, now + 60).await?;
+    let link = json!({"token": "abc123"});
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/auth/email/confirm",
+        Some(link.clone()),
+        false,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, me) = call(&app, "GET", "/api/me", None, true).await?;
+    assert_eq!(me["emailConfirmed"], json!(true));
+    let (status, _) = call(&app, "POST", "/api/auth/email/confirm", Some(link), false).await?;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    // Asking again for a confirmed address sends nothing and is fine.
+    let (status, _) = call(&app, "POST", "/api/me/email/confirm", None, true).await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    // A new address is unconfirmed again.
+    let change =
+        json!({"email": "new@x.de", "password": "long enough!", "current": "long enough!"});
+    let (_, me) = call(&app, "PUT", "/api/me/password", Some(change), true).await?;
+    assert_eq!(me["emailConfirmed"], json!(false));
     Ok(())
 }
 

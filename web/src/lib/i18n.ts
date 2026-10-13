@@ -40,6 +40,9 @@ export const errorText: Record<ErrorCode, () => string> = {
   weak_password: m.error_weakPassword,
   wrong_password: m.error_wrongPassword,
   too_many_attempts: m.error_tooManyAttempts,
+  email_off: m.error_emailOff,
+  too_soon: m.error_tooSoon,
+  invalid_link: m.error_invalidLink,
   internal: m.error_internal,
 };
 

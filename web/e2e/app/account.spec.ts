@@ -108,3 +108,14 @@ test('an account with e-mail and password', async ({ page }) => {
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await expect(page.getByRole('link', { name: /^Konto von Alex/ })).toBeVisible();
 });
+
+test('a confirmation link confirms only by its button, and only a valid one', async ({ page }) => {
+  // Opening the page confirms nothing: a made-up link is refused once the button is pressed.
+  await page.goto('/confirm-email?token=made-up');
+  await expect(page.getByRole('heading', { name: 'E-Mail-Adresse bestätigen' })).toBeVisible();
+  await page.getByRole('button', { name: 'Adresse bestätigen' }).click();
+  await expect(page.getByRole('alert')).toHaveText(/ungültig, schon benutzt oder abgelaufen/);
+  // Without a token there is nothing to press.
+  await page.goto('/confirm-email');
+  await expect(page.getByRole('button', { name: 'Adresse bestätigen' })).toBeDisabled();
+});

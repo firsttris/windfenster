@@ -115,6 +115,7 @@ async fn verify(password: String, stored: Option<String>) -> Result<bool, ApiErr
 /// `POST /api/auth/signup/password`: a new account with e-mail and password, signed in.
 pub async fn sign_up(
     State(s): State<AppState>,
+    request: HeaderMap,
     Json(req): Json<PasswordSignUp>,
 ) -> Result<(HeaderMap, Json<Account>), ApiError> {
     let name = account::clean_name(&req.name).ok_or(ApiError::InvalidName)?;
@@ -131,6 +132,7 @@ pub async fn sign_up(
         // Taken between the check and now
         .map_err(|_| ApiError::EmailTaken)?;
     let headers = start_session(&s, id).await?;
+    super::email::offer_link(&s, id, &email, super::email::lang_of(&request)).await;
     let me = account::get(&s.db, id)
         .await?
         .ok_or_else(|| ApiError::internal("account just made is gone"))?;
@@ -178,6 +180,7 @@ pub async fn sign_in(
 pub async fn change(
     State(s): State<AppState>,
     SignedIn(me): SignedIn,
+    request: HeaderMap,
     Json(req): Json<PasswordChange>,
 ) -> Result<Json<Account>, ApiError> {
     let email = account::clean_email(&req.email).ok_or(ApiError::InvalidEmail)?;
@@ -193,8 +196,13 @@ pub async fn change(
     }
     let hashed = hash(req.password).await?;
     account::set_password(&s.db, me.id, &email, &hashed).await?;
+    let confirmed = me.email_confirmed && me.email.as_deref() == Some(email.as_str());
+    if !confirmed {
+        super::email::offer_link(&s, me.id, &email, super::email::lang_of(&request)).await;
+    }
     Ok(Json(Account {
         email: Some(email),
+        email_confirmed: confirmed,
         ..me
     }))
 }

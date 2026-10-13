@@ -23,6 +23,9 @@ pub struct Account {
     pub name: String,
     /// For signing in with a password; null when the account has none
     pub email: Option<String>,
+    /// Whether its owner confirmed the address by the link sent to it; alarm e-mails go only to
+    /// a confirmed one
+    pub email_confirmed: bool,
     /// Passkeys registered (on how many devices or managers one can sign in)
     #[ts(type = "number")]
     pub passkeys: i64,
@@ -136,19 +139,22 @@ pub async fn used_passkey(
 
 /// An account as the app shows it.
 pub async fn get(db: &SqlitePool, account_id: i64) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, Option<String>, i64)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.email, \
+    let row: Option<(i64, String, Option<String>, bool, i64)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.email, a.email_confirmed, \
          (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) FROM account a WHERE a.id = ?",
     )
     .bind(account_id)
     .fetch_optional(db)
     .await?;
-    Ok(row.map(|(id, name, email, passkeys)| Account {
-        id,
-        name,
-        email,
-        passkeys,
-    }))
+    Ok(
+        row.map(|(id, name, email, email_confirmed, passkeys)| Account {
+            id,
+            name,
+            email,
+            email_confirmed,
+            passkeys,
+        }),
+    )
 }
 
 /// An e-mail address as stored: trimmed and lower-case; None when it does not look like one.
@@ -213,20 +219,77 @@ pub async fn password_hash(db: &SqlitePool, account_id: i64) -> sqlx::Result<Opt
     )
 }
 
-/// Sets the address and password an account signs in with.
+/// Sets the address and password an account signs in with; a new address is unconfirmed.
 pub async fn set_password(
     db: &SqlitePool,
     account_id: i64,
     email: &str,
     password_hash: &str,
 ) -> sqlx::Result<()> {
-    sqlx::query("UPDATE account SET email = ?, password_hash = ? WHERE id = ?")
-        .bind(email)
-        .bind(password_hash)
-        .bind(account_id)
+    // SQLite reads the old row on the right-hand side: `email = ?1` compares with the old address.
+    sqlx::query(
+        "UPDATE account SET email_confirmed = (email_confirmed AND email IS ?1), \
+         email = ?1, password_hash = ?2 WHERE id = ?3",
+    )
+    .bind(email)
+    .bind(password_hash)
+    .bind(account_id)
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
+/// Keeps a link to confirm `email` for the account, by the hash of its token, until `expires_at`;
+/// links that ran out go along the way.
+pub async fn add_email_confirmation(
+    db: &SqlitePool,
+    token_hash: &[u8],
+    account_id: i64,
+    email: &str,
+    now: i64,
+    expires_at: i64,
+) -> sqlx::Result<()> {
+    sqlx::query("DELETE FROM email_confirmation WHERE expires_at <= ?")
+        .bind(now)
         .execute(db)
         .await?;
+    sqlx::query(
+        "INSERT INTO email_confirmation (token_hash, account_id, email, expires_at) \
+         VALUES (?, ?, ?, ?)",
+    )
+    .bind(token_hash)
+    .bind(account_id)
+    .bind(email)
+    .bind(expires_at)
+    .execute(db)
+    .await?;
     Ok(())
+}
+
+/// Confirms the address a link was sent to, once; false when the link is unknown, ran out, or
+/// the account has another address by now.
+pub async fn confirm_email(db: &SqlitePool, token_hash: &[u8], now: i64) -> sqlx::Result<bool> {
+    let mut tx = db.begin().await?;
+    let row: Option<(i64, String)> = sqlx::query_as(
+        "DELETE FROM email_confirmation WHERE token_hash = ? AND expires_at > ? \
+         RETURNING account_id, email",
+    )
+    .bind(token_hash)
+    .bind(now)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some((account_id, email)) = row else {
+        return Ok(false);
+    };
+    let done = sqlx::query("UPDATE account SET email_confirmed = 1 WHERE id = ? AND email = ?")
+        .bind(account_id)
+        .bind(&email)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected()
+        > 0;
+    tx.commit().await?;
+    Ok(done)
 }
 
 /// A new session for the account, by the hash of its token.
@@ -254,8 +317,8 @@ pub async fn of_session(
     token_hash: &[u8],
     now: i64,
 ) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, Option<String>, i64, i64)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.email, s.expires_at, \
+    let row: Option<(i64, String, Option<String>, bool, i64, i64)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.email, a.email_confirmed, s.expires_at, \
          (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) \
          FROM session s JOIN account a ON a.id = s.account_id \
          WHERE s.token_hash = ? AND s.expires_at > ?",
@@ -264,7 +327,7 @@ pub async fn of_session(
     .bind(now)
     .fetch_optional(db)
     .await?;
-    let Some((id, name, email, expires_at, passkeys)) = row else {
+    let Some((id, name, email, email_confirmed, expires_at, passkeys)) = row else {
         return Ok(None);
     };
     if expires_at - now < SESSION_S - RENEW_S {
@@ -278,6 +341,7 @@ pub async fn of_session(
         id,
         name,
         email,
+        email_confirmed,
         passkeys,
     }))
 }
@@ -376,6 +440,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn confirms_an_address_once_by_its_link() -> anyhow::Result<()> {
+        let (_dir, db) = db().await?;
+        let id = create_with_password(&db, "u1", "A", "a@x.de", "hash", 0).await?;
+        let confirmed =
+            async || -> anyhow::Result<bool> { Ok(get(&db, id).await?.unwrap().email_confirmed) };
+        assert!(!confirmed().await?);
+        // A link that ran out, or an unknown one, confirms nothing.
+        add_email_confirmation(&db, b"old", id, "a@x.de", 0, 100).await?;
+        assert!(!confirm_email(&db, b"old", 100).await?);
+        assert!(!confirm_email(&db, b"nope", 50).await?);
+        // A link confirms once.
+        add_email_confirmation(&db, b"t1", id, "a@x.de", 200, 1_000).await?;
+        assert!(confirm_email(&db, b"t1", 500).await?);
+        assert!(confirmed().await?);
+        assert!(!confirm_email(&db, b"t1", 600).await?);
+        // The same address again stays confirmed, a new one is not.
+        set_password(&db, id, "a@x.de", "h2").await?;
+        assert!(confirmed().await?);
+        set_password(&db, id, "b@x.de", "h3").await?;
+        assert!(!confirmed().await?);
+        // A link sent to the old address does not confirm the new one.
+        add_email_confirmation(&db, b"t2", id, "a@x.de", 700, 2_000).await?;
+        add_email_confirmation(&db, b"t3", id, "b@x.de", 700, 2_000).await?;
+        assert!(!confirm_email(&db, b"t2", 800).await?);
+        assert!(!confirmed().await?);
+        assert!(confirm_email(&db, b"t3", 800).await?);
+        assert!(confirmed().await?);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn keeps_accounts_passkeys_and_sessions() -> anyhow::Result<()> {
         let (_dir, db) = db().await?;
         let id = create(&db, "uuid-1", "Tristan", "cred-1", "{}", 100).await?;
@@ -396,6 +491,7 @@ mod tests {
                 id,
                 name: "Tristan".into(),
                 email: None,
+                email_confirmed: false,
                 passkeys: 2
             }
         );

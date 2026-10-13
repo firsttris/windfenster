@@ -66,7 +66,8 @@ function AlarmDialog({ favorite, alarm, onClose }: { favorite: Favorite; alarm: 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<AlarmSettings>) => setS((x) => ({ ...x, ...patch }));
-  const mailReady = Boolean(info.data?.email && me.data?.email);
+  // E-mails go only to a confirmed address.
+  const mailReady = Boolean(info.data?.email && me.data?.email && me.data.emailConfirmed);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -162,7 +163,13 @@ function AlarmDialog({ favorite, alarm, onClose }: { favorite: Favorite; alarm: 
               checked={s.email && mailReady}
               disabled={!mailReady}
               onChange={(email) => set({ email })}
-              label={me.data?.email ? m.alarm_email({ email: me.data.email }) : m.alarm_emailNone()}
+              label={
+                !me.data?.email
+                  ? m.alarm_emailNone()
+                  : me.data.emailConfirmed
+                    ? m.alarm_email({ email: me.data.email })
+                    : m.alarm_emailUnconfirmed()
+              }
               hint={info.data && !info.data.email ? m.alarm_emailOff() : undefined}
             />
           </fieldset>

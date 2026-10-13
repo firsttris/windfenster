@@ -113,7 +113,8 @@ pub async fn unsubscribe(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// `POST /api/alarms/test`: a message to every browser of the account and its address.
+/// `POST /api/alarms/test`: a message to every browser of the account and its address, if
+/// confirmed; one in half a minute.
 pub async fn test(
     State(s): State<AppState>,
     SignedIn(me): SignedIn,
@@ -121,9 +122,13 @@ pub async fn test(
     let Some(alarms) = s.alarms.as_deref() else {
         return Ok(Json(Reached::default()));
     };
+    if !s.tested.entry(me.id).or_insert(()).await.is_fresh() {
+        return Err(ApiError::TooSoon);
+    }
     let locale = alarm::client(&s.db, me.id)
         .await?
         .map(|c| c.locale)
         .unwrap_or_else(|| "de".into());
-    Ok(Json(alarms.test(me.id, me.email.as_deref(), &locale).await))
+    let email = me.email.as_deref().filter(|_| me.email_confirmed);
+    Ok(Json(alarms.test(me.id, email, &locale).await))
 }

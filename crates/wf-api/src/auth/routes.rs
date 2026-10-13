@@ -128,6 +128,7 @@ pub async fn finish_sign_up(
             id,
             name: name.clone(),
             email: None,
+            email_confirmed: false,
             passkeys: 1,
         }),
     ))

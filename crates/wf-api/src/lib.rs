@@ -64,6 +64,10 @@ pub struct AppState {
     passkeys: Option<Arc<auth::Passkeys>>,
     /// Failed password sign-ins per address
     password_failures: auth::password::Failures,
+    /// Confirmation e-mails sent lately
+    mailing: Arc<auth::email::Mailing>,
+    /// Accounts that sent a test message within the last half minute
+    tested: moka::future::Cache<i64, ()>,
     cache: forecast::ForecastCache,
     places: search::PlaceCache,
     /// Places whose request time was written within the last hour.
@@ -100,6 +104,11 @@ impl AppState {
             climate: None,
             passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
             password_failures: auth::password::new_failures(),
+            mailing: Arc::new(auth::email::Mailing::new()),
+            tested: moka::future::Cache::builder()
+                .max_capacity(10_000)
+                .time_to_live(Duration::from_secs(30))
+                .build(),
             public_url,
             dev_ui,
             cache,
@@ -190,6 +199,8 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/signup/password", post(auth::password::sign_up))
         .route("/auth/signin/password", post(auth::password::sign_in))
         .route("/me/password", put(auth::password::change))
+        .route("/me/email/confirm", post(auth::email::request))
+        .route("/auth/email/confirm", post(auth::email::confirm))
         .route("/auth/signin", post(auth::sign_in))
         .route("/auth/signin/finish", post(auth::finish_sign_in))
         .route("/auth/passkeys", post(auth::add_passkey))

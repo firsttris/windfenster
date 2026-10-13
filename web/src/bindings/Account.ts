@@ -9,6 +9,11 @@ export type Account = { id: number, name: string,
  */
 email: string | null, 
 /**
+ * Whether its owner confirmed the address by the link sent to it; alarm e-mails go only to
+ * a confirmed one
+ */
+emailConfirmed: boolean, 
+/**
  * Passkeys registered (on how many devices or managers one can sign in)
  */
 passkeys: number, };
