@@ -370,11 +370,7 @@ function Attribution({
         link('https://www.naturalearthdata.com/', 'Natural Earth')
       )}{' '}
       {relief && <>· {link('https://mapterhorn.com/attribution', '© Mapterhorn')} </>}·{' '}
-      {!short && (
-        <>
-          {link('https://www.pegelonline.wsv.de/', 'PEGELONLINE (WSV)')} · {link('https://maplibre.org/', 'MapLibre')} ·{' '}
-        </>
-      )}
+      {!short && <>{link('https://maplibre.org/', 'MapLibre')} · </>}
       <Link to="/sources" className="text-subtle hover:text-foreground">
         {m.sources_all()}
       </Link>

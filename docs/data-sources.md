@@ -15,7 +15,8 @@ their 10-minute values, and the ICON-D2 fields of the wind map, come from
 the wind statistics; the airports' past years come from the
 [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/) (Iowa State University). Water
 levels from [PEGELONLINE](https://www.pegelonline.wsv.de/) (Wasserstraßen- und Schifffahrtsverwaltung des
-Bundes), credited on every page that shows them. The map's land, borders and places come from
+Bundes), credited on the station and point pages that show them and on the sources page; the map
+leaves it out of its short credit line. The map's land, borders and places come from
 [Natural Earth](https://www.naturalearthdata.com/) (public domain) or, where installed, from
 [OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL) through Protomaps, its labels are set in Noto
 Sans ([OFL](https://github.com/firsttris/windfenster/blob/main/web/public/glyphs/OFL.txt), glyphs from

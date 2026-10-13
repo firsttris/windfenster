@@ -125,7 +125,8 @@ test('the water gauges with their levels, from town zoom on', async ({ page }) =
     ['Maxau', 498, 'normal'],
     ['Iffezheim', 612, 'high'],
   ]);
-  await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeVisible();
+  // Named on the sources page, not on the map: its licence asks for no credit
+  await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toHaveCount(0);
 });
 
 test('the map fills the window under a floating header; pills, spot and timeline lie on it', async ({ page }) => {
@@ -168,7 +169,7 @@ test('on a phone the spot sheet starts as one line and is pulled up in two steps
   await expect(sheet.getByRole('slider', { name: 'Stunde' })).toBeVisible();
   await expect(hours).toBeHidden();
   await expect(page.getByRole('link', { name: 'ECMWF' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'PEGELONLINE (WSV)' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'MapLibre' })).toBeHidden();
   // Up a step: the hours
   await sheet.getByRole('button', { name: 'Mehr zeigen' }).last().click();
   await expect(hours).toBeVisible();
