@@ -30,9 +30,7 @@ From the top:
    ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. The model chosen
    sets the step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking); the note beside the chips says why.
-3. **The ten-day forecast.** On a phone every day lists its hours under one another, as
-   Windfinder does: time, direction, wind and gust, a bar in the scale's colour, the weather; what
-   was measured and the TAF under the bar. Wider screens show the table.
+3. **The ten-day forecast.**
 4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.
 5. **Wind statistics** (stations): ten years of wind per month as a rose and the share of windy

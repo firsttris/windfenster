@@ -16,7 +16,6 @@ import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 import { GearFitCell } from '../gear-fit';
 import { Dash, MeasuredCell, TafCell } from './compare-cells';
-import { DayList } from './day-list';
 import { AGREE_DOT, AGREE_LABEL, modelName, StageChip, Weather } from './shared';
 
 interface Props {
@@ -72,14 +71,12 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
         </h3>
         <span className="font-mono text-muted-foreground text-xs">{dayMonth(day.date)}</span>
         <span className="ml-auto flex flex-wrap items-center gap-1.5">
-          <StageChip day={day} />
+          <StageChip fc={fc} day={day} />
           <span className="font-mono text-[11px] text-dim">{modelName(fc, day.source)}</span>
           <AgreementChip fc={fc} day={day} />
         </span>
       </header>
-      {/* Phones: the hours under one another; wider screens: the table */}
-      <DayList day={day} unit={unit} now={now} measured={measured} taf={taf} gear={gear} className="sm:hidden" />
-      <div className="relative hidden overflow-x-auto px-2 sm:block">
+      <div className="relative overflow-x-auto px-2">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only">{m.table_dayCaption({ day: title })}</caption>
           <thead>
