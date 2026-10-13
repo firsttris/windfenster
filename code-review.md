@@ -178,6 +178,26 @@ Verschieben mit `u_shift`; Zeitschritt `dt` mit Obergrenze nach verstecktem Tab;
 einmal hochgeladen und freigegeben; beim Verlassen der Karte werden rAF, Texturen, Kontext und
 Listener freigegeben.
 
+## 5. Sicherheit vor dem Veröffentlichen (Heimserver hinter Cloudflare Tunnel)
+
+Geprüft: Übernahme des Servers, Zugriff auf Daten anderer Nutzer, billiges Lahmlegen. Keine
+Übernahme gefunden; Pfade, SQL, Berechtigungen je Konto und die Stationsseiten (XSS) sind sauber.
+
+| # | Fund | Schwere | Status |
+|---|---|---|---|
+| 5.1 | Push-Ziel war jede https-Adresse, der Client folgte Weiterleitungen: Anfragen ins Heimnetz (SSRF) und Erkunden, welche Geräte antworten | hoch | **behoben** (5e15e0f): nur Google, Mozilla, Apple, Microsoft; keine Weiterleitungen; höchstens 10 Browser je Konto |
+| 5.2 | E-Mail-Adresse nie bestätigt: Spam über das eigene SMTP-Konto mit dem Test-Button | hoch | **behoben** (42ec4fa): Bestätigungslink, Mails nur an bestätigte Adressen, Grenzen je Adresse und Tag; bestehende Adressen gelten als bestätigt |
+| 5.3 | Push an hängende Ziele hält die Alarm-Runde auf | mittel | **behoben** mit 5.1: nur echte Push-Dienste, 15 s Grenze |
+| 5.4 | Ohne Anmeldung ließ sich das Open-Meteo-Kontingent mit neuen Orten leeren | hoch | **behoben** (199fbce): 30 neue Orte pro Stunde und 100 am Tag je Client, Ortssuche 300 pro Stunde, ein Drittel des Kontingents bleibt für Aktualisierungen |
+| 5.5 | Parallele Anmeldeversuche umgingen die Grenze von 10 Fehlversuchen | mittel–hoch | **behoben** (c75e142): Versuch wird vor der Prüfung gezählt |
+| 5.6 | Container lief als root, Port 8080 offen am Tunnel vorbei | mittel | **behoben** (cc6e8f4): uid 10001, no-new-privileges, Hinweise in compose.yaml; CI prüft das Image |
+| 5.7 | Ohne WF_PUBLIC_URL kein Secure-Cookie, keine Passkeys | mittel | **behoben** (cc6e8f4): Warnung beim Start, Doku |
+| 5.8 | Keine Sicherheits-Header (CSP, frame-ancestors, nosniff) | niedrig–mittel | offen, vor einer größeren Bekanntmachung |
+| 5.9 | Argon2-Warteschlange und Passkey-Zeremonien ohne Limit pro IP; Konto sperrbar mit 10 Fehlversuchen | mittel | offen; Cloudflare-Rate-Limit auf `/api/auth/*` hilft |
+| 5.10 | Riesige Favoriten-Sortierung hält die Datenbank; Kartenpunkte-Liste ohne Grenze | mittel | offen |
+| 5.11 | Registrierung verrät, ob es ein Konto zur Adresse gibt | niedrig–mittel | offen |
+| 5.12 | Abhängigkeiten nicht gegen bekannte Lücken geprüft (`cargo audit`, `pnpm audit`) | – | offen, braucht Netz |
+
 ## Bewertung der offenen Punkte (am Code nachgeprüft)
 
 Jeder offene Punkt wurde gegen den Code gehalten: stimmt er, und lohnt sich der Fix (Nutzen
