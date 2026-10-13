@@ -137,14 +137,24 @@ pub async fn sign_up(
     Ok((headers, Json(me)))
 }
 
+/// Counts an attempt for the address before its password is checked and returns the count. In
+/// one step: read first and written after the check, a burst of parallel requests all saw the
+/// count from before and guessed on past the limit. A right password clears the count.
+async fn attempt(failures: &Failures, email: &str) -> u32 {
+    failures
+        .entry_by_ref(email)
+        .and_upsert_with(|n| std::future::ready(n.map_or(1, |n| n.into_value().saturating_add(1))))
+        .await
+        .into_value()
+}
+
 /// `POST /api/auth/signin/password`
 pub async fn sign_in(
     State(s): State<AppState>,
     Json(req): Json<PasswordSignIn>,
 ) -> Result<(HeaderMap, Json<Account>), ApiError> {
     let email = account::clean_email(&req.email).ok_or(ApiError::WrongPassword)?;
-    let failures = s.password_failures.get(&email).await.unwrap_or(0);
-    if failures >= MAX_FAILURES {
+    if attempt(&s.password_failures, &email).await > MAX_FAILURES {
         return Err(ApiError::TooManyAttempts);
     }
     let found = account::by_email(&s.db, &email).await?;
@@ -154,7 +164,6 @@ pub async fn sign_in(
     };
     let ok = verify(req.password, stored).await?;
     let Some(id) = id.filter(|_| ok) else {
-        s.password_failures.insert(email, failures + 1).await;
         return Err(ApiError::WrongPassword);
     };
     s.password_failures.invalidate(&email).await;
@@ -188,4 +197,26 @@ pub async fn change(
         email: Some(email),
         ..me
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn parallel_attempts_each_count() {
+        let failures = new_failures();
+        let mut tasks = tokio::task::JoinSet::new();
+        for _ in 0..50 {
+            let f = failures.clone();
+            tasks.spawn(async move { attempt(&f, "a@example.org").await });
+        }
+        let counts = tasks.join_all().await;
+        let mut seen = counts.clone();
+        seen.sort_unstable();
+        assert_eq!(seen, (1..=50).collect::<Vec<u32>>());
+        assert_eq!(counts.iter().filter(|&&n| n > MAX_FAILURES).count(), 40);
+        // Another address has its own count
+        assert_eq!(attempt(&failures, "b@example.org").await, 1);
+    }
 }
