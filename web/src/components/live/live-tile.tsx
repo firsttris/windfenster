@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, Code } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { ChevronDown, Code, Plane } from 'lucide-react';
+import { type ReactNode, useId, useMemo, useState } from 'react';
 import type { Observation } from '@/bindings/Observation';
 import type { Station } from '@/bindings/Station';
 import type { Taf } from '@/bindings/Taf';
@@ -23,6 +23,7 @@ export function LiveTile({ station, timeZone }: { station: Station; timeZone: st
   const q = useQuery(liveQuery(station.slug));
   const now = useNow();
   const obs = q.data ? latest(q.data.observations) : null;
+  const taf = q.data?.taf ? <TafBlock taf={q.data.taf} timeZone={timeZone} now={now} /> : null;
   const fresh = obs !== null && now - obs.at < STALE_S;
   const source = station.source === 'metar' ? 'METAR' : 'DWD';
 
@@ -46,44 +47,78 @@ export function LiveTile({ station, timeZone }: { station: Station; timeZone: st
       {q.isPending ? (
         <div className="h-[76px] animate-pulse rounded-lg bg-muted" />
       ) : obs ? (
-        <Measured obs={obs} station={station} timeZone={timeZone} />
+        <Measured obs={obs} station={station} timeZone={timeZone} taf={taf} />
       ) : (
-        <p className="m-0 text-muted-foreground text-sm">{m.live_none()}</p>
+        <>
+          <p className="m-0 text-muted-foreground text-sm">{m.live_none()}</p>
+          {taf}
+        </>
       )}
-      {q.data?.taf && <TafBlock taf={q.data.taf} timeZone={timeZone} now={now} />}
     </Card>
   );
 }
 
-/** The airport forecast group by group in words, with the TAF as sent. */
+/** The airport forecast, folded like the raw METAR so the forecast below comes sooner: group by
+ * group in words, with the TAF as sent, once opened. */
 function TafBlock({ taf, timeZone, now }: { taf: Taf; timeZone: string; now: number }) {
   const [unit] = useUnit();
+  const [open, setOpen] = useState(false);
+  const id = useId();
   const ctx = { unit, at: taf.issuedAt, timeZone };
   const prev = prevailingBefore(taf.groups);
   return (
-    <section aria-labelledby="taf-title" className="flex flex-col gap-2.5 border-t pt-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 id="taf-title" className="m-0 font-semibold text-[13px]">
-          {m.taf_title()}
-        </h3>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {m.live_clock({ time: clock(taf.issuedAt, timeZone) })} · {ago(taf.issuedAt, now)}
+    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-2.5">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-[10px] border bg-background px-3 text-left font-medium text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Plane className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span id={`${id}-title`}>{m.taf_title()}</span>
         </span>
-      </div>
-      <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-2.5 gap-y-1.5 text-[13px] text-subtle leading-snug">
-        {taf.groups.map((g, i) => (
-          <div key={`${g.change}-${g.from}-${g.to}-${g.probability}`} className="contents">
-            <dt className="pt-px font-mono text-[11.5px] text-muted-foreground">{groupWhen(g, now, timeZone)}</dt>
-            <dd className="m-0 min-w-0 first-letter:uppercase">{groupWhat(g, ctx, prev[i])}</dd>
-          </div>
-        ))}
-      </dl>
-      <code className="break-words font-mono text-[11px] text-dim leading-normal">{taf.raw}</code>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="font-mono text-[11px] text-muted-foreground">{ago(taf.issuedAt, now)}</span>
+          <ChevronDown
+            className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-180')}
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+      {open && (
+        <div id={id} className="flex flex-col gap-2.5 rounded-[10px] border bg-background p-3">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {m.live_clock({ time: clock(taf.issuedAt, timeZone) })} · {ago(taf.issuedAt, now)}
+          </span>
+          <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-2.5 gap-y-1.5 text-[13px] text-subtle leading-snug">
+            {taf.groups.map((g, i) => (
+              <div key={`${g.change}-${g.from}-${g.to}-${g.probability}`} className="contents">
+                <dt className="pt-px font-mono text-[11.5px] text-muted-foreground">{groupWhen(g, now, timeZone)}</dt>
+                <dd className="m-0 min-w-0 first-letter:uppercase">{groupWhat(g, ctx, prev[i])}</dd>
+              </div>
+            ))}
+          </dl>
+          <code className="break-words font-mono text-[11px] text-dim leading-normal">{taf.raw}</code>
+        </div>
+      )}
     </section>
   );
 }
 
-function Measured({ obs, station, timeZone }: { obs: Observation; station: Station; timeZone: string }) {
+function Measured({
+  obs,
+  station,
+  timeZone,
+  taf,
+}: {
+  obs: Observation;
+  station: Station;
+  timeZone: string;
+  /** The folded TAF, before the raw METAR */
+  taf?: ReactNode;
+}) {
   const [unit] = useUnit();
   const wind = obs.wind ?? 0;
   return (
@@ -115,12 +150,16 @@ function Measured({ obs, station, timeZone }: { obs: Observation; station: Stati
           )}
         </div>
       </div>
-      {obs.raw && station.source === 'metar' && <Metar raw={obs.raw} ctx={{ unit, at: obs.at, timeZone }} />}
+      {obs.raw && station.source === 'metar' ? (
+        <Metar raw={obs.raw} ctx={{ unit, at: obs.at, timeZone }} before={taf} />
+      ) : (
+        taf
+      )}
     </>
   );
 }
 
-function Metar({ raw, ctx }: { raw: string; ctx: Context }) {
+function Metar({ raw, ctx, before }: { raw: string; ctx: Context; before?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const groups = useMemo(() => decodeMetar(raw), [raw]);
@@ -136,6 +175,7 @@ function Metar({ raw, ctx }: { raw: string; ctx: Context }) {
           </li>
         ))}
       </ul>
+      {before}
       <button
         type="button"
         aria-expanded={open}

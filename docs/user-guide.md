@@ -23,26 +23,24 @@ its point page. On the map, a result flies there and opens the spot instead.
 
 From the top:
 
-1. **Superforecast / Forecast.** Superforecast takes the regional high-resolution model (ICON-D2,
-   AROME, HARMONIE), Forecast the global one (ECMWF, GFS). Which one opens first follows the
-   [ranking](forecasts.md#verification-and-ranking).
-2. **Model chips.** Every model Open-Meteo has for the place, with its resolution and reach, plus
-   the **Windfenster mix**, a weighted mean of all of them. The note beside them says why the
-   selected one was picked.
-3. **Tiles.**
-    - *Measured now* (stations): the newest METAR or DWD value, the raw METAR translated group by
-      group, and the airport forecast (TAF) in plain words.
-    - *Water* (within 15 km of a gauge): level, flood state and, on the Rhine, the estimated
-      current.
-    - *Do the models agree?*: the spread between the models at the windiest daytime hour of the
-      next two days, each model as a dot on a strip.
-4. **The ten-day forecast**, below.
-5. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
+1. **Measured now** (stations): the newest METAR or DWD value, then two folds: the airport
+   forecast (TAF) in plain words and the raw METAR translated group by group.
+2. **Model chips**, right above the forecast, in two rows: **Fine · hourly** for the regional
+   high-resolution models (ICON-D2, AROME, HARMONIE), **Global · every 3 hours** for the global
+   ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. The model chosen
+   sets the step of the days below. Which one opens first follows the
+   [ranking](forecasts.md#verification-and-ranking); the note beside the chips says why.
+3. **The ten-day forecast.** On a phone every day lists its hours under one another, as
+   Windfinder does: time, direction, wind and gust, a bar in the scale's colour, the weather; what
+   was measured and the TAF under the bar. Wider screens show the table.
+4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.
-6. **Models compared · today** and **Who hits here?**: the models' wind for today against what
-   was measured so far, and the ranking from the last 30 days.
-7. **Wind statistics** (stations): ten years of wind per month as a rose and the share of windy
-   days.
+5. **Wind statistics** (stations): ten years of wind per month as a rose and the share of windy
+   days; then *Water* (within 15 km of a gauge): level, flood state and, on the Rhine, the
+   estimated current.
+6. **Do the models agree?**, **Models compared · today** and **Who hits here?**: the spread
+   between the models at the windiest daytime hour of the next two days, the models' wind for
+   today against what was measured so far, and the ranking from the last 30 days.
 
 ### The ten days at a glance
 
@@ -64,8 +62,8 @@ your gear (or 12 kn without gear). Tap a tile to jump to its day.
 ### The day cards
 
 Every day is a card, two side by side on a wide screen. The columns are every three hours around
-the clock; today and tomorrow can be **hourly from 7 to 19** instead (the **1 h / 3 h** switch,
-kept in the browser). From day 8 the card says *Trend*: the models compute coarser there.
+the clock; with a fine regional model selected, today and tomorrow are **hourly from 7 to 19**
+instead. From day 8 the card says *Trend*: the models compute coarser there.
 
 The rows, in three blocks:
 

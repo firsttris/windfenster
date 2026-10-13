@@ -11,14 +11,13 @@ import { RankingCard } from '@/components/verification/ranking-card';
 import { favoritesQuery, meQuery } from '@/lib/api';
 import { dayGlance, spotWorks } from '@/lib/day-glance';
 import { type FavoriteTarget, findFavorite } from '@/lib/favorites';
-import { autoModel, buildDays, initialModel, MIX, type Mode, modeOf } from '@/lib/forecast';
+import { autoModel, buildDays, initialModel, MIX, modeOf } from '@/lib/forecast';
 import { ago, runHour } from '@/lib/format';
 import { noticeText } from '@/lib/i18n';
 import type { Measured } from '@/lib/observations';
-import { usePref, useUnit } from '@/lib/prefs';
+import { useUnit } from '@/lib/prefs';
 import { UNIT_LABEL, WIND_UNITS } from '@/lib/units';
 import { useGear } from '@/lib/use-gear';
-import { useMedia } from '@/lib/use-media';
 import { useNow } from '@/lib/use-now';
 import { m } from '@/paraglide/messages';
 import { Segmented } from '@/ui/segmented';
@@ -49,14 +48,13 @@ interface Props {
 export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation, history, spot }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
-  const superModel = autoModel(fc, ranking, 'super');
   const globalModel = autoModel(fc, ranking, 'global');
   const selected = picked && fc.series.some((s) => s.model === picked) ? picked : initialModel(fc, ranking);
   const now = useNow();
   const { gear } = useGear();
-  // Today and tomorrow hour by hour, or every 3 hours like the rest (kept in the browser)
-  const [step, setStep] = usePref('wf.forecastStep');
-  const hourly = step !== '3';
+  // A fine (super) model hour by hour, a global one every 3 hours: the model chosen decides
+  const mode = selected ? modeOf(fc, selected) : null;
+  const hourly = mode !== 'global';
   const days = useMemo(
     () => (selected ? buildDays(fc, selected, now, globalModel, hourly) : []),
     [fc, selected, now, globalModel, hourly],
@@ -73,9 +71,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
     const works = fav ? spotWorks(fav.sector, gear) : null;
     return threeHourly.map((d) => dayGlance(d, works));
   }, [threeHourly, fav, gear]);
-  const desktop = useMedia('(min-width: 768px)', true);
   const series = fc.series.find((s) => s.model === selected);
-  const mode = selected ? modeOf(fc, selected) : null;
   const top = ranking?.mixFirst ? MIX : (ranking?.bestSuper ?? ranking?.bestGlobal ?? null);
   const hint = ranking?.mixFirst
     ? m.models_autoMix()
@@ -87,18 +83,10 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
 
   return (
     <div className="flex flex-col gap-4">
+      {/* What is measured now first, then the run, the unit and the models right above the days */}
+      {tiles && <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{tiles}</div>}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented<Mode>
-          className="w-full sm:w-auto"
-          stretch={!desktop}
-          label={m.forecast_mode()}
-          value={mode}
-          options={[
-            { value: 'super', label: m.class_super(), disabled: !superModel },
-            { value: 'global', label: m.class_global(), disabled: !globalModel },
-          ]}
-          onChange={(v) => setPicked(v === 'super' ? superModel : globalModel)}
-        />
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
           {series && (
             <span className="font-mono text-muted-foreground text-xs">
@@ -128,11 +116,6 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
         </p>
       )}
 
-      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tiles}
-        {fc.series.length > 1 && <AgreementTile fc={fc} />}
-      </div>
-
       {days.length > 0 ? (
         <section aria-labelledby="fc-title" className="overflow-hidden sm:rounded-xl sm:border sm:bg-card">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-3 sm:border-b sm:px-5 sm:py-4">
@@ -150,15 +133,6 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Segmented
-                label={m.forecast_step()}
-                value={hourly ? '1' : '3'}
-                options={[
-                  { value: '1', label: m.forecast_stepHourly() },
-                  { value: '3', label: m.forecast_stepThree() },
-                ]}
-                onChange={(v) => setStep(v === '3' ? '3' : null)}
-              />
               <ScaleLegend unit={unit} />
             </div>
           </div>
@@ -179,6 +153,8 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
 
       {fc.series.length > 0 && (
         <div className="flex flex-wrap items-start gap-4">
+          {/* How far the models agree, beside their comparison: below the forecast, not before it */}
+          {fc.series.length > 1 && <AgreementTile fc={fc} />}
           <CompareChart
             fc={fc}
             selected={selected}

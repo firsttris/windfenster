@@ -27,10 +27,9 @@ export function modelColor(fc: Forecast, id: string): string {
   return `var(--chart-${(i % 5) + 1})`;
 }
 
-export function stageLabel(fc: Forecast, day: Day): string {
-  const cls = fc.models.find((x) => x.id === day.source)?.class;
+export function stageLabel(day: Day): string {
   const stages: Record<Stage, () => string> = {
-    hourly: () => m.stage_hourly({ label: cls === 'super' ? m.class_super() : m.class_global() }),
+    hourly: m.stage_hourly,
     threeHourly: m.stage_threeHourly,
     trend: m.stage_trend,
   };
@@ -54,7 +53,7 @@ export function AgreementDot({ fc, day }: { fc: Forecast; day: Day }) {
 
 export { AGREE_DOT, AGREE_LABEL };
 
-export function StageChip({ fc, day }: { fc: Forecast; day: Day }) {
+export function StageChip({ day }: { day: Day }) {
   return (
     <span
       className={cn(
@@ -64,7 +63,7 @@ export function StageChip({ fc, day }: { fc: Forecast; day: Day }) {
         day.stage === 'trend' && 'border border-border-strong border-dashed text-muted-foreground',
       )}
     >
-      {stageLabel(fc, day)}
+      {stageLabel(day)}
     </span>
   );
 }

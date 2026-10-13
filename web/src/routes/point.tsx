@@ -47,7 +47,7 @@ function PointPage() {
       <section className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="m-0 font-bold text-[40px] leading-none tracking-[-0.05em] sm:text-6xl">{title}</h1>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap [&>*]:px-2.5 [&>*]:text-[13px] sm:[&>*]:px-4 sm:[&>*]:text-sm">
             <MapLink lat={lat} lon={lon} slug={null} />
             <FavoriteButton target={{ lat, lon }} lat={lat} lon={lon} name={title} />
           </div>
@@ -70,7 +70,8 @@ function PointPage() {
       </section>
       <ForecastView
         fc={forecast}
-        tiles={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />}
+        // The gauge below the forecast: the wind comes first
+        history={<WaterTile lat={lat} lon={lon} timeZone={forecast.timezone ?? 'UTC'} />}
         ranking={ranking}
         spot={{ lat, lon }}
         rankingStation={

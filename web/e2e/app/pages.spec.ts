@@ -22,8 +22,10 @@ test('a METAR station: measured now, the TAF, the forecast of every model', asyn
   const newest = live.observations.at(-1);
   const now = page.getByRole('article', { name: 'Jetzt gemessen' });
   await expect(now).toContainText(de(newest.wind));
-  // The TAF, raw and in words
+  // The TAF, folded; opened, raw and in words
   const taf = page.getByRole('region', { name: 'Flugwetter-Vorhersage (TAF)' });
+  await expect(taf).not.toContainText('TEMPO');
+  await taf.getByRole('button', { name: /Flugwetter-Vorhersage/ }).click();
   await expect(taf).toContainText('TEMPO');
   // Every model the forecast has
   const station = await (await request.get('/api/stations/edsb')).json();
@@ -75,18 +77,23 @@ test("tomorrow's table shows the chosen model hour by hour: wind, the gust under
     expect(winds[h - 7].trim(), `wind at ${h}:00 tomorrow`).toBe(String(Math.round(d2.wind[i])));
     expect(gusts[h - 7].trim(), `gust at ${h}:00 tomorrow`).toBe(String(Math.round(Math.max(d2.gust[i], d2.wind[i]))));
   }
-  // Every 3 hours instead: 8 columns, kept after a reload
-  await page.getByRole('group', { name: 'Heute und morgen' }).getByRole('button', { name: '3 h' }).click();
-  await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
-  await page.reload();
+  // A global model instead: every 3 hours, 8 columns
+  await page
+    .getByRole('region', { name: 'Wettermodell wählen' })
+    .getByRole('button', { name: /^ECMWF IFS/ })
+    .click();
   await expect.poll(() => row(/^Wind\s*kn$/).count()).toBe(8);
 });
 
 test('measured values and the TAF stand under the forecast, to compare', async ({ page, request }) => {
   await page.goto('/station/edsb');
-  // Every 3 hours around the clock: the stand-in's TEMPO (five hours around now) always meets a
-  // column of today or tomorrow, at any time of day; hour by hour today shows only 7 to 19
-  await page.getByRole('group', { name: 'Heute und morgen' }).getByRole('button', { name: '3 h' }).click();
+  // A global model, every 3 hours around the clock: the stand-in's TEMPO (five hours around now)
+  // always meets a column of today or tomorrow, at any time of day; hour by hour today shows only
+  // 7 to 19
+  await page
+    .getByRole('region', { name: 'Wettermodell wählen' })
+    .getByRole('button', { name: /^ECMWF IFS/ })
+    .click();
   const today = page.getByRole('table', { name: /^Vorhersage für / }).first();
   await expect(today.getByText('Zum Vergleich')).toBeVisible();
   const row = (name: RegExp) =>

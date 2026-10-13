@@ -52,7 +52,8 @@ function StationPage() {
               {st.code}
             </span>
           </h1>
-          <div className="flex flex-wrap gap-2">
+          {/* On phones side by side, half the width each */}
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap [&>*]:px-2.5 [&>*]:text-[13px] sm:[&>*]:px-4 sm:[&>*]:text-sm">
             <MapLink lat={st.lat} lon={st.lon} slug={st.slug} />
             <FavoriteButton target={{ slug: st.slug }} lat={st.lat} lon={st.lon} name={st.municipality ?? st.name} />
           </div>
@@ -65,12 +66,7 @@ function StationPage() {
       </section>
       <ForecastView
         fc={forecast}
-        tiles={
-          <>
-            <LiveTile station={st} timeZone={forecast.timezone ?? 'UTC'} />
-            <WaterTile lat={st.lat} lon={st.lon} timeZone={forecast.timezone ?? 'UTC'} />
-          </>
-        }
+        tiles={<LiveTile station={st} timeZone={forecast.timezone ?? 'UTC'} />}
         measured={
           live.data && {
             source: `${st.source === 'metar' ? 'METAR' : 'DWD'} ${st.code}`,
@@ -82,6 +78,8 @@ function StationPage() {
           <>
             <HistoryCard station={st} timeZone={forecast.timezone ?? 'UTC'} />
             <StatsCard station={st} />
+            {/* The gauge below the forecast: the wind comes first */}
+            <WaterTile lat={st.lat} lon={st.lon} timeZone={forecast.timezone ?? 'UTC'} />
           </>
         }
         ranking={q.data.ranking}

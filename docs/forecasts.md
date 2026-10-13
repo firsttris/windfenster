@@ -41,7 +41,8 @@ of it, at most 30 an hour and 100 a day per client; the rest stays for the refre
 The page builds the ten days from the selected model and fills what it does not reach from the
 global one:
 
-- **Today and tomorrow**: hourly from 7 to 19 (or every 3 hours, by the switch).
+- **Today and tomorrow**: hourly from 7 to 19 when a fine regional model is selected (ICON-D2,
+  AROME, HARMONIE), every 3 hours with a global one or the mix.
 - **Days 3 to 7**: every 3 hours around the clock, 8 columns.
 - **Days 8 to 10**: the same columns, marked *Trend*.
 
