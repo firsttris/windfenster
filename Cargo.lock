@@ -4566,6 +4566,7 @@ dependencies = [
  "axum",
  "bzip2",
  "grib",
+ "libc",
  "pmtiles",
  "png",
  "reqwest",

@@ -90,6 +90,21 @@ pub fn holds(a: &Area, z: u8, x: u32, y: u32) -> bool {
     (x0..=x1).contains(&x) && (y0..=y1).contains(&y)
 }
 
+/// Whether the areas hold all of an archive that goes to `source_max_zoom`: one of them is
+/// the whole world (to a hundredth of a degree, as typed in `WF_BASEMAP_REGION`) from zoom 0
+/// at least that deep. Then the archive is fetched whole instead of tile by tile.
+pub fn whole_source(areas: &[Area], source_max_zoom: u8) -> bool {
+    const EDGE: f64 = 0.01;
+    areas.iter().any(|a| {
+        a.min_zoom == 0
+            && a.max_zoom >= source_max_zoom
+            && a.west <= -180.0 + EDGE
+            && a.east >= 180.0 - EDGE
+            && a.south <= -MAX_LAT + EDGE
+            && a.north >= MAX_LAT - EDGE
+    })
+}
+
 /// Every tile of the areas, once, in the order of their ids (as the archive stores them),
 /// made one by one: the world at zoom 15 is over a billion tiles, too many to list first (the
 /// list of ids took 12.5 GB before the kernel ended the server).
@@ -285,5 +300,22 @@ mod tests {
             "{s} {:?}",
             t.elapsed()
         );
+    }
+
+    #[test]
+    fn knows_when_a_cut_is_the_whole_source() {
+        let planet = [-180.0, -85.05, 180.0, 85.05];
+        let europe = [-25.0, 27.0, 45.0, 72.0];
+        // The world to 15 as a region over the world (WF_BASEMAP_REGION), Protomaps goes to 15
+        assert!(whole_source(&[world(7), region(planet, 15)], 15));
+        // The relief: the world to 12, Mapterhorn goes to 12
+        assert!(whole_source(&[world(12)], 12));
+        // Europe to 15, or the world to 14 only: a cut
+        assert!(!whole_source(&[world(7), region(europe, 15)], 15));
+        assert!(!whole_source(&[world(14)], 15));
+        assert!(!whole_source(
+            &[world(7), region([-179.0, -85.05, 180.0, 85.05], 15)],
+            15
+        ));
     }
 }

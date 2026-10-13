@@ -20,6 +20,12 @@ use super::spots::{self, Spot};
 /// directories always match the data; the next check opens the new file with a new reader.
 pub struct File(Arc<std::fs::File>);
 
+impl File {
+    pub(crate) fn of(file: std::fs::File) -> Self {
+        File(Arc::new(file))
+    }
+}
+
 impl AsyncBackend for File {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
         use std::os::unix::fs::FileExt;

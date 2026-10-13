@@ -89,10 +89,14 @@ impl MapData {
         db: &wf_core::db::Db,
         now: i64,
     ) -> Result<(), crate::basemap::fetch::Error> {
-        // An operator's file: nothing to add
-        if crate::basemap::fetch::read_note(&self.root).await.is_none() {
+        // An operator's file: nothing to add. Ours: what it holds now, not what the settings
+        // ask for, which a download of hours may still be bringing.
+        let Some(held) = crate::basemap::fetch::read_note(&self.root)
+            .await
+            .and_then(|n| n.cut())
+        else {
             return Ok(());
-        }
+        };
         let places = wf_core::forecast::hot_places(db, now - WANTED_S)
             .await
             .map_err(std::io::Error::other)?;
@@ -103,10 +107,9 @@ impl MapData {
                 .map(|(s, _)| (s.lat, s.lon))
                 .collect()
         };
-        // Not in a region as deep as the spots themselves
-        let cut = self.depth.cut();
+        // Not in a region the main file holds as deep as the spots themselves
         let deep = |s: &Spot| {
-            cut.region.is_some_and(|([w, south, e, n], z)| {
+            held.region.is_some_and(|([w, south, e, n], z)| {
                 z >= crate::basemap::tiles::SPOT_ZOOM
                     && (south..=n).contains(&s.lat)
                     && (w..=e).contains(&s.lon)
@@ -118,16 +121,24 @@ impl MapData {
                 .filter(|s| !deep(s))
                 .collect();
         let have = spots::on_disk(&self.root).await;
-        let (missing, touch, remove) = spots::plan(
+        let (missing, touch, mut remove) = spots::plan(
             &wanted,
             &have,
             SystemTime::now(),
             PER_ROUND.min(self.depth.max_spots),
             self.depth.max_spots,
         );
+        // Spots the main file now holds as deep go: they would be served first, from an older
+        // build.
+        let held_deep: Vec<Spot> = have
+            .iter()
+            .map(|(s, _)| *s)
+            .filter(|s| deep(s) && !remove.contains(s))
+            .collect();
+        remove.extend(held_deep);
         // Just past the world's zoom: in the region the main file has those too, elsewhere only
         // the spot
-        let from_zoom = cut.world_zoom + 1;
+        let from_zoom = held.world_zoom + 1;
         let missing_is_empty = missing.is_empty();
         for spot in missing {
             let n = spots::make(

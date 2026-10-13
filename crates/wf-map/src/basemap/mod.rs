@@ -4,6 +4,7 @@
 //! one from the server (`serve`).
 
 mod dircache;
+mod download;
 pub mod fetch;
 pub mod mvt;
 pub mod serve;

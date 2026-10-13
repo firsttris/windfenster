@@ -14,6 +14,7 @@ use super::dircache::Bounded;
 use reqwest::header::RANGE;
 use serde::{Deserialize, Serialize};
 
+use super::download;
 use super::tiles::{self, Area};
 
 pub const BUILDS: &str = "https://build.protomaps.com";
@@ -38,6 +39,16 @@ pub enum Error {
     Join(#[from] tokio::task::JoinError),
     #[error("no Protomaps build of the last {LOOK_BACK_DAYS} days answers")]
     NoBuild,
+    #[error("{0} is gone")]
+    Gone(String),
+    #[error(
+        "not enough room on the disk: {} needed, {} free; free some, or ask for less zoom",
+        super::download::gb(*need),
+        super::download::gb(*free)
+    )]
+    NoSpace { need: u64, free: u64 },
+    #[error("{0}")]
+    Incomplete(String),
 }
 
 /// What our basemap holds: the world to `world_zoom` and a region (west, south, east, north)
@@ -137,15 +148,15 @@ pub(crate) struct Http {
 /// download.mapterhorn.com, which answer 5xx now and then).
 /// Outages behind Cloudflare (520, 502) last minutes at times, and all ranges in flight fail at
 /// once: waiting longer costs nothing, giving up costs hours of cutting.
-const TRIES: u32 = 10;
+pub(crate) const TRIES: u32 = 10;
 /// The first wait; it doubles up to `MAX_WAIT`: 1, 2, 4, 8, 16, 32, 60, 60, 60 s, about five
 /// minutes before a range gives up
-const BACKOFF: Duration = Duration::from_secs(1);
-const MAX_WAIT: Duration = Duration::from_secs(60);
+pub(crate) const BACKOFF: Duration = Duration::from_secs(1);
+pub(crate) const MAX_WAIT: Duration = Duration::from_secs(60);
 
 /// A wait stretched by up to half again, by the range's offset, so the ranges in flight do not
 /// all knock again at the same moment.
-fn spread(wait: Duration, offset: usize) -> Duration {
+pub(crate) fn spread(wait: Duration, offset: usize) -> Duration {
     let share = (offset as u64).wrapping_mul(2_654_435_761) % 1_000;
     wait + wait.mul_f64(share as f64 / 2_000.0)
 }
@@ -205,6 +216,29 @@ pub(crate) async fn open(http: &reqwest::Client, url: String) -> PmtResult<Reade
     AsyncPmTilesReader::try_from_cached_source(backend, Bounded::new()).await
 }
 
+fn build_url(base: &str, build: &str) -> String {
+    format!("{}/{build}.pmtiles", base.trim_end_matches('/'))
+}
+
+/// The build a download under way is from, if it still answers; else the newest.
+async fn build_to_use(
+    http: &reqwest::Client,
+    base: &str,
+    part: &download::Part,
+    now: i64,
+) -> Result<(String, Reader), Error> {
+    if let Some(url) = part.source().await
+        && let Some(build) = url
+            .rsplit('/')
+            .next()
+            .and_then(|f| f.strip_suffix(".pmtiles"))
+        && let Ok(reader) = open(http, url.clone()).await
+    {
+        return Ok((build.to_owned(), reader));
+    }
+    newest_build(http, base, now).await
+}
+
 /// The newest build that answers: YYYYMMDD and its reader.
 pub(crate) async fn newest_build(
     http: &reqwest::Client,
@@ -213,8 +247,7 @@ pub(crate) async fn newest_build(
 ) -> Result<(String, Reader), Error> {
     for k in 0..LOOK_BACK_DAYS {
         let day = wf_core::time::yyyymmdd(now - k * 86_400).to_string();
-        let url = format!("{}/{day}.pmtiles", base.trim_end_matches('/'));
-        if let Ok(reader) = open(http, url).await {
+        if let Ok(reader) = open(http, build_url(base, &day)).await {
             return Ok((day, reader));
         }
     }
@@ -291,8 +324,9 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
     write.await?
 }
 
-/// Makes our basemap if it is due: the newest build, cut to the world and the region. Returns
-/// the build used, or None when nothing was due.
+/// Makes our basemap if it is due: the newest build, cut to the world and the region, or
+/// downloaded whole when the cut is all of it. Returns the build used, or None when nothing was
+/// due.
 pub async fn keep_current(
     root: &Path,
     http: &reqwest::Client,
@@ -306,11 +340,30 @@ pub async fn keep_current(
     if !due(exists, note.as_ref(), cut, now) {
         return Ok(None);
     }
-    let (build, reader) = newest_build(http, base, now).await?;
     tokio::fs::create_dir_all(root).await?;
-    let partial = root.join("basemap.pmtiles.part");
-    let n = copy(reader, &cut.areas(), &partial).await?;
-    tokio::fs::rename(&partial, &file).await?;
+    let part = download::Part::of(root, super::FILE);
+    let areas = cut.areas();
+    let (mut build, reader) = build_to_use(http, base, &part, now).await?;
+    let made = if tiles::whole_source(&areas, reader.get_header().max_zoom) {
+        drop(reader);
+        let n = match download::whole(&build_url(base, &build), &part, "basemap").await {
+            // Protomaps keeps a build some days: one gone meanwhile gives way to the newest.
+            Err(Error::Gone(_)) => {
+                part.clear().await;
+                build = newest_build(http, base, now).await?.0;
+                download::whole(&build_url(base, &build), &part, "basemap").await?
+            }
+            other => other?,
+        };
+        download::check_archive(&part.file, n).await?;
+        part.done().await;
+        format!("the whole build ({})", download::gb(n))
+    } else {
+        part.clear().await;
+        let n = copy(reader, &areas, &part.file).await?;
+        format!("{n} tiles")
+    };
+    tokio::fs::rename(&part.file, &file).await?;
     let note = Note {
         build: build.clone(),
         spots: Vec::new(),
@@ -324,7 +377,7 @@ pub async fn keep_current(
         serde_json::to_vec(&note).map_err(std::io::Error::other)?,
     )
     .await?;
-    tracing::info!("basemap: {n} tiles from Protomaps build {build}");
+    tracing::info!("basemap: {made} from Protomaps build {build}");
     Ok(Some(build))
 }
 

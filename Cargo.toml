@@ -33,6 +33,8 @@ grib = { version = "0.19", default-features = false, features = ["ccsds-unpack-w
 dotenvy = "0.15"
 flate2 = "1"
 hex = "0.4"
+# statvfs: room on the disk before a basemap download
+libc = "0.2"
 # Alarm e-mails over SMTP, TLS by rustls as reqwest
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls", "hostname"] }
 mime_guess = "2"

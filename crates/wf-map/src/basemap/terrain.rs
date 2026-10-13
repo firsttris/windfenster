@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::download;
 use super::fetch::{self, Error};
 use super::tiles::{self, Area};
 
@@ -41,7 +42,7 @@ pub fn path(root: &Path) -> PathBuf {
 
 /// Makes the relief up to `zoom` if there is none, it is a year old, cut to another zoom or
 /// Europe alone;
-/// returns how many tiles it holds, or None when nothing was due. Zoom 0 removes ours (no
+/// returns what it made, or None when nothing was due. Zoom 0 removes ours (no
 /// relief). A file without our note is the operator's and stays.
 pub async fn keep_current(
     root: &Path,
@@ -49,7 +50,7 @@ pub async fn keep_current(
     base: &str,
     zoom: u8,
     now: i64,
-) -> Result<Option<usize>, Error> {
+) -> Result<Option<String>, Error> {
     let exists = tokio::fs::try_exists(path(root)).await.unwrap_or(false);
     let note: Option<Note> = tokio::fs::read(root.join(NOTE))
         .await
@@ -71,12 +72,23 @@ pub async fn keep_current(
         return Ok(None);
     }
     let url = format!("{}/planet.pmtiles", base.trim_end_matches('/'));
-    let reader = fetch::open(http, url).await?;
+    let reader = fetch::open(http, url.clone()).await?;
     let world: Area = tiles::world(zoom.min(MAX_ZOOM));
     tokio::fs::create_dir_all(root).await?;
-    let partial = root.join("terrain.pmtiles.part");
-    let n = fetch::copy(reader, &[world], &partial).await?;
-    tokio::fs::rename(&partial, path(root)).await?;
+    let part = download::Part::of(root, FILE);
+    // To Mapterhorn's own deepest zoom the relief is the planet file itself: fetched whole.
+    let made = if tiles::whole_source(&[world], reader.get_header().max_zoom) {
+        drop(reader);
+        let n = download::whole(&url, &part, "terrain").await?;
+        download::check_archive(&part.file, n).await?;
+        part.done().await;
+        format!("the whole planet file ({})", download::gb(n))
+    } else {
+        part.clear().await;
+        let n = fetch::copy(reader, &[world], &part.file).await?;
+        format!("{n} relief tiles")
+    };
+    tokio::fs::rename(&part.file, path(root)).await?;
     let note = serde_json::to_vec(&Note {
         made_at: now,
         zoom,
@@ -84,8 +96,8 @@ pub async fn keep_current(
     })
     .map_err(std::io::Error::other)?;
     tokio::fs::write(root.join(NOTE), note).await?;
-    tracing::info!("terrain: {n} relief tiles from Mapterhorn");
-    Ok(Some(n))
+    tracing::info!("terrain: {made} from Mapterhorn");
+    Ok(Some(made))
 }
 
 /// The relief's zooms and bounds, if there is one.

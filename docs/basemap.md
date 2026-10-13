@@ -93,10 +93,44 @@ anew from the newest build:
   minute (about five minutes in all); only when it keeps failing does the cut stop. A restart in the middle **starts over**; after an
   error it tries again in an hour;
 - the tiles are walked one at a time in the archive's order and only the directories in use
-  are kept (64 MB at most), so even the world at zoom 15 needs little memory, only time;
-- the detail spots stay as they are; from `WF_BASEMAP_ZOOM=14` none are made inside the region.
+  are kept (64 MB at most); the archive being written keeps an entry for every tile until it is
+  complete, so a large cut needs memory: the world to zoom 14 several GB;
+- the detail spots stay as they are; from `WF_BASEMAP_ZOOM=14` none are made inside the region,
+  and spot files the main file now holds as deep are removed.
 
 Reload the map page in the browser afterwards.
+
+## The whole world at full depth
+
+When the cut asked for is all of the source, the server does not cut it tile by tile but
+downloads the source file as it is:
+
+| Setting | Source file | Size | At 35 to 60 MB/s |
+|---|---|---|---|
+| `WF_BASEMAP_REGION=-180,-85.05,180,85.05` with `WF_BASEMAP_ZOOM=15` | Protomaps' daily build | about 139 GB | about 40 min |
+| `WF_TERRAIN_ZOOM=12` | Mapterhorn's `planet.pmtiles` | about 356 GB | about 2.5 h |
+
+Cut tile by tile, the same world would take days (one request per tile, a few hundred tiles a
+second). The download:
+
+- fetches pieces of 512 MiB one after the other, each its own range request on a connection
+  of its own, written at its place in `basemap.pmtiles.part`. Both sources sit behind
+  Cloudflare, where one long connection was seen to stop sending after some 12 GB while a new
+  one went on at full speed: a request that brings less than 1 MB/s for 20 s is dropped and
+  its piece asked again from where it got. A piece counts only when it is complete;
+- retries a moment's failure (5xx, 429, a cut or hung connection) without end, waiting 5 to
+  60 s; only 30 minutes without a single piece done end the round, and the next round an hour
+  later goes on from the pieces there;
+- goes on after a restart with the pieces still missing: the source, its ETag, its length and
+  the pieces done are kept in `basemap.pmtiles.part.json`, and the last MiB before them is
+  first fetched again and compared with the part. If the source changed (another ETag, a 200
+  instead of 206, bytes that differ), it starts over. The build is chosen once and kept for
+  the whole download; only if Protomaps deletes it meanwhile does it switch to the newest;
+- checks the room on the disk first and does not begin without it (the log says how much is
+  needed and free), and checks the file's length and PMTiles header before it swaps it in;
+- says every five minutes how far it is, how fast and how long it will take.
+
+With the world at zoom 15 in the main file no detail spots are made any more.
 
 !!! tip "Full detail where you ride"
     A small region very deep costs little: `WF_BASEMAP_REGION=7.5,47.5,9.0,49.5` with

@@ -32,6 +32,7 @@ fn archive() -> Vec<u8> {
     let mut out = std::io::Cursor::new(Vec::new());
     let mut w = pmtiles::PmTilesWriter::new(pmtiles::TileType::Mvt)
         .tile_compression(pmtiles::Compression::None)
+        .max_zoom(14)
         .metadata(r#"{"name":"Protomaps Basemap","version":"4.15.2"}"#)
         .create(&mut out)
         .unwrap();
@@ -72,7 +73,16 @@ async fn serve(
         .unwrap();
     let a: usize = a.parse().unwrap();
     let b = b.parse::<usize>().unwrap().min(f.file.len() - 1);
-    (StatusCode::PARTIAL_CONTENT, f.file[a..=b].to_vec()).into_response()
+    let range = format!("bytes {a}-{b}/{}", f.file.len());
+    (
+        StatusCode::PARTIAL_CONTENT,
+        [
+            (header::CONTENT_RANGE, range),
+            (header::ETAG, "\"b1\"".into()),
+        ],
+        f.file[a..=b].to_vec(),
+    )
+        .into_response()
 }
 
 /// Reads the archive we made, from memory.
@@ -192,4 +202,38 @@ async fn cuts_the_world_the_region_and_the_spots_from_the_newest_build() {
         (theirs.full_zoom, theirs.region, theirs.detail.len()),
         (8, None, 0)
     );
+}
+
+#[tokio::test]
+async fn downloads_the_build_whole_when_the_cut_is_all_of_it() {
+    let fake = Fake {
+        file: Arc::new(archive()),
+        ranges: Arc::default(),
+    };
+    let app = Router::new()
+        .route("/{name}", get(serve))
+        .with_state(fake.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let dir = tempfile::tempdir().unwrap();
+    // The world (as WF_BASEMAP_REGION types it) to 14, the build's own deepest zoom
+    let cut = Cut::new(4, Some([-180.0, -85.05, 180.0, 85.05]), 14);
+    let build = basemap::fetch::keep_current(dir.path(), &reqwest::Client::new(), &base, &cut, NOW)
+        .await
+        .unwrap();
+    assert_eq!(build.as_deref(), Some("20261010"));
+    // The file is the build itself, byte for byte, and the part is gone
+    assert_eq!(
+        std::fs::read(basemap::path(dir.path())).unwrap(),
+        *fake.file
+    );
+    let left: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|n| n.contains(".part"))
+        .collect();
+    assert!(left.is_empty(), "{left:?}");
+    let info = basemap::info(dir.path()).await.unwrap();
+    assert_eq!((info.max_zoom, info.region_zoom), (14, 14));
 }

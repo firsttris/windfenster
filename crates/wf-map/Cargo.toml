@@ -12,6 +12,7 @@ publish.workspace = true
 wf-core.workspace = true
 bzip2.workspace = true
 grib.workspace = true
+libc.workspace = true
 png.workspace = true
 pmtiles.workspace = true
 reqwest.workspace = true
