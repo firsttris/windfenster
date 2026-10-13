@@ -41,7 +41,9 @@ another one in `PW_CHROMIUM`. CI runs them in the official Playwright image of t
 the lockfile, in two halves at once (`--shard`), each in about two minutes. CI builds the Docker
 image only when its own files change (`Dockerfile`, `docker/`, `Cargo.lock`, the package
 manifests), by hand and on its weekly run; the image's build cooks the Rust dependencies in a
-layer of their own with cargo-chef, so a code change compiles only the workspace crates.
+layer of their own with cargo-chef, so a code change compiles only the workspace crates. Its
+build cache lives in the registry (`ghcr.io/firsttris/windfenster-buildcache:linux-amd64`) and is
+shared with the release's amd64 build, so either reuses what the other compiled.
 
 - **gpu** (`web/e2e/*.spec.ts`): the map's shaders in a test page. How the three models lie over
   one another, compared with what the readout under the pointer shows, for wind and gusts; the
@@ -116,11 +118,13 @@ windfenster.container  Podman Quadlet unit
 
 The version lives in `Cargo.toml`. **Actions → Bump version** (pick patch, minor or major)
 raises it there and in `Cargo.lock`, commits, tags `vX.Y.Z` and starts the release; a tag pushed
-from a checkout does the same for the version already in `Cargo.toml`. The release runs the CI,
-then the shared Docker release from [firsttris/workflows](https://github.com/firsttris/workflows):
+from a checkout does the same for the version already in `Cargo.toml`. The release runs the CI
+(skipped when main's CI already passed for the same code, as after **Bump version**), then the
+shared Docker release from [firsttris/workflows](https://github.com/firsttris/workflows):
 amd64 and arm64 as `:x.y.z`, `:x.y` and `:latest` to Docker Hub (`tristanteu/windfenster`) and
-ghcr.io, and the GitHub release. It needs the `DOCKER_PAT` secret (a Docker Hub access token
-of `tristanteu`). Servers with `podman auto-update` pick up the new `:latest` within a day.
+ghcr.io, and the GitHub release. Each platform keeps its build cache in
+`ghcr.io/firsttris/windfenster-buildcache`, so a release reuses the layers of the one before. It
+needs the `DOCKER_PAT` secret (a Docker Hub access token of `tristanteu`). Servers with `podman auto-update` pick up the new `:latest` within a day.
 **Actions → Release**, run by hand on main, publishes `:edge` and releases nothing.
 
 ## Conventions
