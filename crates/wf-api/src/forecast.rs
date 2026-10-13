@@ -13,6 +13,7 @@ use wf_core::geo::GridPoint;
 use wf_core::station::{self, Station};
 use wf_ingest::forecasts::Forecasts;
 
+use crate::client::ClientIp;
 use crate::ranking::{RANKING_MAX_KM, Ranking, with_mix};
 use crate::{ApiError, AppState};
 
@@ -48,10 +49,19 @@ pub fn spawn_invalidation(forecasts: &Forecasts, cache: ForecastCache) {
 
 /// Loads a place's forecast once for concurrent requests. A forecast with a notice (source
 /// down) is returned but not cached, so the next request tries again.
-async fn forecast_for(s: &AppState, p: GridPoint, pinned: bool) -> Result<Arc<Forecast>, ApiError> {
+async fn forecast_for(
+    s: &AppState,
+    p: GridPoint,
+    pinned: bool,
+    ip: ClientIp,
+) -> Result<Arc<Forecast>, ApiError> {
     if let Some(hit) = s.cache.get(&p).await {
         s.touch(p, pinned).await;
         return Ok(hit);
+    }
+    // Not served since the last run: loading it may cost calls to Open-Meteo.
+    if !s.limits.new_place(ip, wf_core::time::now()).await {
+        return Err(ApiError::TooManyPlaces);
     }
     let forecasts = s.forecasts.clone();
     let loaded = s
@@ -93,6 +103,7 @@ pub struct StationForecast {
 
 pub async fn station(
     State(s): State<AppState>,
+    ip: ClientIp,
     Path(slug): Path<String>,
 ) -> Result<Json<StationForecast>, ApiError> {
     let station = station::by_slug(&s.db, &slug)
@@ -102,7 +113,7 @@ pub async fn station(
         .await?
         .ok_or(ApiError::NotFound)?;
     let p = GridPoint::new(station.lat, station.lon).ok_or(ApiError::NotFound)?;
-    let forecast = forecast_for(&s, p, true).await?;
+    let forecast = forecast_for(&s, p, true, ip).await?;
     let verified = s.verified(id, &forecast.models).await?;
     Ok(Json(StationForecast {
         station,
@@ -141,11 +152,12 @@ pub struct PointForecast {
 
 pub async fn point(
     State(s): State<AppState>,
+    ip: ClientIp,
     query: Result<Query<PointQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<Json<PointForecast>, ApiError> {
     let Query(q) = query.map_err(|_| ApiError::InvalidCoordinates)?;
     let p = GridPoint::new(q.lat, q.lon).ok_or(ApiError::InvalidCoordinates)?;
-    let forecast = forecast_for(&s, p, false).await?;
+    let forecast = forecast_for(&s, p, false, ip).await?;
     let nearest = station::nearest(&s.db, q.lat, q.lon, NEAREST_MAX_KM)
         .await?
         .map(|(station, d)| NearbyStation {

@@ -12,6 +12,7 @@ use serde::Deserialize;
 use wf_core::station::{self, PlaceHit, SearchResults};
 use wf_core::text::fold;
 
+use crate::client::ClientIp;
 use crate::{ApiError, AppState};
 
 pub type PlaceCache = Cache<(String, String), Arc<Vec<PlaceHit>>>;
@@ -33,6 +34,7 @@ pub struct SearchQuery {
 
 pub async fn search(
     State(s): State<AppState>,
+    ip: ClientIp,
     Query(q): Query<SearchQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     let text = q.q.trim();
@@ -50,13 +52,20 @@ pub async fn search(
             .to_owned();
             let query = text.to_owned();
             let key = (fold(text), lang.clone());
-            match s
-                .places
-                .try_get_with(key, async move {
-                    geocoder.search(&query, &lang, 5).await.map(Arc::new)
-                })
-                .await
-            {
+            // A search not asked lately goes out to the geocoder: limited per client, beyond
+            // which only stations are found.
+            let cached = s.places.contains_key(&key);
+            let allowed = cached || s.limits.search(ip, wf_core::time::now()).await;
+            let found = if allowed {
+                s.places
+                    .try_get_with(key, async move {
+                        geocoder.search(&query, &lang, 5).await.map(Arc::new)
+                    })
+                    .await
+            } else {
+                Ok(Arc::default())
+            };
+            match found {
                 Ok(places) => results.places = (*places).clone(),
                 Err(e) => tracing::debug!("geocoding: {e:#}"),
             }

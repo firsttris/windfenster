@@ -236,10 +236,20 @@ pub async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
 }
 
 pub async fn get_json(app: &Router, uri: &str) -> Result<(StatusCode, Value)> {
-    let res = app
-        .clone()
-        .oneshot(Request::get(uri).body(Body::empty())?)
-        .await?;
+    get_json_from(app, uri, None).await
+}
+
+/// GET as a client at `ip`, as Cloudflare names it in `CF-Connecting-IP`.
+pub async fn get_json_from(
+    app: &Router,
+    uri: &str,
+    ip: Option<&str>,
+) -> Result<(StatusCode, Value)> {
+    let mut req = Request::get(uri);
+    if let Some(ip) = ip {
+        req = req.header("cf-connecting-ip", ip);
+    }
+    let res = app.clone().oneshot(req.body(Body::empty())?).await?;
     let status = res.status();
     let body = to_bytes(res.into_body(), 1 << 22).await?;
     Ok((status, serde_json::from_slice(&body)?))

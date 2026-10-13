@@ -540,5 +540,6 @@
   "confirm_lead": "Confirm that Windfenster may send alarms to this address.",
   "confirm_button": "Confirm address",
   "confirm_done": "Thanks, your address is confirmed.",
-  "confirm_toAccount": "Go to your account"
+  "confirm_toAccount": "Go to your account",
+  "error_tooManyPlaces": "Very many new places were opened from your connection. Please try again in an hour; stations and places already open still work."
 }

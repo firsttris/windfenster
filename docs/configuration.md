@@ -15,6 +15,7 @@ to start; set `WF_PUBLIC_URL` before people sign up.
 | `WF_DATA_DIR` | `/data` | Database and map textures |
 | `WF_LISTEN` | `0.0.0.0:8080` | Address of the HTTP server |
 | `WF_PUBLIC_URL` | | Public address, e.g. `https://windfenster.example`, for canonical links of station pages and the passkeys' domain; without it passkeys work on `http://localhost:8080` only |
+| `WF_CLIENT_IP_HEADER` | `CF-Connecting-IP` | Header the proxy in front puts the client's address in, for the per-client limits: `CF-Connecting-IP` behind Cloudflare Tunnel, `X-Forwarded-For` behind Caddy or nginx open to the internet (its last entry counts), `none` for the connection's address |
 | `OPEN_METEO_API_KEY` | | Open-Meteo key; without one the free, non-commercial API is used |
 | `OPEN_METEO_BASE_URL` | | Own Open-Meteo instance |
 | `OPEN_METEO_GEOCODING_URL` | | Own Open-Meteo geocoding instance (place search) |
@@ -69,7 +70,11 @@ next start; see [The basemap and relief](basemap.md#changing-the-depth).
 Forecasts per place come from Open-Meteo. Without a key Windfenster uses the free API, which is
 for **non-commercial use** and allows about 10,000 calls a day; Windfenster keeps to
 `WF_OPEN_METEO_DAILY_BUDGET` (9,000 by default). That covers a few hundred places people look at
-regularly. Larger or commercial instances need an
+regularly. So that nobody can use it up by opening ever new places, a client (by its address,
+see `WF_CLIENT_IP_HEADER`) may open 30 places an hour and 100 a day that the server has to fetch,
+and such openings use at most two thirds of the budget; the last third stays for keeping the
+places people use current. Place searches go to the geocoder 300 times an hour per client;
+beyond, the search finds stations only. Larger or commercial instances need an
 [Open-Meteo subscription](https://open-meteo.com/en/pricing) (`OPEN_METEO_API_KEY`) or their own
 Open-Meteo (`OPEN_METEO_BASE_URL`). How the calls are spent: [Forecasts and models](forecasts.md#how-forecasts-are-fetched).
 

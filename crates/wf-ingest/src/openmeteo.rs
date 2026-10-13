@@ -34,6 +34,9 @@ pub const FORECAST_DAYS: u32 = 10;
 
 /// Default daily budget of the free API, a little under its limit of 10,000 calls.
 pub const FREE_DAILY_BUDGET: u32 = 9_000;
+/// This part of the budget stays for the refreshes: places opened by someone may use the rest
+/// (a third kept: 6,000 of 9,000 for them).
+const KEPT_FOR_REFRESH: u32 = 3;
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -145,7 +148,10 @@ impl OpenMeteo {
         models: &[&str],
         interactive: bool,
     ) -> Result<PointData, Error> {
-        self.spend(weight(HOURLY.len(), models.len(), FORECAST_DAYS))?;
+        self.spend(
+            weight(HOURLY.len(), models.len(), FORECAST_DAYS),
+            interactive,
+        )?;
         let patience = if interactive {
             Patience::INTERACTIVE
         } else {
@@ -165,17 +171,25 @@ impl OpenMeteo {
         Ok(meta["last_run_initialisation_time"].as_i64())
     }
 
-    fn spend(&self, calls: u32) -> Result<(), Error> {
+    /// Counts calls against the day's budget. Places opened by someone (`interactive`) may use
+    /// only part of it: the rest stays for keeping the places people use current, however many
+    /// new ones get opened.
+    fn spend(&self, calls: u32, interactive: bool) -> Result<(), Error> {
         let mut b = self.budget.lock().unwrap();
         let today = wf_core::time::now().div_euclid(86_400);
         if b.day != today {
             b.day = today;
             b.used = 0;
         }
-        if let Some(limit) = b.limit
-            && b.used + calls > limit
-        {
-            return Err(Error::Budget(limit));
+        if let Some(limit) = b.limit {
+            let usable = if interactive {
+                limit - limit / KEPT_FOR_REFRESH
+            } else {
+                limit
+            };
+            if b.used + calls > usable {
+                return Err(Error::Budget(limit));
+            }
         }
         b.used += calls;
         Ok(())
@@ -320,9 +334,20 @@ mod tests {
                 ..Config::default()
             },
         );
-        assert!(om.spend(3).is_ok());
-        assert!(matches!(om.spend(2), Err(Error::Budget(4))));
-        assert!(om.spend(1).is_ok());
+        assert!(om.spend(3, false).is_ok());
+        assert!(matches!(om.spend(2, false), Err(Error::Budget(4))));
+        assert!(om.spend(1, false).is_ok());
+        // Places opened by someone get two thirds; the rest stays for the refreshes.
+        let om = OpenMeteo::new(
+            reqwest::Client::new(),
+            Config {
+                daily_budget: Some(9),
+                ..Config::default()
+            },
+        );
+        assert!(om.spend(6, true).is_ok());
+        assert!(matches!(om.spend(1, true), Err(Error::Budget(9))));
+        assert!(om.spend(3, false).is_ok());
     }
 
     #[test]

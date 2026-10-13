@@ -46,6 +46,8 @@ pub enum ErrorCode {
     TooSoon,
     /// A confirmation link that is unknown, used or ran out
     InvalidLink,
+    /// This address opened more new places than the server fetches for one; try again later
+    TooManyPlaces,
     Internal,
 }
 
@@ -78,6 +80,7 @@ pub enum ApiError {
     EmailOff,
     TooSoon,
     InvalidLink,
+    TooManyPlaces,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -126,6 +129,7 @@ impl IntoResponse for ApiError {
             ApiError::EmailOff => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::EmailOff),
             ApiError::TooSoon => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooSoon),
             ApiError::InvalidLink => (StatusCode::BAD_REQUEST, ErrorCode::InvalidLink),
+            ApiError::TooManyPlaces => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyPlaces),
             ApiError::TooManyAttempts => {
                 (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
             }

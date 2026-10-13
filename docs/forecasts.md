@@ -31,7 +31,9 @@ regional model's rectangle reaches past its domain) is asked there again a day l
 every run.
 
 The free API allows about 10,000 calls a day (`WF_OPEN_METEO_DAILY_BUDGET`, 9,000 by default):
-enough for a few hundred places people look at regularly.
+enough for a few hundred places people look at regularly. Opening new places may use two thirds
+of it, at most 30 an hour and 100 a day per client; the rest stays for the refreshes
+([limits](configuration.md#open-meteo-free-or-with-a-key)).
 `windfenster probe --lat … --lon …` prints what Open-Meteo returns for every model at a place.
 
 ## The ten days

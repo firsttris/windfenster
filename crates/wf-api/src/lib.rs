@@ -3,6 +3,7 @@
 
 pub mod alarms;
 pub mod auth;
+pub mod client;
 mod error;
 pub mod favorites;
 pub mod forecast;
@@ -66,6 +67,10 @@ pub struct AppState {
     password_failures: auth::password::Failures,
     /// Confirmation e-mails sent lately
     mailing: Arc<auth::email::Mailing>,
+    /// Header with the client's address, set by the proxy in front (`CF-Connecting-IP`)
+    client_ip_header: Option<axum::http::HeaderName>,
+    /// What each client address made the server fetch lately
+    limits: Arc<client::Limits>,
     /// Accounts that sent a test message within the last half minute
     tested: moka::future::Cache<i64, ()>,
     cache: forecast::ForecastCache,
@@ -105,6 +110,8 @@ impl AppState {
             passkeys: auth::Passkeys::new(public_url.as_deref(), dev_ui.as_deref()).map(Arc::new),
             password_failures: auth::password::new_failures(),
             mailing: Arc::new(auth::email::Mailing::new()),
+            client_ip_header: Some(axum::http::HeaderName::from_static("cf-connecting-ip")),
+            limits: Arc::new(client::Limits::new()),
             tested: moka::future::Cache::builder()
                 .max_capacity(10_000)
                 .time_to_live(Duration::from_secs(30))
@@ -145,6 +152,15 @@ impl AppState {
     pub fn with_alarms(self, alarms: Arc<wf_alarm::Alarms>) -> Self {
         Self {
             alarms: Some(alarms),
+            ..self
+        }
+    }
+
+    /// Takes the client's address from this header (else from the connection), or only from the
+    /// connection with None.
+    pub fn with_client_ip_header(self, header: Option<axum::http::HeaderName>) -> Self {
+        Self {
+            client_ip_header: header,
             ..self
         }
     }

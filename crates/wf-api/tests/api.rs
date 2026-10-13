@@ -7,7 +7,7 @@ use axum::http::StatusCode;
 use serde_json::{Value, json};
 use std::sync::atomic::Ordering;
 
-use common::{app, get_json};
+use common::{app, get_json, get_json_from};
 
 #[tokio::test]
 async fn health_and_models() -> Result<()> {
@@ -120,5 +120,31 @@ async fn unknown_api_path_is_a_json_404() -> Result<()> {
     let (status, body) = get_json(&app, "/api/nope").await?;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(body, json!({"code": "not_found"}));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_client_opens_only_so_many_new_places_an_hour() -> Result<()> {
+    let (_dir, app, calls) = app().await?;
+    let point = |i: usize| format!("/api/point?lat=48.{:02}&lon=8.12", i);
+    for i in 0..30 {
+        let (status, _) = get_json_from(&app, &point(i), Some("203.0.113.7")).await?;
+        assert_eq!(status, StatusCode::OK, "place {i}");
+    }
+    let fetched = calls.forecast.load(Ordering::SeqCst);
+    let (status, body) = get_json_from(&app, &point(30), Some("203.0.113.7")).await?;
+    assert_eq!(
+        (status, body),
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            json!({"code": "too_many_places"})
+        )
+    );
+    // Nothing more was fetched for it; places already served stay open, and others still can.
+    assert_eq!(calls.forecast.load(Ordering::SeqCst), fetched);
+    let (status, _) = get_json_from(&app, &point(3), Some("203.0.113.7")).await?;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = get_json_from(&app, &point(30), Some("203.0.113.8")).await?;
+    assert_eq!(status, StatusCode::OK);
     Ok(())
 }

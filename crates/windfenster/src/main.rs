@@ -175,6 +175,11 @@ struct ServeArgs {
     /// Public address, e.g. https://windfenster.example, for canonical links of station pages.
     #[arg(long, env = "WF_PUBLIC_URL")]
     public_url: Option<String>,
+    /// Header the proxy in front puts the client's address in, for the per-client limits on
+    /// what the server fetches: `CF-Connecting-IP` behind Cloudflare, `X-Forwarded-For` behind
+    /// Caddy or nginx open to the internet; `none` takes the connection's address.
+    #[arg(long, env = "WF_CLIENT_IP_HEADER", default_value = "CF-Connecting-IP")]
+    client_ip_header: String,
     /// Open-Meteo geocoding instance for the place search.
     #[arg(long, env = "OPEN_METEO_GEOCODING_URL")]
     geocoding_url: Option<String>,
@@ -405,13 +410,23 @@ async fn serve(args: ServeArgs) -> Result<()> {
     }
     state = state.with_alarms(alarms);
     state = state.with_climate(climate);
+    state = state.with_client_ip_header(match args.client_ip_header.trim() {
+        "" | "none" => None,
+        h => Some(
+            axum::http::HeaderName::try_from(h.to_ascii_lowercase())
+                .context("WF_CLIENT_IP_HEADER is no header name")?,
+        ),
+    });
     let listener = TcpListener::bind(args.listen)
         .await
         .with_context(|| format!("binding {}", args.listen))?;
     tracing::info!("windfenster {} on http://{}", wf_api::VERSION, args.listen);
-    axum::serve(listener, wf_api::router(state))
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        wf_api::router(state).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     tracing::info!("shut down");
     Ok(())
 }

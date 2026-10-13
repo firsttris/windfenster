@@ -43,6 +43,7 @@ export const errorText: Record<ErrorCode, () => string> = {
   email_off: m.error_emailOff,
   too_soon: m.error_tooSoon,
   invalid_link: m.error_invalidLink,
+  too_many_places: m.error_tooManyPlaces,
   internal: m.error_internal,
 };
 

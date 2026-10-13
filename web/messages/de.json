@@ -540,5 +540,6 @@
   "confirm_lead": "Bestätige, dass Windfenster dir Alarme an diese Adresse schicken darf.",
   "confirm_button": "Adresse bestätigen",
   "confirm_done": "Danke, deine Adresse ist bestätigt.",
-  "confirm_toAccount": "Zur Kontoseite"
+  "confirm_toAccount": "Zur Kontoseite",
+  "error_tooManyPlaces": "Von deinem Anschluss wurden gerade sehr viele neue Orte geöffnet. Bitte versuch es in einer Stunde noch einmal; Stationen und schon geöffnete Orte gehen weiter."
 }
