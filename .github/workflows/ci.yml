@@ -167,22 +167,21 @@ jobs:
 
   docker:
     # Build check only, when the image's own files change (see changes); release.yml publishes
-    # the images. Next to the other jobs, its cache shared with the release's amd64 build.
+    # the images. Next to the other jobs, its cache shared with the release's amd64 build in the
+    # registry (ghcr.io/firsttris/windfenster-buildcache:linux-amd64, firsttris/workflows
+    # actions/docker-build), which every ref can read, unlike the Actions cache.
     needs: changes
     if: ${{ needs.changes.outputs.docker == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: firsttris/workflows/actions/docker-build@ccr-161f105b-9ns022
         with:
-          context: .
-          file: Dockerfile
-          push: false
-          cache-from: type=gha,scope=linux-amd64
-          cache-to: type=gha,mode=max,scope=linux-amd64
-          load: true
+          dockerfile: Dockerfile
           tags: windfenster:ci
       # The image starts on a data folder of an older version (owned by root), hands it to its
       # user and serves without root.
