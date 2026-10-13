@@ -37,6 +37,17 @@ export function frameTime(unix: number): string {
   }).format(new Date(unix * 1000));
 }
 
+/** "Di. 14:00": the short form for the phone's one row, weekday and time without the comma
+ * the locales put between them */
+export function frameTimeShort(unix: number): string {
+  const d = new Date(unix * 1000);
+  const day = new Intl.DateTimeFormat(intlLocale(), { weekday: 'short' }).format(d);
+  const time = new Intl.DateTimeFormat(intlLocale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
+    d,
+  );
+  return `${day.replace(/,$/, '')} ${time}`;
+}
+
 /** Play, the hours on a slider and the days as segments to jump to. The slider steps an hour
  * with the arrow keys and a day with Page up/down; "now" is marked and one tap away. */
 export function Timeline({
@@ -71,14 +82,14 @@ export function Timeline({
         size="icon"
         aria-label={playing ? m.map_pause() : m.map_play()}
         onClick={() => onPlay(!playing)}
-        className="shrink-0"
+        className={cn('shrink-0', compact && 'size-11 rounded-full')}
       >
         {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
       </Button>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate font-semibold text-sm">{frameTime(time)}</span>
+            <span className="truncate font-semibold text-sm">{compact ? frameTimeShort(time) : frameTime(time)}</span>
             {loading && (
               <LoaderCircle
                 role="status"

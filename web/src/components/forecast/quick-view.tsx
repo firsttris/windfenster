@@ -45,7 +45,7 @@ export function QuickView({ fc, days, glances, unit, spot }: Props) {
           )}
         </span>
       </div>
-      <ol className="m-0 flex list-none gap-1.5 overflow-x-auto p-0 pb-1 lg:grid lg:grid-cols-10 lg:overflow-visible">
+      <ol className="relative m-0 flex list-none gap-1.5 overflow-x-auto p-0 pb-1 lg:grid lg:grid-cols-10 lg:overflow-visible">
         {glances.map((g) => {
           const day = days.find((d) => d.date === g.date);
           return (

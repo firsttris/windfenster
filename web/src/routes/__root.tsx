@@ -88,7 +88,10 @@ function Header({ over }: { over: boolean }) {
   return (
     <header className={over ? 'glass-bar absolute inset-x-0 top-0 z-40 border-b' : 'border-line border-b'}>
       <div
-        className={cn('mx-auto flex max-w-[1360px] items-center gap-3 px-4 sm:gap-7 sm:px-6', over ? 'h-16' : 'py-3')}
+        className={cn(
+          'mx-auto flex max-w-[1360px] items-center gap-2 px-3 min-[380px]:gap-3 min-[380px]:px-4 sm:gap-7 sm:px-6',
+          over ? 'h-16' : 'py-3',
+        )}
       >
         <Link to="/" aria-label={m.nav_home()} className="text-foreground no-underline">
           <Logo />
@@ -109,7 +112,7 @@ function Header({ over }: { over: boolean }) {
             {m.nav_map()}
           </Link>
         </nav>
-        <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2.5">
+        <div className="flex flex-1 items-center justify-end gap-1 min-[380px]:gap-1.5 sm:gap-2.5">
           <SearchButton className="hidden max-w-xs sm:flex" />
           <Button
             variant="outline"

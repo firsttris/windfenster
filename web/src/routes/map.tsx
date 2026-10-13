@@ -7,6 +7,7 @@ import { basemapFor } from '@/components/map/basemap';
 import { type FieldLayer, LayerSwitch } from '@/components/map/layer-switch';
 import { Legend } from '@/components/map/legend';
 import { MapCanvas, type Pick } from '@/components/map/map-canvas';
+import { PillSelect } from '@/components/map/pill-select';
 import { withRelief } from '@/components/map/relief';
 import { ShareButton } from '@/components/map/share-button';
 import { SpotCard } from '@/components/map/spot-card';
@@ -343,44 +344,44 @@ function MapPage() {
           />
         )}
         {!desktop && (
-          <div className="glass absolute top-[76px] left-3 flex w-[min(300px,calc(100%-76px))] flex-col gap-2 rounded-xl border p-2.5">
+          // As in the mockup: model and layer as two pills, the scale small beneath
+          <div className="absolute top-[76px] left-3 flex w-[min(300px,calc(100%-76px))] flex-col items-start gap-1.5">
             <h1 className="sr-only">{m.map_title()}</h1>
-            <div className="flex items-center gap-2">
-              <p className="m-0 min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">{runLine}</p>
-              <ShareButton className="-my-1.5 -mr-1.5 size-8 shrink-0" />
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {ready.length > 1 && (
-                <fieldset
-                  aria-label={m.map_model()}
-                  className="m-0 inline-flex min-w-0 rounded-md border bg-background/60 p-0.5"
-                >
-                  {ready.map((l) => (
-                    <button
-                      key={l.model}
-                      type="button"
-                      aria-pressed={l.model === choice.selected?.model}
-                      onClick={() => setChosen(l.model)}
-                      className={cn(
-                        'cursor-pointer whitespace-nowrap rounded-[5px] px-2 py-0.5 font-medium text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                        l.model === choice.selected?.model
-                          ? 'bg-secondary text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {nameOf(l.model)}
-                    </button>
-                  ))}
-                </fieldset>
+            <div className="flex max-w-full items-center gap-1.5">
+              {ready.length > 0 && (
+                <PillSelect
+                  label={m.map_model()}
+                  value={choice.selected?.model ?? ready[0].model}
+                  onChange={setChosen}
+                  options={ready.map((l) => {
+                    const md = modelOf(l.model);
+                    return {
+                      value: l.model,
+                      label: nameOf(l.model),
+                      detail: md ? `${formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km` : undefined,
+                    };
+                  })}
+                />
               )}
-              <LayerSwitch value={field} onChange={setField} compact />
+              <PillSelect
+                label={m.map_layer()}
+                value={field}
+                onChange={(f) => setField(f as FieldLayer)}
+                options={[
+                  { value: 'wind', label: m.map_layerWind() },
+                  { value: 'gusts', label: m.map_layerGusts() },
+                ]}
+                className="shrink-0"
+              />
             </div>
-            <Legend unit={unit} gusts={gusts} />
-            {gustless && (
-              <p className="m-0 text-muted-foreground text-xs">
-                {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
-              </p>
-            )}
+            <div className="glass flex w-[210px] flex-col gap-1 rounded-[10px] border px-2.5 pt-1.5 pb-1 shadow-none">
+              <Legend unit={unit} gusts={gusts} compact />
+              {gustless && (
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  {m.map_noGusts({ model: nameOf(gustless.a.meta.model) })}
+                </p>
+              )}
+            </div>
           </div>
         )}
         {empty && (
@@ -391,19 +392,25 @@ function MapPage() {
             {m.map_empty()}
           </p>
         )}
-        <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-2">
-          {/* On phones the sources sit above the spot sheet, which holds the timeline */}
+        {/* On phones a sheet at the foot, edge to edge (the spot and the timeline in it), the
+            sources above it; on wider screens timeline and sources float with a margin */}
+        <div className={cn('absolute flex flex-col gap-2', desktop ? 'right-3 bottom-3 left-3' : 'inset-x-0 bottom-0')}>
           <Attribution
             osm={!!index.data?.basemap}
             relief={relief}
             short={!desktop}
             className={cn(
               'glass ml-auto w-fit max-w-full rounded-md border text-right shadow-none',
-              desktop ? 'order-last px-2 py-1' : 'px-1.5 py-0.5 text-[10px]',
+              desktop ? 'order-last px-2 py-1' : 'mr-2 px-1.5 py-0.5 text-[10px]',
             )}
           />
           {!desktop && spot}
-          {(desktop || !spot) && timeline(false)}
+          {desktop && timeline(false)}
+          {!desktop && !spot && (
+            <div className="glass rounded-t-[20px] rounded-b-none border border-x-0 border-b-0 px-4 pt-1 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgb(0_0_0/0.35)] pt-4">
+              {timeline(true)}
+            </div>
+          )}
         </div>
       </div>
     </main>

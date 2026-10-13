@@ -14,6 +14,7 @@ import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 import type { Pick } from './map-canvas';
 import { MeasuredSpark } from './measured-spark';
+import { ShareButton } from './share-button';
 import { SpotStrip } from './spot-strip';
 import { useSheetDrag } from './use-sheet-drag';
 import { windAt } from './wind-at';
@@ -72,9 +73,11 @@ export function SpotCard({
     <section
       aria-label={station?.name ?? m.map_spot()}
       className={cn(
-        'flex flex-col rounded-xl border',
+        'flex flex-col',
         // A sheet over the map on phones; inside the floating panel on wider screens
-        compact ? 'glass gap-2 p-3 pt-1' : 'gap-3 bg-card/60 p-4',
+        compact
+          ? 'glass rounded-t-[20px] rounded-b-none border border-x-0 border-b-0 px-4 pt-1 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgb(0_0_0/0.35)] gap-3'
+          : 'rounded-xl border gap-3 bg-card/60 p-4',
         sheet.dy === 0 && 'transition-transform duration-200',
         className,
       )}
@@ -118,15 +121,13 @@ export function SpotCard({
               </h2>
               {full && <p className="m-0 font-mono text-muted-foreground text-xs">{coordinates(pick.lat, pick.lon)}</p>}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="-mt-2 -mr-2 size-8"
-              aria-label={m.map_close()}
-              onClick={onClose}
-            >
-              <X aria-hidden="true" />
-            </Button>
+            <div className="-mt-2 -mr-2 flex shrink-0">
+              {/* Sharing the view lives here on phones, out of the map's way */}
+              {compact && <ShareButton className="size-8" />}
+              <Button variant="ghost" size="icon" className="size-8" aria-label={m.map_close()} onClick={onClose}>
+                <X aria-hidden="true" />
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 text-sm">

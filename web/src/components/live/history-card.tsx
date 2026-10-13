@@ -109,7 +109,7 @@ function DayChips({
   return (
     <fieldset
       aria-label={m.history_days()}
-      className="-mx-5 m-0 flex min-w-0 gap-1.5 overflow-x-auto border-0 px-5 py-0 [scrollbar-width:none]"
+      className="relative -mx-5 m-0 flex min-w-0 gap-1.5 overflow-x-auto border-0 px-5 py-0 [scrollbar-width:none]"
     >
       {days.map((d, i) => {
         const on = d.key === selected;

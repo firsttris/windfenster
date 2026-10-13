@@ -287,15 +287,34 @@ export function MapCanvas({
       {/* MapLibre makes it position: relative, so it is sized, not inset */}
       <div ref={container} className="h-full w-full" />
       {ready && map.current && <HoverReadout map={map.current} layers={layers} unit={unit} gusts={gusts} />}
-      <div className="absolute top-[78px] right-3 flex flex-col gap-2">
-        <Button variant="outline" size="icon" aria-label={m.map_zoomIn()} onClick={() => map.current?.zoomIn()}>
+      {/* One group, as in the mockup: zoom in, out and the own position, divided by lines */}
+      <div className="glass absolute top-[78px] right-3 flex flex-col divide-y divide-border overflow-hidden rounded-xl border shadow-none">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 rounded-none"
+          aria-label={m.map_zoomIn()}
+          onClick={() => map.current?.zoomIn()}
+        >
           <Plus aria-hidden="true" />
         </Button>
-        <Button variant="outline" size="icon" aria-label={m.map_zoomOut()} onClick={() => map.current?.zoomOut()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 rounded-none"
+          aria-label={m.map_zoomOut()}
+          onClick={() => map.current?.zoomOut()}
+        >
           <Minus aria-hidden="true" />
         </Button>
         {'geolocation' in navigator && (
-          <Button variant="outline" size="icon" aria-label={m.map_locate()} onClick={locate}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11 rounded-none"
+            aria-label={m.map_locate()}
+            onClick={locate}
+          >
             <LocateFixed aria-hidden="true" />
           </Button>
         )}

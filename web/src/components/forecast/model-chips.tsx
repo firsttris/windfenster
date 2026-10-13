@@ -38,7 +38,7 @@ export function ModelChips({
           {m.models_count({ count: fc.models.filter((x) => x.id !== MIX).length })}
         </span>
       </div>
-      <div className="-mx-4 flex min-w-0 flex-1 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+      <div className="relative -mx-4 flex min-w-0 flex-1 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {fc.models.map((model) => {
           const on = model.id === selected;
           const has = fc.series.some((s) => s.model === model.id);

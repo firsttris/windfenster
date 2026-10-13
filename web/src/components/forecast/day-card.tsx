@@ -76,7 +76,7 @@ export function DayCard({ fc, day, unit, now, measured, taf, gear = [] }: Props)
           <AgreementChip fc={fc} day={day} />
         </span>
       </header>
-      <div className="overflow-x-auto px-2">
+      <div className="relative overflow-x-auto px-2">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only">{m.table_dayCaption({ day: title })}</caption>
           <thead>
