@@ -6,6 +6,7 @@ import {
   cadence,
   diskUsed,
   filterUsers,
+  numberToSave,
   parseRegion,
   parseTab,
   percent,
@@ -122,5 +123,25 @@ describe('admin map', () => {
     expect(remaining(25, 100, 5)).toBe(15);
     expect(remaining(100, 100, 5)).toBeNull();
     expect(remaining(1, 100, 0)).toBeNull();
+  });
+});
+
+describe('admin setting fields', () => {
+  it('sends a whole number in range that differs from the last one sent', () => {
+    expect(numberToSave('6', 1, 30, 7)).toBe(6);
+    expect(numberToSave(' 12 ', 1, 30, 7)).toBe(12);
+    expect(numberToSave('0', 0, 500, 60)).toBe(0);
+  });
+  it('sends nothing for the same value, a fraction, text, empty or out of range', () => {
+    expect(numberToSave('7', 1, 30, 7)).toBeNull();
+    expect(numberToSave('6.5', 1, 30, 7)).toBeNull();
+    expect(numberToSave('six', 1, 30, 7)).toBeNull();
+    expect(numberToSave('', 0, 30, 7)).toBeNull();
+    expect(numberToSave('31', 1, 30, 7)).toBeNull();
+    expect(numberToSave('0', 1, 30, 7)).toBeNull();
+  });
+  it('compares with what was sent last, not the value shown before the answer', () => {
+    // 7 shown, 6 sent; the answer is not back yet, and 7 again is a change
+    expect(numberToSave('7', 1, 30, 6)).toBe(7);
   });
 });

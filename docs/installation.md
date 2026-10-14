@@ -162,9 +162,22 @@ container is your user on the host already; nothing changes there unless `WF_UID
   model runs right away.
 - The map's first hours are there once ICON-D2 and ECMWF are downloaded (about 150 and 115 MB per
   run); ICON global follows (about 1.1 GB per run).
-- A minute after the start it cuts the [basemap and the relief](basemap.md). Until they are
-  ready, the map shows Natural Earth and coarser tiles. Detail around a place comes a minute or
-  two after it is opened.
+- A minute after the start it cuts the [basemap and the relief](basemap.md) (with
+  `WF_BASEMAP=ask` only once an admin says so). Until they are ready, the map shows Natural Earth
+  and coarser tiles. Detail around a place comes a minute or two after it is opened.
+
+## The first admin
+
+Sign up in the app, then give your account the admin role on the server:
+
+```bash
+docker compose exec windfenster windfenster admin you@example.org
+# Podman: podman exec windfenster windfenster admin you@example.org
+```
+
+The gear in the header (on a phone: the link on the account page) opens the
+[admin page](admin.md): what the server is doing, the map's downloads, the forecast settings,
+accounts and sign-up, backups.
 
 ## Disk and downloads
 
@@ -187,12 +200,14 @@ file stays until the new one is complete, so plan room for both.
 - **Compose**: `docker compose pull && docker compose up -d`.
 
 The database migrates itself on start. Releases are listed on
-[GitHub](https://github.com/firsttris/windfenster/releases).
+[GitHub](https://github.com/firsttris/windfenster/releases). The admin page shows under *System*
+when a newer one is out: the server asks GitHub's API for the newest release once a day, its only
+request that is not about weather or map data.
 
 ## Backup
 
 Only `windfenster.db` and `vapid.pem` (the push key) matter; the map data comes back by itself.
-While the server runs:
+The admin page downloads both under *Storage and database*. On the server, while it runs:
 
 ```bash
 sqlite3 ~/windfenster/data/windfenster.db "VACUUM INTO 'windfenster-backup.db'"

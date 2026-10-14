@@ -3,36 +3,8 @@
  * operator does (`windfenster admin`), then every section of the page, a setting changed and
  * changed back, and someone who is no admin kept out.
  */
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import type { Page } from '@playwright/test';
+import { makeAdmin, signUp, someone } from './accounts';
 import { expect, test } from './fixtures';
-
-const bin = process.env.WF_BIN || resolve(import.meta.dirname, '../../../target/debug/windfenster');
-
-/** A name and an address of their own for each run, as the server keeps its accounts */
-const someone = (who: string) => {
-  const id = Date.now().toString(36);
-  return { name: `${who} ${id}`, email: `${who.toLowerCase()}-${id}@example.org` };
-};
-
-async function signUp(page: Page, who: { name: string; email: string }) {
-  await page.goto('/login');
-  await page.getByRole('button', { name: 'Ich bin neu hier' }).click();
-  await page.getByLabel('Dein Name').fill(who.name);
-  await page.getByRole('button', { name: 'Mit E-Mail und Passwort' }).click();
-  await page.getByLabel('E-Mail').fill(who.email);
-  await page.getByLabel('Passwort').fill('lang genug 123');
-  await page.getByRole('button', { name: 'Konto mit Passwort anlegen' }).click();
-  await expect(page.getByRole('link', { name: `Konto von ${who.name}` })).toBeVisible();
-}
-
-function makeAdmin(email: string) {
-  const data = readFileSync(join(tmpdir(), 'windfenster-e2e-data-dir'), 'utf8');
-  execFileSync(bin, ['admin', email], { env: { ...process.env, WF_DATA_DIR: data, RUST_LOG: 'warn' } });
-}
 
 test('someone who is no admin is kept out', async ({ page }) => {
   await signUp(page, someone('Nina'));

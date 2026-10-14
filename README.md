@@ -131,6 +131,9 @@ Cloudflare Tunnel, settings, disk space and backups are in the
     <td><img src="docs/screenshot-phone-map.png" alt="The wind map on a phone with the spot sheet folded to one line and the timeline" width="390"></td>
     <td><img src="docs/screenshot-day-dark.png" alt="A forecast day card in dark mode, hour by hour with wind bars and gusts"></td>
   </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshot-admin.png" alt="The admin page: the data folder by part, the rows of every table, backup and compacting of the database"></td>
+  </tr>
 </table>
 
 ## 🔀 Windfenster and the alternatives

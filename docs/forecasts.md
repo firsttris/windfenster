@@ -18,7 +18,8 @@ closest to the measurements there. This page explains where the numbers come fro
 | ECMWF IFS | ECMWF | 25 km | 15 days | 4 | Forecast (world) |
 | GFS | NOAA | 13 km | 16 days | 4 | Forecast (world) |
 
-A regional model shows only where its domain covers the place. `WF_MODELS` limits the list.
+A regional model shows only where its domain covers the place. `WF_MODELS` limits the list, or
+the switches on the [admin page](admin.md#forecasts) when the variable is not set.
 
 ## How forecasts are fetched
 
@@ -33,7 +34,9 @@ every run.
 The free API allows about 10,000 calls a day (`WF_OPEN_METEO_DAILY_BUDGET`, 9,000 by default):
 enough for a few hundred places people look at regularly. Opening new places may use two thirds
 of it, at most 30 an hour and 100 a day per client; the rest stays for the refreshes
-([limits](configuration.md#open-meteo-free-or-with-a-key)).
+([limits](configuration.md#open-meteo-free-or-with-a-key)). The calls are counted per UTC day in
+the database, so a restart does not reset them; the admin page shows the day and the last 14, and
+changes the seven and two days, the budget and the limits without a restart.
 `windfenster probe --lat … --lon …` prints what Open-Meteo returns for every model at a place.
 
 ## The ten days

@@ -95,12 +95,14 @@ crates/
   wf-map/        wind map: GRIB2 (ICON-D2, ICON global, ECMWF) to PNG textures, runs on disk
   wf-alarm/      alarms: windows from the map's fields, live from measurements, push and e-mail
   wf-api/        axum routes, response cache, station pages with meta tags, embedded web app
-  windfenster/   the binary: serve | migrate | import-stations | probe
+  windfenster/   the binary: serve | migrate | import-stations | probe | admin
 migrations/      sqlx migrations (SQLite)
 web/
-  src/routes/    pages (TanStack Router, file-based): start, station, point
+  src/routes/    pages (TanStack Router, file-based): start, station, point, map, account,
+                 gear, admin, legal notice and privacy policy
   src/components/ forecast view and table, live and water tiles, verification (comparison
-                 chart, ranking, agreement), search, map (colour field, particles, pins)
+                 chart, ranking, agreement), search, map (colour field, particles, pins),
+                 admin/ (the admin page's sections)
   src/lib/       logic without UI: forecast table, model choice, agreement, METAR decoder, TAF
                  texts, units, formats, API
   src/ui/        shadcn/ui components, wind colour scale

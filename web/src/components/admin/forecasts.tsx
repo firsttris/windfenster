@@ -248,6 +248,8 @@ function BudgetField({
       placeholder="9000"
       disabled={disabled}
       onBlur={(e) => {
+        // Disabling the field while a save runs blurs it; that blur is no new input
+        if (disabled) return;
         const t = e.target.value.trim();
         const n = t === '' ? null : Number(t);
         if (n === value) return;

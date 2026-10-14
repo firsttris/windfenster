@@ -2,9 +2,10 @@
  * environment variable sets it. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { AdminSettings } from '@/bindings/AdminSettings';
 import type { Settings } from '@/bindings/Settings';
+import { numberToSave } from '@/lib/admin';
 import { adminSettingsQuery } from '@/lib/admin-api';
 import { send } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
@@ -90,10 +91,22 @@ export function NumberField({
   width?: string;
 }) {
   const [text, setText] = useState(String(value));
+  // What was last sent: the prop lags behind a save until the server answers, and comparing with
+  // it would drop a second change made in that time
+  const sent = useRef(value);
+  useEffect(() => {
+    sent.current = value;
+    setText(String(value));
+  }, [value]);
   const save = () => {
-    const n = Number(text);
-    if (Number.isInteger(n) && n >= min && n <= max && n !== value) onSave(n);
-    else setText(String(value));
+    // Disabling the field while a save runs blurs it; that blur is no new input
+    if (disabled) return;
+    const n = numberToSave(text, min, max, sent.current);
+    if (n === null) setText(String(sent.current));
+    else {
+      sent.current = n;
+      onSave(n);
+    }
   };
   return (
     <input
