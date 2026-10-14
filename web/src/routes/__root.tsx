@@ -25,7 +25,11 @@ function RootLayout() {
   const fullscreen = useRouterState({ select: (s) => s.location.pathname === '/map' });
   return (
     <SearchProvider>
-      <div className={fullscreen ? 'relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'}>
+      <div
+        className={
+          fullscreen ? 'wf-fullscreen relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'
+        }
+      >
         {!fullscreen && <Banner />}
         <Header over={fullscreen} />
         <Outlet />

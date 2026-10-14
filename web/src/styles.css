@@ -189,6 +189,14 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* Room for the scrollbar on every page, so switching to a longer tab (the admin menu, the
+     account page) does not shift the page sideways; not on the full-screen map, which never
+     scrolls, and not on phones, whose scrollbars lie over the page */
+  @media (min-width: 48rem) {
+    html:not(:has(.wf-fullscreen)) {
+      scrollbar-gutter: stable;
+    }
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
