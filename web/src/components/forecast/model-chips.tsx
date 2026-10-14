@@ -126,7 +126,12 @@ function Chip({
         on ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-border-strong',
       )}
     >
-      <span className="size-2 shrink-0 rounded-full" style={{ background: modelColor(fc, model.id) }} />
+      {/* On the chosen chip a ring in its text colour: AROME's dot is the chip's own colour
+          (white in dark mode, near-black in light) and vanished there */}
+      <span
+        className={cn('size-2 shrink-0 rounded-full', on && 'ring-1 ring-primary-foreground')}
+        style={{ background: modelColor(fc, model.id) }}
+      />
       <span className="flex flex-col">
         <span className="font-semibold text-sm leading-tight">{modelName(fc, model.id)}</span>
         <span className={cn('hidden font-mono text-[11px] xl:block', on ? 'opacity-70' : 'text-muted-foreground')}>
