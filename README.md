@@ -11,6 +11,8 @@ An open-source alternative to Windfinder and Windy: one Docker container, no clo
 [![CI](https://github.com/firsttris/windfenster/actions/workflows/ci.yml/badge.svg)](https://github.com/firsttris/windfenster/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/firsttris/windfenster?logo=github&label=release)](https://github.com/firsttris/windfenster/releases/latest)
 [![Docker pulls](https://img.shields.io/docker/pulls/tristanteu/windfenster?logo=docker&logoColor=white)](https://hub.docker.com/r/tristanteu/windfenster)
+[![Image Size](https://img.shields.io/docker/image-size/tristanteu/windfenster/latest?logo=docker&logoColor=white&label=image)](https://hub.docker.com/r/tristanteu/windfenster)
+[![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-lightgrey)](https://hub.docker.com/r/tristanteu/windfenster/tags)
 [![Docs](https://img.shields.io/badge/docs-firsttris.github.io%2Fwindfenster-4f46e5?logo=materialformkdocs&logoColor=white)](https://firsttris.github.io/windfenster/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 ![Rust](https://img.shields.io/badge/built_with-Rust-b7410e?logo=rust)
