@@ -127,3 +127,11 @@ export function remaining(done: number, total: number, rate: number): number | n
   if (rate <= 0 || total <= done) return null;
   return (total - done) / rate;
 }
+
+/** The number a setting field should send for `text`, or null when there is nothing to send:
+ * not a whole number in `min`..`max`, or the value last sent. */
+export function numberToSave(text: string, min: number, max: number, last: number): number | null {
+  const n = Number(text.trim());
+  if (text.trim() === '' || !Number.isInteger(n) || n < min || n > max || n === last) return null;
+  return n;
+}
