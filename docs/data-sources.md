@@ -31,7 +31,7 @@ linked from the footer and the map).
 |---|---|---|
 | [Open-Meteo](https://open-meteo.com/) | point forecasts of every model, place search | CC BY 4.0; free API non-commercial |
 | [DWD Open Data](https://opendata.dwd.de/) | 10-minute wind stations, ICON-D2 and ICON global fields, station archives | CC BY 4.0 |
-| [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data) | the global wind fields | CC BY 4.0 |
+| [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data) | the global wind fields (from its Google Cloud copy when data.ecmwf.int is busy) | CC BY 4.0 |
 | [Aviation Weather Center](https://aviationweather.gov/) | METAR and TAF reports, station list | public domain |
 | [OurAirports](https://ourairports.com/data/) | airport names and places | public domain |
 | [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/) | airports' past years for the statistics | free use, credited |

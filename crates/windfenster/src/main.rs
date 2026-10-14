@@ -137,6 +137,7 @@ impl DataArgs {
                 icon_d2: self.source("icon-d2").unwrap_or_default(),
                 icon_global: self.source("icon-global").unwrap_or_default(),
                 ecmwf: self.source("ecmwf").unwrap_or_default(),
+                ecmwf_mirror: self.source("ecmwf").unwrap_or_default(),
                 protomaps: self.source("protomaps").unwrap_or_default(),
                 mapterhorn: self.source("mapterhorn").unwrap_or_default(),
             },

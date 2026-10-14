@@ -246,7 +246,14 @@ function TaskRow({ task, now }: { task: TaskStatus; now: number }) {
   return (
     <div className={ROW}>
       <span className="font-medium">{taskName(task.id)}</span>
-      <span className="font-mono text-subtle text-xs">{every(task.everyS)}</span>
+      {task.id === 'basemap' ? (
+        // The loop checks daily; the big downloads come after 120 days or a year (service/basemap.rs)
+        <span className="font-mono text-subtle text-xs" title={m.admin_checksDailyHint()}>
+          {m.admin_checksDaily()}
+        </span>
+      ) : (
+        <span className="font-mono text-subtle text-xs">{every(task.everyS)}</span>
+      )}
       <span className="font-mono text-subtle text-xs">{task.startedAt ? ago(task.startedAt, now) : '–'}</span>
       <span className="font-mono text-muted-foreground text-xs">{task.tookMs !== null ? took(task.tookMs) : '–'}</span>
       <span className="flex min-w-0 items-center gap-2">

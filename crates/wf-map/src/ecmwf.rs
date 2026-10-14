@@ -6,6 +6,10 @@
 use serde::Deserialize;
 
 pub const BASE: &str = "https://data.ecmwf.int/forecasts";
+/// ECMWF's copy of the same files on Google Cloud, same layout, byte ranges and 404 for steps
+/// not out (the AWS copy, `ecmwf-forecasts`, answered ranges with 503 SlowDown when tried).
+/// data.ecmwf.int answers 429 when busy, for hours on end from some addresses.
+pub const MIRROR: &str = "https://storage.googleapis.com/ecmwf-open-data";
 pub const MODEL: &str = "ecmwf_ifs025";
 /// Hours after the run kept for the map: five days, every three hours
 pub const LAST_STEP: u32 = 120;

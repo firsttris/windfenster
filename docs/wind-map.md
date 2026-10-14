@@ -52,8 +52,9 @@ with bzip2.
 From [ECMWF open data](https://www.ecmwf.int/en/forecasts/datasets/open-data). A step's GRIB2
 file holds every quantity; the server reads the step's **index** and fetches only the wind at
 10 m and the gusts (`10fg`) **by HTTP byte range**, about 2.8 MB per step instead of the whole
-file. ECMWF's packing (CCSDS) is decoded with `rust-aec`. When ECMWF's portal is busy (HTTP 429)
-the server waits 20 seconds and asks again, a few times, then leaves the rest to the next round.
+file. ECMWF's packing (CCSDS) is decoded with `rust-aec`. When ECMWF's portal is busy (HTTP 429,
+from some addresses for hours on end), the round goes on from ECMWF's copy of the same files on
+Google Cloud (`storage.googleapis.com/ecmwf-open-data`); the next round asks the portal first again.
 
 ### ICON global: from triangles to a grid
 
