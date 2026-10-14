@@ -70,7 +70,8 @@ next start; see [The basemap and relief](basemap.md#changing-the-depth).
 
 Forecasts per place come from Open-Meteo. Without a key Windfenster uses the free API, which is
 for **non-commercial use** and allows about 10,000 calls a day; Windfenster keeps to
-`WF_OPEN_METEO_DAILY_BUDGET` (9,000 by default). That covers a few hundred places people look at
+`WF_OPEN_METEO_DAILY_BUDGET` (9,000 by default), counted per UTC day in the database, so a
+restart does not start the count again. That covers a few hundred places people look at
 regularly. So that nobody can use it up by opening ever new places, a client (by its address,
 see `WF_CLIENT_IP_HEADER`) may open 30 places an hour and 100 a day that the server has to fetch,
 and such openings use at most two thirds of the budget; the last third stays for keeping the

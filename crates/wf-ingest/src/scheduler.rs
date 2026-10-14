@@ -158,6 +158,10 @@ impl Scheduler {
                 if let Err(e) = verification::purge(&self.db, keep_from).await {
                     tracing::error!("verification purge: {e}");
                 }
+                let usage_from = wf_core::usage::day(now - KEEP_OBSERVATIONS_S);
+                if let Err(e) = wf_core::usage::purge(&self.db, usage_from).await {
+                    tracing::error!("usage purge: {e}");
+                }
                 // Today so far, and the two days before for measurements that came late.
                 let today = now - now.rem_euclid(86_400);
                 for day0 in [today - 2 * 86_400, today - 86_400, today] {

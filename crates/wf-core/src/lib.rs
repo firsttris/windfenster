@@ -21,4 +21,5 @@ pub mod taf;
 pub mod text;
 pub mod time;
 pub mod units;
+pub mod usage;
 pub mod verification;

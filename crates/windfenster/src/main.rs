@@ -339,6 +339,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         OpenMeteo::new(http.clone(), cfg),
         models,
     ));
+    forecasts.open_meteo().load_usage().await?;
     let geocoder = Arc::new(Geocoder::new(
         http.clone(),
         non_empty(&args.geocoding_url).or_else(|| args.data.source("geocoding")),

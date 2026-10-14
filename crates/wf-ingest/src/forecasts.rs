@@ -28,11 +28,16 @@ pub struct Forecasts {
 impl Forecasts {
     pub fn new(db: SqlitePool, om: OpenMeteo, models: Vec<Model>) -> Self {
         Self {
+            om: om.with_store(db.clone()),
             db,
-            om,
             models,
             updates: broadcast::channel(256).0,
         }
+    }
+
+    /// The Open-Meteo client, for its day's usage
+    pub fn open_meteo(&self) -> &OpenMeteo {
+        &self.om
     }
 
     pub fn models(&self) -> &[Model] {

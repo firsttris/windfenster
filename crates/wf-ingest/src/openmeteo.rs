@@ -12,6 +12,7 @@ use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use serde_json::Value;
 use wf_core::forecast::SeriesData;
 use wf_core::geo::GridPoint;
+use wf_core::usage;
 
 mod parse;
 pub use parse::parse_forecast;
@@ -70,10 +71,39 @@ pub struct PointData {
     pub series: Vec<(String, SeriesData)>,
 }
 
+/// A new UTC day starts the count from 0.
+fn roll(b: &mut Budget, today: i64) {
+    if b.day != today {
+        b.day = today;
+        b.refresh = 0;
+        b.opened = 0;
+    }
+}
+
+/// What places someone opened may use of a day's budget
+fn opened_limit(limit: u32) -> u32 {
+    limit - limit / KEPT_FOR_REFRESH
+}
+
 struct Budget {
     limit: Option<u32>,
     day: i64,
-    used: u32,
+    /// Calls for keeping places current
+    refresh: u32,
+    /// Calls for places someone opened
+    opened: u32,
+}
+
+/// The day's calls so far, against the budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Usage {
+    pub day: i64,
+    pub refresh: u32,
+    pub opened: u32,
+    /// `None`: unlimited (with a key)
+    pub limit: Option<u32>,
+    /// Calls places someone opened may use at most
+    pub opened_limit: Option<u32>,
 }
 
 pub struct OpenMeteo {
@@ -82,6 +112,8 @@ pub struct OpenMeteo {
     key: Option<String>,
     limiter: DefaultDirectRateLimiter,
     budget: Mutex<Budget>,
+    /// Where each call is counted too, so a restart does not reset the day's count
+    store: Option<sqlx::SqlitePool>,
 }
 
 impl OpenMeteo {
@@ -113,8 +145,44 @@ impl OpenMeteo {
             budget: Mutex::new(Budget {
                 limit,
                 day: 0,
-                used: 0,
+                refresh: 0,
+                opened: 0,
             }),
+            store: None,
+        }
+    }
+
+    /// Counts every call in the database as well (`usage_daily`); see [`Self::load_usage`].
+    pub fn with_store(mut self, db: sqlx::SqlitePool) -> Self {
+        self.store = Some(db);
+        self
+    }
+
+    /// Takes up the day's count from the database, after a restart.
+    pub async fn load_usage(&self) -> sqlx::Result<()> {
+        let Some(db) = &self.store else {
+            return Ok(());
+        };
+        let day = usage::day(wf_core::time::now());
+        let refresh = usage::get(db, day, usage::OPEN_METEO_REFRESH).await?;
+        let opened = usage::get(db, day, usage::OPEN_METEO_OPENED).await?;
+        let mut b = self.budget.lock().unwrap();
+        b.day = day;
+        b.refresh = u32::try_from(refresh).unwrap_or(u32::MAX);
+        b.opened = u32::try_from(opened).unwrap_or(u32::MAX);
+        Ok(())
+    }
+
+    /// The day's calls so far.
+    pub fn usage(&self) -> Usage {
+        let mut b = self.budget.lock().unwrap();
+        roll(&mut b, usage::day(wf_core::time::now()));
+        Usage {
+            day: b.day,
+            refresh: b.refresh,
+            opened: b.opened,
+            limit: b.limit,
+            opened_limit: b.limit.map(opened_limit),
         }
     }
 
@@ -175,23 +243,39 @@ impl OpenMeteo {
     /// only part of it: the rest stays for keeping the places people use current, however many
     /// new ones get opened.
     fn spend(&self, calls: u32, interactive: bool) -> Result<(), Error> {
-        let mut b = self.budget.lock().unwrap();
-        let today = wf_core::time::now().div_euclid(86_400);
-        if b.day != today {
-            b.day = today;
-            b.used = 0;
-        }
-        if let Some(limit) = b.limit {
-            let usable = if interactive {
-                limit - limit / KEPT_FOR_REFRESH
+        let today = usage::day(wf_core::time::now());
+        {
+            let mut b = self.budget.lock().unwrap();
+            roll(&mut b, today);
+            if let Some(limit) = b.limit {
+                let usable = if interactive {
+                    opened_limit(limit)
+                } else {
+                    limit
+                };
+                if b.refresh + b.opened + calls > usable {
+                    return Err(Error::Budget(limit));
+                }
+            }
+            if interactive {
+                b.opened += calls;
             } else {
-                limit
-            };
-            if b.used + calls > usable {
-                return Err(Error::Budget(limit));
+                b.refresh += calls;
             }
         }
-        b.used += calls;
+        if let Some(db) = &self.store {
+            let db = db.clone();
+            let counter = if interactive {
+                usage::OPEN_METEO_OPENED
+            } else {
+                usage::OPEN_METEO_REFRESH
+            };
+            tokio::spawn(async move {
+                if let Err(e) = usage::add(&db, today, counter, i64::from(calls)).await {
+                    tracing::warn!("open-meteo: counting calls: {e}");
+                }
+            });
+        }
         Ok(())
     }
 
@@ -348,6 +432,39 @@ mod tests {
         assert!(om.spend(6, true).is_ok());
         assert!(matches!(om.spend(1, true), Err(Error::Budget(9))));
         assert!(om.spend(3, false).is_ok());
+    }
+
+    #[tokio::test]
+    async fn budget_outlives_a_restart() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let db = wf_core::db::connect(&dir.path().join("t.db")).await?;
+        wf_core::db::migrate(&db).await?;
+        let cfg = || Config {
+            daily_budget: Some(9),
+            ..Config::default()
+        };
+        let om = OpenMeteo::new(reqwest::Client::new(), cfg()).with_store(db.clone());
+        om.spend(4, false)?;
+        om.spend(2, true)?;
+        // the counts are written in the background
+        for _ in 0..50 {
+            let day = usage::day(wf_core::time::now());
+            if usage::get(&db, day, usage::OPEN_METEO_OPENED).await? == 2
+                && usage::get(&db, day, usage::OPEN_METEO_REFRESH).await? == 4
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        let again = OpenMeteo::new(reqwest::Client::new(), cfg()).with_store(db);
+        again.load_usage().await?;
+        let u = again.usage();
+        assert_eq!(
+            (u.refresh, u.opened, u.limit, u.opened_limit),
+            (4, 2, Some(9), Some(6))
+        );
+        assert!(matches!(again.spend(4, false), Err(Error::Budget(9))));
+        Ok(())
     }
 
     #[test]
