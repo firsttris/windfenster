@@ -619,6 +619,8 @@
   "admin_everyHour": "stündlich",
   "admin_everyDay": "täglich",
   "admin_everyWeek": "wöchentlich",
+  "admin_checksDaily": "prüft täglich",
+  "admin_checksDailyHint": "Prüft täglich, ob etwas fällig ist. Neu geladen wird die Grundkarte nach 120 Tagen, das Relief nach einem Jahr, sonst nur wenn sich ihre Einstellungen ändern; bei „Nachfragen“ erst, wenn du zustimmst.",
   "admin_sources": "Datenquellen",
   "admin_sourcesHint": "letzter Erfolg · Fehler der letzten 24 h",
   "admin_sourceErrors": "{count} Fehler",

@@ -619,6 +619,8 @@
   "admin_everyHour": "hourly",
   "admin_everyDay": "daily",
   "admin_everyWeek": "weekly",
+  "admin_checksDaily": "checks daily",
+  "admin_checksDailyHint": "Checks daily whether anything is due. The basemap is downloaded again after 120 days, the relief after a year, otherwise only when their settings change; with “Ask” only once you agree.",
   "admin_sources": "Data sources",
   "admin_sourcesHint": "last success · errors in the last 24 h",
   "admin_sourceErrors": "{count} errors",
