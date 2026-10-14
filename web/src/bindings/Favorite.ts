@@ -5,4 +5,8 @@ export type Favorite = { id: number,
 /**
  * The station's slug, or null for a point
  */
-slug: string | null, lat: number, lon: number, name: string, sector: Sector | null, };
+slug: string | null, lat: number, lon: number, name: string, sector: Sector | null, 
+/**
+ * The model the forecast opens with (a model's id or "mix"); null for automatic
+ */
+model: string | null, };

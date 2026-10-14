@@ -43,12 +43,17 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   expect(credentials).toHaveLength(1);
   await expect(page.getByRole('link', { name: `Konto von ${name}` })).toBeVisible();
 
-  // Save the spot, with its own name
+  // Save the spot, with its own name and GFS to open with
   await page.getByRole('button', { name: 'Als Spot merken' }).click();
   const spot = page.getByRole('dialog', { name: 'Dein Spot' });
   await spot.getByLabel('Name').fill('Baden Airpark');
+  await spot.getByLabel('Startmodell').selectOption({ label: 'GFS' });
   await spot.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('button', { name: 'Gemerkt' })).toBeVisible();
+  // The forecast opens with it, also after a reload
+  await expect(page.getByRole('button', { name: /^GFS 13 km/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(page.getByRole('button', { name: /^GFS 13 km/ })).toHaveAttribute('aria-pressed', 'true');
   // The quick view now marks the hours that work at the spot
   await expect(page.getByRole('region', { name: 'Auf einen Blick' })).toContainText(
     'Grün: Stunden, die bei Baden Airpark gehen',

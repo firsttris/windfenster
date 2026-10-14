@@ -398,6 +398,7 @@ mod tests {
                 lon: 8.08,
                 name: "Rhein".into(),
                 sector: None,
+                model: None,
             },
             now,
         )

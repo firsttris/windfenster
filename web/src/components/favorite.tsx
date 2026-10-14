@@ -1,14 +1,15 @@
 /** Keep a station or a point as a favourite: a star on its page; signed out it leads to the
- * sign-in and back. A new favourite opens its settings: an own name and the wind directions that
- * work there; a saved spot gets a bell for its alarm. */
+ * sign-in and back. A new favourite opens its settings: an own name, the wind directions that
+ * work there and the model its forecast opens with; a saved spot gets a bell for its alarm. */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { Star } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Favorite } from '@/bindings/Favorite';
 import type { Sector } from '@/bindings/Sector';
-import { favoritesQuery, meQuery, send } from '@/lib/api';
+import { favoritesQuery, meQuery, modelsQuery, send } from '@/lib/api';
 import { COMPASS_DEGREES, type FavoriteTarget, findFavorite } from '@/lib/favorites';
+import { MIX } from '@/lib/forecast';
 import { compass } from '@/lib/format';
 import { describeError } from '@/lib/i18n';
 import { m } from '@/paraglide/messages';
@@ -48,7 +49,7 @@ export function FavoriteButton({ target, lat, lon, name }: Props) {
   const add = async () => {
     setBusy(true);
     try {
-      const body = { slug: 'slug' in target ? target.slug : null, lat, lon, name, sector: null };
+      const body = { slug: 'slug' in target ? target.slug : null, lat, lon, name, sector: null, model: null };
       const added = await send<Favorite>('POST', '/favorites', body);
       queryClient.setQueryData<Favorite[]>(['favorites'], (l) => [...(l ?? []), added]);
       setOpen(true);
@@ -77,7 +78,7 @@ export function FavoriteButton({ target, lat, lon, name }: Props) {
 const SELECT =
   'h-10 rounded-md border bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
-/** Name, wind directions and removal of a favourite. */
+/** Name, wind directions, starting model and removal of a favourite. */
 export function FavoriteDialog({
   favorite,
   open,
@@ -90,6 +91,8 @@ export function FavoriteDialog({
   const queryClient = useQueryClient();
   const [name, setName] = useState(favorite.name);
   const [sector, setSector] = useState<Sector | null>(favorite.sector);
+  const [model, setModel] = useState<string | null>(favorite.model);
+  const models = useQuery(modelsQuery);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const names = m.compass_points().split(',');
@@ -109,7 +112,7 @@ export function FavoriteDialog({
   const save = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
-      const changed = await send<Favorite>('PUT', `/favorites/${favorite.id}`, { name, sector });
+      const changed = await send<Favorite>('PUT', `/favorites/${favorite.id}`, { name, sector, model });
       queryClient.setQueryData<Favorite[]>(['favorites'], (l) => l?.map((f) => (f.id === changed.id ? changed : f)));
     });
   };
@@ -185,6 +188,26 @@ export function FavoriteDialog({
               </div>
             )}
           </fieldset>
+          <label className="flex flex-col gap-1.5 font-medium text-sm">
+            {m.favorite_model()}
+            <select
+              value={model ?? ''}
+              onChange={(e) => setModel(e.target.value || null)}
+              className={`${SELECT} font-normal`}
+            >
+              <option value="">{m.favorite_modelAuto()}</option>
+              <option value={MIX}>{m.mix_name()}</option>
+              {/* The fine models first, as in the chips */}
+              {[...(models.data ?? [])]
+                .sort((a, b) => Number(b.class === 'super') - Number(a.class === 'super'))
+                .map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+            </select>
+            <span className="font-normal text-muted-foreground text-xs">{m.favorite_modelText()}</span>
+          </label>
           {error && (
             <p role="alert" className="m-0 text-destructive text-sm">
               {error}

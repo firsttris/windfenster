@@ -346,6 +346,7 @@ struct JobRow {
     name: String,
     wind_from: Option<i64>,
     wind_to: Option<i64>,
+    model: Option<String>,
     min_kn: f64,
     gear: bool,
     forecast: bool,
@@ -362,7 +363,7 @@ struct JobRow {
 /// Every alarm.
 pub async fn jobs(db: &SqlitePool) -> sqlx::Result<Vec<Job>> {
     let rows: Vec<JobRow> = sqlx::query_as(
-        "SELECT f.id, f.slug, f.lat, f.lon, f.name, f.wind_from, f.wind_to, \
+        "SELECT f.id, f.slug, f.lat, f.lon, f.name, f.wind_from, f.wind_to, f.model, \
          a.min_kn, a.gear, a.forecast, a.live, a.push, a.email, \
          c.id AS account_id, \
          CASE WHEN c.email_confirmed THEN c.email END AS account_email, c.locale, c.time_zone, c.unit \
@@ -387,6 +388,7 @@ pub async fn jobs(db: &SqlitePool) -> sqlx::Result<Vec<Job>> {
                     }),
                     _ => None,
                 },
+                model: r.model,
             },
             settings: settings((r.min_kn, r.gear, r.forecast, r.live, r.push, r.email)),
             account_id: r.account_id,
@@ -495,6 +497,7 @@ mod tests {
             lon: 8.08,
             name: "See".into(),
             sector: Some(Sector { from: 200, to: 300 }),
+            model: None,
         };
         let fav = crate::favorite::add(&db, me, &input, 1)
             .await?

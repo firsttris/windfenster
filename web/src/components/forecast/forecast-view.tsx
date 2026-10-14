@@ -49,8 +49,14 @@ interface Props {
 export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation, history, spot }: Props) {
   const [unit, setUnit] = useUnit();
   const [picked, setPicked] = useState<string | null>(null);
+  const me = useQuery(meQuery);
+  const favorites = useQuery({ ...favoritesQuery, enabled: Boolean(me.data) });
+  const fav = spot && favorites.data ? findFavorite(favorites.data, spot) : undefined;
   const globalModel = autoModel(fc, ranking, 'global');
-  const selected = picked && fc.series.some((s) => s.model === picked) ? picked : initialModel(fc, ranking);
+  // The one picked, else the saved spot's starting model where it has values, else automatic
+  const spotModel = fav?.model && fc.series.some((s) => s.model === fav.model) ? fav.model : null;
+  const selected =
+    picked && fc.series.some((s) => s.model === picked) ? picked : (spotModel ?? initialModel(fc, ranking));
   const now = useNow();
   const { gear } = useGear();
   // A fine (super) model hour by hour, a global one every 3 hours: the model chosen decides
@@ -65,9 +71,6 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
     () => (selected ? buildDays(fc, selected, now, globalModel, false) : []),
     [fc, selected, now, globalModel],
   );
-  const me = useQuery(meQuery);
-  const favorites = useQuery({ ...favoritesQuery, enabled: Boolean(me.data) });
-  const fav = spot && favorites.data ? findFavorite(favorites.data, spot) : undefined;
   const glances = useMemo(() => {
     const works = fav ? spotWorks(fav.sector, gear) : null;
     return threeHourly.map((d) => dayGlance(d, works));
@@ -99,7 +102,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
           selected={selected}
           onSelect={setPicked}
           top={top}
-          hint={hint}
+          hint={spotModel ? undefined : hint}
           auto={!!top}
           run={series && m.forecast_run({ run: runHour(series.runAt), age: ago(series.fetchedAt, now) })}
         />

@@ -167,6 +167,20 @@ async fn favourites_of_stations_and_points() -> Result<()> {
         (changed["name"].clone(), changed["sector"].clone()),
         (json!("Rhein"), Value::Null)
     );
+    // The model the forecast opens with: left out is automatic, the mix or a known model ...
+    assert_eq!(changed["model"], Value::Null);
+    for model in ["mix", "icon_d2"] {
+        let body = json!({"name": "Rhein", "sector": null, "model": model});
+        let (_, changed) = call(&app, "PUT", &uri, Some(body), true).await?;
+        assert_eq!(changed["model"], json!(model));
+    }
+    // ... and no other
+    let body = json!({"name": "Rhein", "sector": null, "model": "nope"});
+    let (status, body) = call(&app, "PUT", &uri, Some(body), true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::BAD_REQUEST, json!({"code": "invalid_favorite"}))
+    );
     let (status, _) = call(&app, "DELETE", &uri, None, true).await?;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = call(&app, "DELETE", &uri, None, true).await?;

@@ -14,8 +14,8 @@ interface Props {
   onSelect: (id: string) => void;
   /** The model that hits best here, marked "Best here" */
   top: string | null;
-  /** How the first model was chosen */
-  hint: string;
+  /** How the first model was chosen; none when the saved spot's starting model was */
+  hint?: string;
   /** The choice comes from the station's ranking */
   auto: boolean;
   /** The chosen model's run and how long ago it came ("Lauf 12 UTC · vor 6 Min.") */
@@ -42,7 +42,7 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
           <span className="flex items-center gap-1.5 font-semibold text-sm">
             {/* Every chip counts, the mix too */}
             {m.models_count({ count: fc.models.length })}
-            <HintMark hint={hint} auto={auto} />
+            {hint && <HintMark hint={hint} auto={auto} />}
           </span>
           {run && <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">{run}</span>}
         </div>
@@ -73,7 +73,7 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
             {run && <span className="lg:hidden"> · {run}</span>}
           </span>
           {/* The count and its mark stand left from lg on */}
-          <HintMark hint={hint} auto={auto} className="lg:hidden" />
+          {hint && <HintMark hint={hint} auto={auto} className="lg:hidden" />}
         </p>
       )}
     </section>

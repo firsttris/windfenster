@@ -2,6 +2,10 @@
 import type { Sector } from "./Sector";
 
 /**
- * A favourite's new name and directions.
+ * A favourite's new name, directions and model.
  */
-export type FavoriteChange = { name: string, sector: Sector | null, };
+export type FavoriteChange = { name: string, sector: Sector | null, 
+/**
+ * A model's id or "mix"; null or left out for automatic
+ */
+model: string | null, };

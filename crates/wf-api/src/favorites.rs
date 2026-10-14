@@ -1,4 +1,5 @@
-//! The signed-in user's favourites: stations or points, own name, the wind directions that work.
+//! The signed-in user's favourites: stations or points, own name, the wind directions that work,
+//! the model their forecast opens with.
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -11,12 +12,15 @@ use wf_core::geo::GridPoint;
 use crate::auth::SignedIn;
 use crate::{ApiError, AppState};
 
-/// A favourite's new name and directions.
+/// A favourite's new name, directions and model.
 #[derive(Debug, Deserialize, TS)]
 #[ts(export)]
 pub struct FavoriteChange {
     pub name: String,
     pub sector: Option<Sector>,
+    /// A model's id or "mix"; null or left out for automatic
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 /// The favourites in their new order.
@@ -32,6 +36,21 @@ fn checked(name: &str, sector: Option<Sector>) -> Result<String, ApiError> {
         return Err(ApiError::InvalidFavorite);
     }
     wf_core::account::clean_name(name).ok_or(ApiError::InvalidName)
+}
+
+/// The model a spot opens with: the mix or a model the server knows; None is automatic.
+async fn checked_model(s: &AppState, model: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(id) = model else { return Ok(None) };
+    let known = id == wf_core::verification::MIX
+        || wf_core::model::active(&s.db, None)
+            .await?
+            .iter()
+            .any(|m| m.id == id);
+    if known {
+        Ok(Some(id))
+    } else {
+        Err(ApiError::InvalidFavorite)
+    }
 }
 
 /// `GET /api/favorites`
@@ -50,6 +69,7 @@ pub async fn add(
     Json(f): Json<FavoriteInput>,
 ) -> Result<(StatusCode, Json<Favorite>), ApiError> {
     let name = checked(&f.name, f.sector)?;
+    let model = checked_model(&s, f.model.clone()).await?;
     let (lat, lon) = match &f.slug {
         Some(slug) => {
             let st = wf_core::station::by_slug(&s.db, slug)
@@ -66,6 +86,7 @@ pub async fn add(
         lat,
         lon,
         name,
+        model,
         ..f
     };
     let added = favorite::add(&s.db, me.id, &input, wf_core::time::now())
@@ -82,7 +103,8 @@ pub async fn change(
     Json(c): Json<FavoriteChange>,
 ) -> Result<Json<Favorite>, ApiError> {
     let name = checked(&c.name, c.sector)?;
-    favorite::update(&s.db, me.id, id, &name, c.sector)
+    let model = checked_model(&s, c.model).await?;
+    favorite::update(&s.db, me.id, id, &name, c.sector, model.as_deref())
         .await?
         .map(Json)
         .ok_or(ApiError::NotFound)
