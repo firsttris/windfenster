@@ -84,9 +84,10 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
 
   return (
     <div className="flex flex-col gap-4">
-      {/* What is measured now first, then the run, the unit and the models right above the days */}
+      {/* What is measured now first, then the run, the unit and the models right above the days;
+          side by side the tiles share the row's height and its whole width */}
       {(tiles || fc.series.length > 1) && (
-        <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {tiles}
           {fc.series.length > 1 && <AgreementTile fc={fc} />}
         </div>
