@@ -131,8 +131,9 @@ export function DayCard({ fc, day, unit, now, taf, gear = [] }: Props) {
                 <th scope="row" className={label('h-8')}>
                   <span className="flex items-center gap-1 font-semibold text-foreground">
                     {m.taf_row()}
+                    {/* What a TAF is stands behind the question mark: "Flugwetter" beside it did
+                        not fit the label column */}
                     <Help text={m.taf_help()} open={help} onToggle={() => setHelp(!help)} />
-                    <span className="font-mono font-normal text-[10px] text-muted-foreground">{m.taf_rowSub()}</span>
                   </span>
                 </th>
                 {segments.map((seg) => (
