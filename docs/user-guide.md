@@ -9,7 +9,8 @@ wind station), a **point** (any place on earth, by map click or search) and the 
 Spots, gear and alarms come with an account.
 
 The app speaks German and English (the switch in the footer), follows the system's light or dark
-mode (the sun and moon button), and shows wind in knots, m/s or km/h (kept in the browser).
+mode (the sun and moon button), and shows wind in knots, m/s or km/h (the switch beside the ten days' colour scale, kept in the
+browser).
 
 ## Finding a place
 
@@ -33,7 +34,8 @@ From the top:
    the chips show their names only, a line beneath says the resolution and reach of the one
    chosen, and on a phone the row swipes. The model chosen sets the step of the days below.
    Which one opens first follows the [ranking](forecasts.md#verification-and-ranking); the mark
-   beside the count (a tick when the ranking chose) says why.
+   beside the count (a tick when the ranking chose) says why; the chosen model's run stands under
+   the count.
 3. **The ten-day forecast.**
 4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.

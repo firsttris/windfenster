@@ -84,7 +84,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
 
   return (
     <div className="flex flex-col gap-4">
-      {/* What is measured now first, then the run, the unit and the models right above the days;
+      {/* What is measured now first, then the models (with the run) right above the days;
           side by side the tiles share the row's height and its whole width */}
       {(tiles || fc.series.length > 1) && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -93,24 +93,16 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
-          {series && (
-            <span className="font-mono text-muted-foreground text-xs">
-              {m.forecast_run({ run: runHour(series.runAt), age: ago(series.fetchedAt, now) })}
-            </span>
-          )}
-          <Segmented
-            label={m.scale_unit()}
-            value={unit}
-            options={WIND_UNITS.map((u) => ({ value: u, label: UNIT_LABEL[u] }))}
-            onChange={setUnit}
-          />
-        </div>
-      </div>
-
       {fc.models.length > 0 && (
-        <ModelChips fc={fc} selected={selected} onSelect={setPicked} top={top} hint={hint} auto={!!top} />
+        <ModelChips
+          fc={fc}
+          selected={selected}
+          onSelect={setPicked}
+          top={top}
+          hint={hint}
+          auto={!!top}
+          run={series && m.forecast_run({ run: runHour(series.runAt), age: ago(series.fetchedAt, now) })}
+        />
       )}
 
       {fc.notice && (
@@ -139,8 +131,15 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
                 </Link>
               </p>
             </div>
+            {/* The unit beside the scale it sets (and every wind on the page) */}
             <div className="flex flex-wrap items-center gap-3">
               <ScaleLegend unit={unit} />
+              <Segmented
+                label={m.scale_unit()}
+                value={unit}
+                options={WIND_UNITS.map((u) => ({ value: u, label: UNIT_LABEL[u] }))}
+                onChange={setUnit}
+              />
             </div>
           </div>
           <div className="flex flex-col gap-4 sm:p-3">

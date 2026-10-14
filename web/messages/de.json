@@ -213,7 +213,6 @@
   "water_currentNote": "Strömung aus Abfluss und pauschalem Querschnitt geschätzt",
   "mix_name": "Mix",
   "mix_sub": "gewichtet · {days} Tage",
-  "models_source": "Quelle",
   "models_top": "Top hier",
   "models_auto": "Auto-Auswahl: {model} lag hier in den letzten 30 Tagen am nächsten an der Messung.",
   "models_autoMix": "Auto-Auswahl: Der Mix lag hier in den letzten 30 Tagen näher an der Messung als jedes einzelne Modell.",

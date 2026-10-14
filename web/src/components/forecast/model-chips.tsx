@@ -18,13 +18,15 @@ interface Props {
   hint: string;
   /** The choice comes from the station's ranking */
   auto: boolean;
+  /** The chosen model's run and how long ago it came ("Lauf 12 UTC · vor 6 Min.") */
+  run?: string;
 }
 
 /** The models that cover the place in one row: the fine regional ones (hour by hour), a line,
  * the global ones with the mix (every 3 hours). How the first one was chosen is behind the info
- * mark beside the count. Narrower than xl the chips show their names only and a line beneath
+ * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
  * tells the one chosen; on phones and tablets the row swipes. */
-export function ModelChips({ fc, selected, onSelect, top, hint, auto }: Props) {
+export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Props) {
   const groups = [
     { key: 'super', models: fc.models.filter((x) => x.class === 'super') },
     { key: 'global', models: fc.models.filter((x) => x.class !== 'super') },
@@ -37,14 +39,12 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto }: Props) {
     >
       <div className="relative -mx-4 flex items-stretch gap-3.5 overflow-x-auto px-4 [scrollbar-width:none] sm:gap-[22px] lg:mx-0 lg:overflow-visible lg:px-0">
         <div className="hidden min-w-24 shrink-0 flex-col justify-center gap-0.5 lg:flex">
-          <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.1em]">
-            {m.models_source()}
-          </span>
           <span className="flex items-center gap-1.5 font-semibold text-sm">
             {/* Every chip counts, the mix too */}
             {m.models_count({ count: fc.models.length })}
             <HintMark hint={hint} auto={auto} />
           </span>
+          {run && <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">{run}</span>}
         </div>
         {groups.map((g, i) => (
           <Fragment key={g.key}>
@@ -69,6 +69,8 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto }: Props) {
           <span>
             <b className="font-semibold text-foreground">{modelName(fc, chosen.id)}</b> · {details(chosen)}
             {chosen.id === top && <> · {m.models_top()}</>}
+            {/* From lg on the run stands left, under the count */}
+            {run && <span className="lg:hidden"> · {run}</span>}
           </span>
           {/* The count and its mark stand left from lg on */}
           <HintMark hint={hint} auto={auto} className="lg:hidden" />

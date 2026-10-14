@@ -213,7 +213,6 @@
   "water_currentNote": "Current estimated from the flow and a blanket cross-section",
   "mix_name": "Mix",
   "mix_sub": "weighted · {days} days",
-  "models_source": "Source",
   "models_top": "Best here",
   "models_auto": "Auto choice: {model} came closest to the measurements here over the last 30 days.",
   "models_autoMix": "Auto choice: the mix came closer to the measurements here over the last 30 days than any single model.",
