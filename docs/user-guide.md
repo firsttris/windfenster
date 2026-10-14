@@ -108,7 +108,8 @@ made is in [Forecasts and models](forecasts.md#verification-and-ranking).
 
 ![The wind map with the gust layer: a storm west of Ireland in yellow, orange and red over the British Isles and France](screenshot-map-gusts.png)
 
-Over the map lie only two pills and the scale, top left, and the timeline at the foot.
+Over the map lie only two pills and the scale, top left, and the timeline at the foot; on a
+screen 1280 px or wider the two pills sit in the top row, beside the menu.
 
 - **Models**: ICON-D2, ICON global and ECMWF IFS are drawn at once, the finest on top, blended
   without an edge. The model pill (with its resolution and, on a wide screen, its run) picks one;
@@ -119,7 +120,7 @@ Over the map lie only two pills and the scale, top left, and the timeline at the
   at its end; drag the knob or tap a day. The keys play (**Space**), step an hour (**←/→**, with
   **Shift** a day) and jump to now (**N**). On a phone it sits in a sheet at the foot, with play
   and the hour. The track is coloured by the wind at the picked spot.
-- **Tap a place**: the spot card, under the pills on a wide screen, shows the model's wind and
+- **Tap a place**: the spot card, under the scale on a wide screen, shows the model's wind and
   gusts there and its coming hours; tap an hour to go there. A station also shows its last
   measurement and six hours as a small curve. **Escape** closes it.
 - **Stations** show their measured wind as a dot in the scale's colour, from closer up as a badge

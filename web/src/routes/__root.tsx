@@ -1,7 +1,8 @@
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { LogIn, Map as MapIcon, Search, Settings, UserRound } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { HeaderSlotContext } from '@/components/header-slot';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
 import { meQuery, siteQuery } from '@/lib/api';
 import { watchTheme } from '@/lib/prefs';
@@ -23,19 +24,22 @@ function RootLayout() {
   useEffect(() => watchTheme(), []);
   // The map fills the whole window, the header floats over it; its sources stand on the map itself.
   const fullscreen = useRouterState({ select: (s) => s.location.pathname === '/map' });
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
-    <SearchProvider>
-      <div
-        className={
-          fullscreen ? 'wf-fullscreen relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'
-        }
-      >
-        {!fullscreen && <Banner />}
-        <Header over={fullscreen} />
-        <Outlet />
-        {!fullscreen && <Footer />}
-      </div>
-    </SearchProvider>
+    <HeaderSlotContext.Provider value={slot}>
+      <SearchProvider>
+        <div
+          className={
+            fullscreen ? 'wf-fullscreen relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'
+          }
+        >
+          {!fullscreen && <Banner />}
+          <Header over={fullscreen} slot={setSlot} />
+          <Outlet />
+          {!fullscreen && <Footer />}
+        </div>
+      </SearchProvider>
+    </HeaderSlotContext.Provider>
   );
 }
 
@@ -110,7 +114,7 @@ function Footer() {
 
 /** The site's header; `over` the map it floats, see-through, 64 px high (the map's panels start
  * below it, routes/map.tsx). */
-function Header({ over }: { over: boolean }) {
+function Header({ over, slot }: { over: boolean; slot: (el: HTMLElement | null) => void }) {
   const openSearch = useOpenSearch();
   // Over the map there is no bar: logo, menu and buttons float on it, each on its own ground, and
   // the map takes drags between them.
@@ -122,7 +126,7 @@ function Header({ over }: { over: boolean }) {
     <header
       className={
         over
-          ? 'pointer-events-none absolute inset-x-0 top-0 z-40 [&_a]:pointer-events-auto [&_button]:pointer-events-auto'
+          ? 'pointer-events-none absolute inset-x-0 top-0 z-40 [&_a,&_button,&_select]:pointer-events-auto'
           : 'border-line border-b'
       }
     >
@@ -154,6 +158,8 @@ function Header({ over }: { over: boolean }) {
             {m.nav_map()}
           </Link>
         </nav>
+        {/* The map's model and layer, on wide screens (routes/map.tsx) */}
+        {over && <div ref={slot} className="hidden items-center gap-2 xl:flex" />}
         <div className="flex flex-1 items-center justify-end gap-1 min-[380px]:gap-1.5 sm:gap-2.5">
           <SearchButton className="hidden max-w-xs sm:flex" />
           <Button
