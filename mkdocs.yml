@@ -23,6 +23,7 @@ nav:
   - User guide: user-guide.md
   - Installation: installation.md
   - Configuration: configuration.md
+  - The admin page: admin.md
   - How it works:
       - Architecture: architecture.md
       - Forecasts and models: forecasts.md

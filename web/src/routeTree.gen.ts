@@ -11,11 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as GearRouteImport } from './routes/gear'
+import { Route as ImprintRouteImport } from './routes/imprint'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as PointRouteImport } from './routes/point'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as StationSlugRouteImport } from './routes/station.$slug'
 
@@ -29,6 +32,11 @@ const AccountRoute = AccountRouteImport.update({
   path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
   id: '/confirm-email',
   path: '/confirm-email',
@@ -37,6 +45,11 @@ const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
 const GearRoute = GearRouteImport.update({
   id: '/gear',
   path: '/gear',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImprintRoute = ImprintRouteImport.update({
+  id: '/imprint',
+  path: '/imprint',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -54,6 +67,11 @@ const PointRoute = PointRouteImport.update({
   path: '/point',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
@@ -68,22 +86,28 @@ const StationSlugRoute = StationSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
@@ -91,11 +115,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
@@ -104,33 +131,42 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
+    | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   id:
     | '__root__'
     | '/'
     | '/account'
+    | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   fileRoutesById: FileRoutesById
@@ -138,11 +174,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  AdminRoute: typeof AdminRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   GearRoute: typeof GearRoute
+  ImprintRoute: typeof ImprintRoute
   LoginRoute: typeof LoginRoute
   MapRoute: typeof MapRoute
   PointRoute: typeof PointRoute
+  PrivacyRoute: typeof PrivacyRoute
   SourcesRoute: typeof SourcesRoute
   StationSlugRoute: typeof StationSlugRoute
 }
@@ -163,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/confirm-email': {
       id: '/confirm-email'
       path: '/confirm-email'
@@ -175,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/gear'
       fullPath: '/gear'
       preLoaderRoute: typeof GearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imprint': {
+      id: '/imprint'
+      path: '/imprint'
+      fullPath: '/imprint'
+      preLoaderRoute: typeof ImprintRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -198,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PointRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sources': {
       id: '/sources'
       path: '/sources'
@@ -218,11 +278,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  AdminRoute: AdminRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
   GearRoute: GearRoute,
+  ImprintRoute: ImprintRoute,
   LoginRoute: LoginRoute,
   MapRoute: MapRoute,
   PointRoute: PointRoute,
+  PrivacyRoute: PrivacyRoute,
   SourcesRoute: SourcesRoute,
   StationSlugRoute: StationSlugRoute,
 }

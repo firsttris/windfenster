@@ -19,14 +19,39 @@ impl MapData {
     /// The background loop for ICON global, apart from the others: a run is about a gigabyte
     /// to fetch and must not hold up ICON-D2 and ECMWF.
     pub async fn keep_icon_global(self: Arc<Self>) {
+        let board = wf_core::status::board();
+        board.register("icon_global", EVERY.as_secs() as i64);
         let mut tick = tokio::time::interval(EVERY);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => if !board.take("icon_global") { continue },
+            }
+            if !self.settings.get().icon_global {
+                // Turned off: its runs go, else they would take some 3 GB and the map would
+                // keep showing their last hours
+                match self.drop_icon_global().await {
+                    Ok(0) => {}
+                    Ok(n) => tracing::info!("map: removed {n} ICON global runs (turned off)"),
+                    Err(e) => tracing::warn!("map: removing ICON global runs: {e}"),
+                }
+                continue;
+            }
+            let report = board.start("icon_global");
             match self.update_icon_global(wf_core::time::now()).await {
-                Ok(0) => {}
-                Ok(n) => tracing::info!("map: {n} new {} hours", files::MODEL),
-                Err(e) => tracing::warn!("map {}: {e}", files::MODEL),
+                Ok(n) => {
+                    if n > 0 {
+                        tracing::info!("map: {n} new {} hours", files::MODEL);
+                    }
+                    board.source_ok("dwd");
+                    report.ok(Some(n as i64));
+                }
+                Err(e) => {
+                    tracing::warn!("map {}: {e}", files::MODEL);
+                    board.source_failed("dwd", &e);
+                    report.failed(&e);
+                }
             }
         }
     }
@@ -89,6 +114,18 @@ impl MapData {
         }
         self.prune(model).await?;
         Ok(written)
+    }
+
+    /// ICON global turned off (`WF_ICON_GLOBAL=false` or on the admin page): its runs and grid table go, else they
+    /// would take some 3 GB for good and the map would keep showing their last hours. Returns
+    /// how many runs went.
+    pub async fn drop_icon_global(&self) -> std::io::Result<usize> {
+        let removed = crate::store::prune(&self.root, files::MODEL, 0).await?;
+        match tokio::fs::remove_file(self.icon_global_grid_path()).await {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+        Ok(removed)
     }
 
     fn icon_global_grid_path(&self) -> PathBuf {
@@ -192,5 +229,30 @@ impl MapData {
             grid::decode_values(&raw).map_err(|source| Error::Grid { file, source })
         })
         .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn turned_off_its_runs_go() {
+        let dir = tempfile::tempdir().unwrap();
+        let map = MapData::new(
+            dir.path().to_path_buf(),
+            reqwest::Client::new(),
+            Default::default(),
+        );
+        assert_eq!(map.drop_icon_global().await.unwrap(), 0);
+        for run_at in [1_791_676_800, 1_791_720_000] {
+            let run = crate::store::run_dir(dir.path(), files::MODEL, run_at);
+            std::fs::create_dir_all(&run).unwrap();
+            std::fs::write(run.join("000.json"), b"{}").unwrap();
+        }
+        std::fs::write(map.icon_global_grid_path(), b"x").unwrap();
+        assert_eq!(map.drop_icon_global().await.unwrap(), 2);
+        assert!(map.runs(files::MODEL).await.unwrap().is_empty());
+        assert!(!map.icon_global_grid_path().exists());
     }
 }

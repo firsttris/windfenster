@@ -58,7 +58,8 @@ curl -O https://raw.githubusercontent.com/firsttris/windfenster/main/compose.yam
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. The first station lists, measurements and model runs come within
+Open `http://localhost:8080`, sign up, and make yourself admin with
+`docker compose exec windfenster windfenster admin you@example.org`. The first station lists, measurements and model runs come within
 minutes; the map's basemap and relief follow in the background. Podman Quadlet, a reverse proxy or
 Cloudflare Tunnel, settings, disk space and backups are in the
 [installation guide](https://firsttris.github.io/windfenster/installation.html).
@@ -102,6 +103,16 @@ Cloudflare Tunnel, settings, disk space and backups are in the
 - **Saved spots** with the wind directions that work there.
 - **Your kites, wings, sails**: the forecast shows what fits each hour.
 - **Wind alarms** ahead from the forecast or live from the station, by Web Push and e-mail.
+
+### 🛠️ Admin page
+
+- **See what the server does**: background tasks, data sources, the Open-Meteo budget, disk and
+  warnings on one page.
+- **Change it without a restart**: models, refresh, basemap and relief (download now, ask first
+  or never), limits; whatever the environment sets stays locked.
+- **Accounts**: open sign-up, invite only or closed; disable, sign out, export, delete.
+- **Care**: database backup, alarm deliveries, caches, log, legal notice and privacy policy, and a
+  note when a new version is out.
 
 ## 📸 Screenshots
 

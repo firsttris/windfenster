@@ -1,6 +1,7 @@
 //! The HTTP side of Windfenster: JSON API under `/api`, station pages with meta tags,
 //! everything else is the SPA.
 
+pub mod admin;
 pub mod alarms;
 pub mod auth;
 pub mod client;
@@ -15,6 +16,7 @@ mod map_piece;
 mod meta;
 pub mod ranking;
 pub mod search;
+pub mod site;
 mod spa;
 pub mod stats;
 pub mod water;
@@ -59,6 +61,12 @@ pub struct AppState {
     pub climate: Option<Arc<wf_ingest::climate::Climate>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
+    /// Settings changed on the admin page, over the environment's and the defaults
+    pub settings: Arc<wf_core::admin::settings::SettingsStore>,
+    /// The data folder, for the admin page's disk usage
+    pub data_dir: Option<std::path::PathBuf>,
+    /// The data folder's disk usage, measured at most every five minutes
+    disk: moka::future::Cache<(), wf_map::disk::DiskUsage>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     pub dev_ui: Option<String>,
     /// Signing in with passkeys; off without an address they could belong to.
@@ -117,6 +125,12 @@ impl AppState {
                 .time_to_live(Duration::from_secs(30))
                 .build(),
             public_url,
+            settings: wf_core::admin::settings::SettingsStore::defaults(),
+            data_dir: None,
+            disk: moka::future::Cache::builder()
+                .max_capacity(1)
+                .time_to_live(Duration::from_secs(300))
+                .build(),
             dev_ui,
             cache,
             places: search::new_cache(),
@@ -165,6 +179,61 @@ impl AppState {
         }
     }
 
+    /// With the settings as stored and set by the environment.
+    pub fn with_settings(self, settings: Arc<wf_core::admin::settings::SettingsStore>) -> Self {
+        Self { settings, ..self }
+    }
+
+    /// With the data folder, for the admin page.
+    pub fn with_data_dir(self, dir: std::path::PathBuf) -> Self {
+        Self {
+            data_dir: Some(dir),
+            ..self
+        }
+    }
+
+    /// The data folder's disk usage, from the cache when measured within five minutes.
+    async fn disk_usage(&self) -> Option<wf_map::disk::DiskUsage> {
+        let dir = self.data_dir.clone()?;
+        Some(
+            self.disk
+                .get_with((), async move { wf_map::disk::usage(&dir).await })
+                .await,
+        )
+    }
+
+    /// Entries per in-memory cache, for the admin page.
+    fn cache_sizes(&self) -> Vec<(&'static str, u64)> {
+        vec![
+            ("forecasts", self.cache.entry_count()),
+            ("places", self.places.entry_count()),
+            ("rankings", self.rankings.entry_count()),
+            ("map_pieces", self.pieces.entry_count()),
+            ("gauge_history", self.gauge_history.entry_count()),
+            (
+                "pins",
+                self.pins.entry_count() + self.gauge_pins.entry_count(),
+            ),
+        ]
+    }
+
+    /// Empties the caches: the next requests are answered from the database and the files.
+    fn clear_caches(&self) {
+        self.cache.invalidate_all();
+        self.places.invalidate_all();
+        self.rankings.invalidate_all();
+        self.pieces.invalidate_all();
+        self.gauge_history.invalidate_all();
+        self.pins.invalidate_all();
+        self.gauge_pins.invalidate_all();
+        self.disk.invalidate_all();
+    }
+
+    /// Measures the disk usage anew on the next look (after a change).
+    async fn forget_disk_usage(&self) {
+        self.disk.invalidate_all();
+    }
+
     /// With wind statistics from the archives.
     pub fn with_climate(self, climate: Arc<wf_ingest::climate::Climate>) -> Self {
         Self {
@@ -190,6 +259,8 @@ pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health))
         .route("/models", get(models))
+        .route("/site", get(site::site))
+        .route("/site/{page}", get(site::legal))
         .route("/stations", get(search::search))
         .route("/stations/{slug}", get(forecast::station))
         .route("/stations/{slug}/live", get(live::live))
@@ -240,6 +311,7 @@ pub fn router(state: AppState) -> Router {
             "/favorites/{id}",
             put(favorites::change).delete(favorites::remove),
         )
+        .nest("/admin", admin::routes())
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)

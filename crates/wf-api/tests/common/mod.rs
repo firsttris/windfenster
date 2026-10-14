@@ -146,6 +146,14 @@ fn iso(unix: i64) -> String {
 }
 
 pub async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
+    app_with(|_, s| s).await
+}
+
+/// The app with something added to its state (a map, settings ...), given the data folder.
+#[allow(dead_code)]
+pub async fn app_with(
+    with: impl FnOnce(&std::path::Path, AppState) -> AppState,
+) -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
     let calls = Arc::new(Calls::default());
     let fake = Router::new()
         .route("/v1/forecast", get(fake_forecast))
@@ -232,6 +240,7 @@ pub async fn app() -> Result<(tempfile::TempDir, Router, Arc<Calls>)> {
         None,
         None,
     );
+    let state = with(dir.path(), state);
     Ok((dir, router(state), calls))
 }
 

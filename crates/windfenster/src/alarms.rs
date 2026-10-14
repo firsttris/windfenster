@@ -39,9 +39,11 @@ pub fn build(
     let push = Push::load_or_create(&data_dir.join("vapid.pem"), contact)
         .context("the push key (vapid.pem)")?;
     let mail = match (crate::non_empty(&mail.smtp_url), from) {
-        (Some(url), Some(from)) => {
-            Some(Mail::new(&url, &from).context("WF_SMTP_URL / WF_MAIL_FROM")?)
-        }
+        (Some(url), Some(from)) => Some(
+            Mail::new(&url, &from)
+                .context("WF_SMTP_URL / WF_MAIL_FROM")?
+                .with_store(db.clone()),
+        ),
         (Some(_), None) => anyhow::bail!("WF_SMTP_URL needs WF_MAIL_FROM"),
         _ => None,
     };

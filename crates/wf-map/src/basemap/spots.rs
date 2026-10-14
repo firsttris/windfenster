@@ -91,6 +91,22 @@ pub async fn on_disk(root: &Path) -> Vec<(Spot, SystemTime)> {
     out
 }
 
+/// Removes cuts of spots that never finished (a restart in the middle); only while no spot is
+/// being made. Returns how many went.
+pub async fn clear_leftovers(root: &Path) -> std::io::Result<usize> {
+    let mut removed = 0;
+    let Ok(mut entries) = tokio::fs::read_dir(dir(root)).await else {
+        return Ok(0);
+    };
+    while let Some(e) = entries.next_entry().await? {
+        if e.path().extension().is_some_and(|x| x == "part") {
+            tokio::fs::remove_file(e.path()).await?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 /// Makes the spot's archive from the newest build; returns how many tiles it holds.
 pub async fn make(
     root: &Path,
@@ -104,14 +120,15 @@ pub async fn make(
     tokio::fs::create_dir_all(dir(root)).await?;
     let target = path(root, spot);
     let partial = target.with_extension("part");
-    let n = super::cut::copy(reader, &[spot.area(from_zoom)], &partial).await?;
+    let n = super::cut::copy(reader, &[spot.area(from_zoom)], &partial, "spot").await?;
     tokio::fs::rename(&partial, &target).await?;
     Ok(usize::try_from(n).unwrap_or(usize::MAX))
 }
 
 /// What one round does: the wanted spots missing on disk (at most `limit`, in the order wanted),
-/// the wanted ones on disk to mark as wanted now, and those beyond `max` to remove (never one
-/// wanted now).
+/// the wanted ones on disk to mark as wanted now, and those to remove so that no more than `max`
+/// stay. `max` is a hard limit: only the first `max` wanted count (wanted first in `wanted`), and
+/// the room they leave goes to the most recently wanted others on disk.
 pub fn plan(
     wanted: &[Spot],
     have: &[(Spot, SystemTime)],
@@ -119,9 +136,11 @@ pub fn plan(
     limit: usize,
     max: usize,
 ) -> (Vec<Spot>, Vec<Spot>, Vec<Spot>) {
+    let wanted = &wanted[..wanted.len().min(max)];
+    let on_disk = |s: &Spot| have.iter().any(|(h, _)| h == s);
     let missing: Vec<Spot> = wanted
         .iter()
-        .filter(|s| !have.iter().any(|(h, _)| h == *s))
+        .filter(|s| !on_disk(s))
         .take(limit)
         .copied()
         .collect();
@@ -133,12 +152,13 @@ pub fn plan(
         })
         .map(|(s, _)| *s)
         .collect();
-    let keep = max.saturating_sub(missing.len());
-    // `have` is most recently wanted first: what falls past `keep` goes, unless wanted.
+    let wanted_on_disk = wanted.iter().filter(|s| on_disk(s)).count();
+    let room = max.saturating_sub(wanted_on_disk + missing.len());
+    // `have` is most recently wanted first: of the others, those past the room go.
     let remove = have
         .iter()
-        .skip(keep)
         .filter(|(s, _)| !wanted.contains(s))
+        .skip(room)
         .map(|(s, _)| *s)
         .collect();
     (missing, touch, remove)
@@ -182,6 +202,18 @@ mod tests {
         assert_eq!(s.file_name(), "-12.4_-0.0.pmtiles");
     }
 
+    #[tokio::test]
+    async fn clears_unfinished_cuts() {
+        let root = tempfile::tempdir().unwrap();
+        assert_eq!(clear_leftovers(root.path()).await.unwrap(), 0);
+        let spot = Spot::of(48.78, 8.08);
+        std::fs::create_dir_all(dir(root.path())).unwrap();
+        std::fs::write(path(root.path(), spot), b"x").unwrap();
+        std::fs::write(path(root.path(), spot).with_extension("part"), b"x").unwrap();
+        assert_eq!(clear_leftovers(root.path()).await.unwrap(), 1);
+        assert_eq!(on_disk(root.path()).await.len(), 1);
+    }
+
     #[test]
     fn plans_a_round() {
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10 * 86_400);
@@ -219,5 +251,22 @@ mod tests {
         let (_, _, remove) = plan(&[c], &many, now, 5, MAX_SPOTS);
         assert_eq!(remove.len(), 1);
         assert_eq!(remove[0], many[MAX_SPOTS - 1].0);
+        // More wanted than the limit: only the first count, and nothing else stays.
+        let wanted: Vec<Spot> = (0..5)
+            .map(|i| Spot {
+                lat: i as f64,
+                lon: 9.0,
+            })
+            .collect();
+        let have = vec![(wanted[4], day(9)), (a, day(9)), (wanted[0], day(8))];
+        let (missing, _, remove) = plan(&wanted, &have, now, 2, 3);
+        assert_eq!(missing, vec![wanted[1], wanted[2]]);
+        assert_eq!(remove, vec![wanted[4], a]);
+        // Room left over goes to the most recently wanted others.
+        let (missing, _, remove) = plan(&wanted[..1], &have, now, 2, 3);
+        assert!(missing.is_empty());
+        assert_eq!(remove, Vec::<Spot>::new());
+        let (_, _, remove) = plan(&wanted[..1], &have, now, 2, 2);
+        assert_eq!(remove, vec![a]);
     }
 }

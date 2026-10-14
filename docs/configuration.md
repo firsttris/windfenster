@@ -8,6 +8,9 @@ Windfenster reads its settings from environment variables: `environment:` in `co
 `Environment=` lines in the Podman Quadlet unit, or `.env` when developing. Nothing needs setting
 to start; set `WF_PUBLIC_URL` before people sign up.
 
+Many of them can also be changed on the [admin page](admin.md#settings-the-environment-wins),
+without a restart; a variable that is set wins there and shows locked.
+
 ## All variables
 
 | Variable | Default | |
@@ -26,8 +29,8 @@ to start; set `WF_PUBLIC_URL` before people sign up.
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_SOURCES` | – | For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE, OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests' stand-in serves them |
 | `WF_MAP` | `true` | The wind map: ICON-D2 and ICON global from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
-| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF |
-| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
+| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF and removes ICON global's runs on disk at the start |
+| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `ask` waits for an admin to say when on the admin page; `off` leaves it to you and also stops the relief and the detail spots |
 | `WF_BASEMAP_WORLD_ZOOM` | `7` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, 7 about 150 MB, every level roughly three to four times more |
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
 | `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |
@@ -70,7 +73,8 @@ next start; see [The basemap and relief](basemap.md#changing-the-depth).
 
 Forecasts per place come from Open-Meteo. Without a key Windfenster uses the free API, which is
 for **non-commercial use** and allows about 10,000 calls a day; Windfenster keeps to
-`WF_OPEN_METEO_DAILY_BUDGET` (9,000 by default). That covers a few hundred places people look at
+`WF_OPEN_METEO_DAILY_BUDGET` (9,000 by default), counted per UTC day in the database, so a
+restart does not start the count again. That covers a few hundred places people look at
 regularly. So that nobody can use it up by opening ever new places, a client (by its address,
 see `WF_CLIENT_IP_HEADER`) may open 30 places an hour and 100 a day that the server has to fetch,
 and such openings use at most two thirds of the budget; the last third stays for keeping the
@@ -95,7 +99,9 @@ An `@` in the user name is written `%40`.
 
 Alarm e-mails go only to an address its owner confirmed: setting an address sends a link
 (valid 24 hours) to `WF_PUBLIC_URL`'s `/confirm-email`, so confirming needs `WF_PUBLIC_URL` too.
-At most one such mail per address in ten minutes and 200 a day per server. Addresses stored
+At most one such mail per address in ten minutes and 200 a day per server. All mails together
+(confirmations, alarms, tests) stop at 500 per UTC day, counted in the database; past that,
+alarms go by push only until the next day. Addresses stored
 before this check existed (up to version 0.1.8) count as confirmed.
 
 ## The binary's commands
@@ -106,5 +112,7 @@ before this check existed (up to version 0.1.8) count as confirmed.
 - `windfenster import-stations`: fetches the station lists and the water gauges now
 - `windfenster probe --lat 48.78 --lon 8.08`: asks Open-Meteo for every model at a point and
   prints what comes back
+- `windfenster admin <e-mail, name or #id>`: makes the account an admin (`--remove` takes the
+  role, `--list` shows the admins); see [The admin page](admin.md)
 
 In the container: `docker compose exec windfenster windfenster probe --lat 48.78 --lon 8.08`.

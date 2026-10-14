@@ -124,7 +124,10 @@ pub(crate) async fn send_link(
     let (subject, body) = text::confirm_email(lang, &link, LINK_HOURS);
     mail.send(email, &subject, &body)
         .await
-        .map_err(ApiError::internal)
+        .map_err(|e| match e {
+            wf_alarm::Error::MailCap(_) => ApiError::TooSoon,
+            e => ApiError::internal(e),
+        })
 }
 
 /// After an address was set: sends its link when it can, without failing the request (the

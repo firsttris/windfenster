@@ -40,6 +40,10 @@ pub struct PasswordSignUp {
     pub name: String,
     pub email: String,
     pub password: String,
+    /// The invitation's token, when sign-up needs one
+    #[serde(default)]
+    #[ts(optional)]
+    pub invite: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -121,6 +125,7 @@ pub async fn sign_up(
     let name = account::clean_name(&req.name).ok_or(ApiError::InvalidName)?;
     let email = account::clean_email(&req.email).ok_or(ApiError::InvalidEmail)?;
     strong_enough(&req.password)?;
+    super::signup::allowed(&s, req.invite.as_deref()).await?;
     if account::email_taken(&s.db, &email, None).await? {
         return Err(ApiError::EmailTaken);
     }
@@ -131,6 +136,7 @@ pub async fn sign_up(
         .await
         // Taken between the check and now
         .map_err(|_| ApiError::EmailTaken)?;
+    super::signup::made(&s, req.invite.as_deref(), id).await?;
     let headers = start_session(&s, id).await?;
     super::email::offer_link(&s, id, &email, super::email::lang_of(&request)).await;
     let me = account::get(&s.db, id)

@@ -38,6 +38,10 @@ pub struct PasskeyAnswer {
 #[ts(export)]
 pub struct SignUp {
     pub name: String,
+    /// The invitation's token, when sign-up needs one
+    #[serde(default)]
+    #[ts(optional)]
+    pub invite: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -85,6 +89,7 @@ pub async fn sign_up(
 ) -> Result<Json<PasskeyOptions>, ApiError> {
     let p = passkeys(&s)?;
     let name = account::clean_name(&req.name).ok_or(ApiError::InvalidName)?;
+    super::signup::allowed(&s, req.invite.as_deref()).await?;
     let handle = Uuid::new_v4();
     let (ccr, state) = p
         .webauthn
@@ -94,6 +99,7 @@ pub async fn sign_up(
         handle,
         name,
         state,
+        invite: req.invite,
     });
     options(id.await, ccr).map(discoverable)
 }
@@ -109,6 +115,7 @@ pub async fn finish_sign_up(
         handle,
         name,
         state,
+        invite,
     } = pending.as_ref()
     else {
         return Err(ApiError::PasskeyRejected);
@@ -120,7 +127,9 @@ pub async fn finish_sign_up(
         .map_err(|_| ApiError::PasskeyRejected)?;
     let (key_id, json) = stored(&passkey)?;
     let now = wf_core::time::now();
+    super::signup::allowed(&s, invite.as_deref()).await?;
     let id = account::create(&s.db, &handle.to_string(), name, &key_id, &json, now).await?;
+    super::signup::made(&s, invite.as_deref(), id).await?;
     let headers = start_session(&s, id).await?;
     Ok((
         headers,
@@ -130,6 +139,7 @@ pub async fn finish_sign_up(
             email: None,
             email_confirmed: false,
             passkeys: 1,
+            admin: false,
         }),
     ))
 }

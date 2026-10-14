@@ -2,6 +2,7 @@
 //! from the forecast, live from the station) and by which channel (push, e-mail); the browsers
 //! that take push messages; and what was told, so that only news is told again.
 
+pub mod delivery;
 pub mod window;
 
 use serde::{Deserialize, Serialize};
@@ -365,7 +366,8 @@ pub async fn jobs(db: &SqlitePool) -> sqlx::Result<Vec<Job>> {
          a.min_kn, a.gear, a.forecast, a.live, a.push, a.email, \
          c.id AS account_id, \
          CASE WHEN c.email_confirmed THEN c.email END AS account_email, c.locale, c.time_zone, c.unit \
-         FROM alarm a JOIN favorite f ON f.id = a.favorite_id JOIN account c ON c.id = f.account_id",
+         FROM alarm a JOIN favorite f ON f.id = a.favorite_id JOIN account c ON c.id = f.account_id \
+         WHERE c.disabled_at IS NULL",
     )
     .fetch_all(db)
     .await?;

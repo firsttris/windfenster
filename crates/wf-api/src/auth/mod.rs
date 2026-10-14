@@ -7,6 +7,7 @@
 pub mod email;
 pub mod password;
 mod routes;
+pub(crate) mod signup;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,6 +38,8 @@ enum Pending {
         handle: Uuid,
         name: String,
         state: PasskeyRegistration,
+        /// The invitation it came with, used once the account is made
+        invite: Option<String>,
     },
     AddPasskey {
         account_id: i64,
@@ -88,13 +91,13 @@ impl Passkeys {
     }
 }
 
-fn random<const N: usize>() -> [u8; N] {
+pub(crate) fn random<const N: usize>() -> [u8; N] {
     let mut b = [0u8; N];
     openssl::rand::rand_bytes(&mut b).expect("the system's random source");
     b
 }
 
-fn hash(token: &str) -> [u8; 32] {
+pub(crate) fn hash(token: &str) -> [u8; 32] {
     openssl::sha::sha256(token.as_bytes())
 }
 
@@ -122,6 +125,9 @@ fn cookie(value: &str, max_age: i64, secure: bool) -> HeaderValue {
 
 /// A new session for the account: stored by its hash, the token goes to the browser.
 async fn start_session(s: &AppState, account_id: i64) -> Result<HeaderMap, ApiError> {
+    if account::disabled(&s.db, account_id).await? {
+        return Err(ApiError::AccountDisabled);
+    }
     let token = hex::encode(random::<32>());
     let now = wf_core::time::now();
     // Sessions that ran out go along the way: there are few, and a sign-in is rare.

@@ -17,12 +17,25 @@ use axum::http::{HeaderMap, HeaderName};
 
 use crate::AppState;
 
-/// Places to fetch per address and hour
-const PER_HOUR: u32 = 30;
-/// … and per day
-const PER_DAY: u32 = 100;
-/// Place searches (geocoder calls) per address and hour; beyond, stations only
-const SEARCHES_PER_HOUR: u32 = 300;
+/// How much one address may make the server fetch; set on the admin page
+/// (`wf_core::admin::settings`): 30 places an hour, 100 a day, 300 searches an hour by default.
+#[derive(Debug, Clone, Copy)]
+pub struct Allowance {
+    pub places_per_hour: u32,
+    pub places_per_day: u32,
+    /// Place searches (geocoder calls); beyond, stations only
+    pub searches_per_hour: u32,
+}
+
+impl From<&wf_core::admin::settings::Settings> for Allowance {
+    fn from(s: &wf_core::admin::settings::Settings) -> Self {
+        Allowance {
+            places_per_hour: s.places_per_hour,
+            places_per_day: s.places_per_day,
+            searches_per_hour: s.searches_per_hour,
+        }
+    }
+}
 
 /// The client's address, if known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,12 +63,17 @@ fn client_ip(
     header: Option<&HeaderName>,
     peer: Option<IpAddr>,
 ) -> Option<IpAddr> {
-    header
+    let from_header = header
         .and_then(|h| headers.get(h))
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.rsplit(',').next())
-        .and_then(|v| v.trim().parse().ok())
-        .or(peer)
+        .and_then(|v| v.trim().parse().ok());
+    if header.is_some() && from_header.is_none() {
+        // The proxy that should set it is not in front: anyone could send it themselves and
+        // pass the limits per client; the admin page warns.
+        wf_core::status::board().missing_ip_header();
+    }
+    from_header.or(peer)
 }
 
 /// Requests counted per address in a fixed window: (window start, count).
@@ -100,17 +118,17 @@ impl Limits {
 
     /// Whether the client may make the server fetch a place now; counts it. A client without a
     /// known address (tests, a local socket) is not limited.
-    pub async fn new_place(&self, ip: ClientIp, now: i64) -> bool {
+    pub async fn new_place(&self, ip: ClientIp, now: i64, a: Allowance) -> bool {
         let Some(ip) = ip.0 else { return true };
         // The hour counts every try, so hammering on past its limit keeps it closed.
-        count(&self.hour, ip, now, 3_600, PER_HOUR).await
-            && count(&self.day, ip, now, 86_400, PER_DAY).await
+        count(&self.hour, ip, now, 3_600, a.places_per_hour).await
+            && count(&self.day, ip, now, 86_400, a.places_per_day).await
     }
 
     /// Whether the client may have a place search go out to the geocoder now; counts it.
-    pub async fn search(&self, ip: ClientIp, now: i64) -> bool {
+    pub async fn search(&self, ip: ClientIp, now: i64, a: Allowance) -> bool {
         let Some(ip) = ip.0 else { return true };
-        count(&self.searches, ip, now, 3_600, SEARCHES_PER_HOUR).await
+        count(&self.searches, ip, now, 3_600, a.searches_per_hour).await
     }
 }
 
@@ -148,29 +166,37 @@ mod tests {
         assert_eq!(client_ip(&HeaderMap::new(), Some(&cf), None), None);
     }
 
+    const PER_HOUR: u32 = 30;
+    const PER_DAY: u32 = 100;
+    const A: Allowance = Allowance {
+        places_per_hour: PER_HOUR,
+        places_per_day: PER_DAY,
+        searches_per_hour: 300,
+    };
+
     #[tokio::test]
     async fn an_address_opens_only_so_many_new_places() {
         let l = Limits::new();
         let a = ClientIp(Some(ip("203.0.113.7")));
         let b = ClientIp(Some(ip("203.0.113.8")));
         for _ in 0..PER_HOUR {
-            assert!(l.new_place(a, 0).await);
+            assert!(l.new_place(a, 0, A).await);
         }
-        assert!(!l.new_place(a, 10).await);
+        assert!(!l.new_place(a, 10, A).await);
         // Another address has its own count; one without an address is not limited.
-        assert!(l.new_place(b, 10).await);
-        assert!(l.new_place(ClientIp(None), 10).await);
+        assert!(l.new_place(b, 10, A).await);
+        assert!(l.new_place(ClientIp(None), 10, A).await);
         // The next hour it may go on, until the day's limit.
         let mut allowed = PER_HOUR;
         for hour in 1..24 {
             for _ in 0..PER_HOUR {
-                if l.new_place(a, hour * 3_600).await {
+                if l.new_place(a, hour * 3_600, A).await {
                     allowed += 1;
                 }
             }
         }
         assert_eq!(allowed, PER_DAY);
         // A new day starts again.
-        assert!(l.new_place(a, 86_400).await);
+        assert!(l.new_place(a, 86_400, A).await);
     }
 }

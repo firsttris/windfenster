@@ -51,7 +51,9 @@ spot tapped on the map, the server cuts 20 km from the newest build into a file 
 `{WF_DATA_DIR}/map/basemap-spots/{lat}_{lon}.pmtiles` (2 to 17 MB; spots are snapped to a 0.2°
 grid, so places close together share one). It checks every minute and makes two at a time, so a
 tapped spot has its detail within a minute or two, and the open map shows it without reloading.
-At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go.
+At most 60 spots are kept (about 600 MB), a hard limit: when more are wanted, tracked stations come
+first, then the places opened most recently, then the latest taps (the server remembers 200
+taps); spots nobody wants any more go first.
 
 The map gets every tile from the server, at `/api/map/basemap/{z}/{x}/{y}`: from the spot that
 holds it, else from the main file, and where neither goes that deep, cut out of the deepest tile
@@ -77,6 +79,10 @@ pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pm
 
 Europe to zoom 12 is about 7 GB; the Upper Rhine to zoom 15 about 210 MB. `WF_BASEMAP=off`
 leaves the file to you; the server cuts its tiles the same way where it stops.
+
+With `WF_BASEMAP=ask` (or "Ask" on the [admin page](admin.md#map-and-basemap)) the server does not
+renew by itself: when the basemap or relief is due, the admin page shows it with the newest
+build, and an admin says when.
 OpenStreetMap is credited on the map.
 
 ## Changing the depth

@@ -1,10 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Fingerprint, KeyRound, Mail } from 'lucide-react';
 import { type ComponentProps, type FormEvent, useEffect, useState } from 'react';
 import type { Account } from '@/bindings/Account';
 import { Page } from '@/components/page';
-import { isApiError, send } from '@/lib/api';
+import { isApiError, send, siteQuery } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
 import { canAutofill, cancelled, canUsePasskeys, signIn, signUp, stopAutofill } from '@/lib/passkeys';
 import { useTitle } from '@/lib/use-title';
@@ -15,11 +15,14 @@ import { Segmented } from '@/ui/segmented';
 interface LoginSearch {
   /** Where to go once signed in (a path of this site) */
   redirect?: string;
+  /** An invitation's token, when sign-up needs one */
+  invite?: string;
 }
 
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>): LoginSearch => ({
     redirect: typeof s.redirect === 'string' && s.redirect.startsWith('/') ? s.redirect : undefined,
+    invite: typeof s.invite === 'string' && /^[0-9a-f]{32}$/.test(s.invite) ? s.invite : undefined,
   }),
   component: LoginPage,
 });
@@ -42,10 +45,13 @@ function Field({ label, ...input }: { label: string } & ComponentProps<'input'>)
  * the page is open), e-mail and password as the other way, as in firsttris/haben's login. */
 function LoginPage() {
   useTitle(m.title_login());
-  const { redirect } = Route.useSearch();
+  const { redirect, invite } = Route.useSearch();
+  const site = useQuery(siteQuery);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('in');
+  const [tab, setTab] = useState<Tab>(invite ? 'new' : 'in');
+  // Sign-up closed, or only with an invitation and none came with the link
+  const signupClosed = site.data?.signup === 'closed' || (site.data?.signup === 'invite' && !invite);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -100,9 +106,9 @@ function LoginPage() {
     if (tab === 'in') {
       void attempt(() => send<Account>('POST', '/auth/signin/password', { email, password }));
     } else if (withPassword || !passkeys) {
-      void attempt(() => send<Account>('POST', '/auth/signup/password', { name, email, password }));
+      void attempt(() => send<Account>('POST', '/auth/signup/password', { name, email, password, invite }));
     } else {
-      void attempt(() => signUp(name));
+      void attempt(() => signUp(name, invite));
     }
   };
 
@@ -169,7 +175,12 @@ function LoginPage() {
             </div>
           </>
         )}
-        <form onSubmit={submit} className="flex flex-col gap-3">
+        {tab === 'new' && signupClosed && (
+          <p role="status" className="m-0 rounded-lg border p-3 text-sm leading-relaxed">
+            {site.data?.signup === 'invite' ? m.login_inviteOnly() : m.login_closed()}
+          </p>
+        )}
+        <form onSubmit={submit} className={tab === 'new' && signupClosed ? 'hidden' : 'flex flex-col gap-3'}>
           {tab === 'new' && (
             <Field
               label={m.login_name()}

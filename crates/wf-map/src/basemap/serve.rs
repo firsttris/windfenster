@@ -116,7 +116,13 @@ impl Readers {
         {
             return Some(open.reader.clone());
         }
-        let identity = Identity::of(&tokio::fs::metadata(path).await.ok()?)?;
+        let Ok(meta) = tokio::fs::metadata(path).await else {
+            // Gone (a spot removed): let go of its reader, whose open file would keep its room
+            // on the disk taken
+            self.files.lock().expect("readers").remove(path);
+            return None;
+        };
+        let identity = Identity::of(&meta)?;
         if let Some(open) = self.files.lock().expect("readers").get_mut(path)
             && open.identity == identity
         {
@@ -151,6 +157,11 @@ impl Readers {
             return list.clone();
         }
         let list = Arc::new(spots::on_disk(root).await);
+        // Readers of spot files no longer on disk go with them
+        let dir = spots::dir(root);
+        self.files.lock().expect("readers").retain(|path, _| {
+            !path.starts_with(&dir) || list.iter().any(|(s, _)| spots::path(root, *s) == *path)
+        });
         *self.spots.lock().expect("spots") = Some((Instant::now(), list.clone()));
         list
     }
@@ -256,5 +267,21 @@ mod tests {
             .values_mut()
             .for_each(|o| o.checked -= RECHECK);
         assert_eq!(place().await, Some(vec![(2.0, 0.0)]));
+    }
+
+    #[tokio::test]
+    async fn lets_go_of_removed_spot_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let spot = Spot::of(48.78, 8.08);
+        let file = spots::path(dir.path(), spot);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, archive(1, 0)).unwrap();
+        let readers = Readers::default();
+        assert!(readers.tile(dir.path(), 0, 0, 0).await.is_some());
+        assert!(readers.files.lock().unwrap().contains_key(&file));
+        std::fs::remove_file(&file).unwrap();
+        readers.forget_spots();
+        assert!(readers.tile(dir.path(), 0, 0, 0).await.is_none());
+        assert!(readers.files.lock().unwrap().is_empty());
     }
 }

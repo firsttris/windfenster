@@ -2,6 +2,7 @@
 //! and turns them into textures; old runs are removed. One file per model.
 
 mod basemap;
+pub mod basemap_admin;
 mod ecmwf;
 mod icon_d2;
 mod icon_global;
@@ -75,8 +76,11 @@ pub struct MapData {
     readers: crate::basemap::serve::Readers,
     /// Spots tapped on the map, with when (service/basemap.rs)
     tapped: std::sync::Mutex<Vec<(crate::basemap::spots::Spot, i64)>>,
-    /// How much basemap and relief to keep
-    depth: crate::basemap::Depth,
+    /// How much basemap and relief to keep, ICON global or not, renew by itself or ask: the
+    /// admin page's settings
+    settings: Arc<wf_core::admin::settings::SettingsStore>,
+    /// What the admin page said about the basemap's renewal (service/basemap.rs)
+    renewal: basemap_admin::Renewal,
     /// ICON global's triangles to the regular grid, once loaded or made
     icon_global_near: tokio::sync::OnceCell<Arc<Vec<u32>>>,
 }
@@ -92,14 +96,27 @@ impl MapData {
             urls,
             readers: Default::default(),
             tapped: Default::default(),
-            depth: Default::default(),
+            settings: wf_core::admin::settings::SettingsStore::defaults(),
+            renewal: Default::default(),
             icon_global_near: Default::default(),
         }
     }
 
-    /// With another depth of basemap and relief than the default.
-    pub fn with_depth(self, depth: crate::basemap::Depth) -> Self {
-        Self { depth, ..self }
+    /// With the admin page's settings.
+    pub fn with_settings(self, settings: Arc<wf_core::admin::settings::SettingsStore>) -> Self {
+        Self { settings, ..self }
+    }
+
+    /// How much basemap and relief to keep, as the settings say now.
+    pub fn depth(&self) -> crate::basemap::Depth {
+        let s = self.settings.get();
+        crate::basemap::Depth {
+            world_zoom: s.basemap_world_zoom,
+            region: s.basemap_region,
+            region_zoom: s.basemap_zoom,
+            max_spots: s.basemap_spots as usize,
+            terrain_zoom: s.terrain_zoom,
+        }
     }
 
     pub fn root(&self) -> &std::path::Path {
@@ -139,20 +156,43 @@ impl MapData {
 
     /// The background loop: new hours every ten minutes.
     pub async fn keep_current(self: Arc<Self>) {
+        let board = wf_core::status::board();
+        board.register("map", EVERY.as_secs() as i64);
         let mut tick = tokio::time::interval(EVERY);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => if !board.take("map") { continue },
+            }
             let now = wf_core::time::now();
-            for (model, result) in [
-                (icon_d2_files::MODEL, self.update_icon_d2(now).await),
-                (ecmwf_files::MODEL, self.update_ecmwf(now).await),
+            let report = board.start("map");
+            let mut written = 0;
+            let mut failed = Vec::new();
+            for (model, source, result) in [
+                (icon_d2_files::MODEL, "dwd", self.update_icon_d2(now).await),
+                (ecmwf_files::MODEL, "ecmwf", self.update_ecmwf(now).await),
             ] {
                 match result {
-                    Ok(0) => {}
-                    Ok(n) => tracing::info!("map: {n} new {model} hours"),
-                    Err(e) => tracing::warn!("map {model}: {e}"),
+                    Ok(n) => {
+                        board.source_ok(source);
+                        written += n;
+                        if n > 0 {
+                            tracing::info!("map: {n} new {model} hours");
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("map {model}: {e}");
+                        board.source_failed(source, &e);
+                        failed.push(format!("{model}: {e}"));
+                    }
                 }
+            }
+            let written = Some(written as i64);
+            match failed.len() {
+                0 => report.ok(written),
+                1 => report.partly(written, failed.join("; ")),
+                _ => report.failed(failed.join("; ")),
             }
         }
     }

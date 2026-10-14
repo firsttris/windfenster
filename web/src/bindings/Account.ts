@@ -16,4 +16,8 @@ emailConfirmed: boolean,
 /**
  * Passkeys registered (on how many devices or managers one can sign in)
  */
-passkeys: number, };
+passkeys: number, 
+/**
+ * May open the admin page (made one on the server with `windfenster admin`)
+ */
+admin: boolean, };

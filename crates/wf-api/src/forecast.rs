@@ -60,7 +60,11 @@ async fn forecast_for(
         return Ok(hit);
     }
     // Not served since the last run: loading it may cost calls to Open-Meteo.
-    if !s.limits.new_place(ip, wf_core::time::now()).await {
+    if !s
+        .limits
+        .new_place(ip, wf_core::time::now(), (&*s.settings.get()).into())
+        .await
+    {
         return Err(ApiError::TooManyPlaces);
     }
     let forecasts = s.forecasts.clone();

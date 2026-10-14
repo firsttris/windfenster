@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router';
-import { KeyRound, LogOut, Sailboat, Trash2 } from 'lucide-react';
+import { KeyRound, LogOut, Sailboat, Settings, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Account } from '@/bindings/Account';
 import { NotificationsCard } from '@/components/notifications-card';
@@ -119,6 +119,14 @@ function Signed({ account }: { account: Account }) {
           </Button>
         </Card>
         <div className="flex flex-wrap gap-2">
+          {account.admin && (
+            <Button variant="outline" asChild>
+              <Link to="/admin">
+                <Settings aria-hidden="true" />
+                {m.nav_admin()}
+              </Link>
+            </Button>
+          )}
           <Button
             variant="outline"
             disabled={busy}

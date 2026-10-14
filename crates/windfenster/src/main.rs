@@ -1,5 +1,9 @@
 use std::io::IsTerminal;
+mod admin;
 mod alarms;
+mod log_board;
+mod release;
+mod settings;
 mod supervise;
 
 use std::net::SocketAddr;
@@ -9,7 +13,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use tokio::net::TcpListener;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 use wf_core::db::{self, Db};
 use wf_core::geo::GridPoint;
 use wf_ingest::forecasts::Forecasts;
@@ -42,6 +48,8 @@ enum Command {
     ImportStations(DataArgs),
     /// Ask Open-Meteo for every model at a point and print what comes back.
     Probe(ProbeArgs),
+    /// Make an account an admin (`--remove` takes it back, `--list` shows the admins).
+    Admin(admin::AdminArgs),
 }
 
 /// `WF_BASEMAP_REGION`: a box, or none
@@ -72,7 +80,7 @@ fn parse_region(s: &str) -> Result<Region, String> {
 }
 
 #[derive(Args)]
-struct DataArgs {
+pub struct DataArgs {
     /// Directory for the database and the map textures.
     #[arg(long, env = "WF_DATA_DIR", default_value = "/data")]
     data_dir: PathBuf,
@@ -206,8 +214,9 @@ struct ServeArgs {
     /// The map's detailed basemap and relief: `auto` cuts them from Protomaps' daily build and
     /// Mapterhorn's elevation (the world to `WF_BASEMAP_WORLD_ZOOM`, the region to
     /// `WF_BASEMAP_ZOOM`, 20 km around places people look at to zoom 14) unless the operator
-    /// put one in place; `off` leaves it to the operator.
-    #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
+    /// put one in place; `ask` waits for an admin to say when on the admin page; `off` leaves it
+    /// to the operator.
+    #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "ask", "off"])]
     basemap: String,
     /// How deep the basemap covers the whole world; every level about four times more.
     #[arg(long, env = "WF_BASEMAP_WORLD_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(4..=12))]
@@ -273,12 +282,17 @@ async fn main() -> Result<()> {
     // Development: read `.env` from the working directory or a parent. Variables already set
     // in the environment win, so Docker configuration is unaffected.
     let dotenv = dotenvy::dotenv();
-    tracing_subscriber::fmt()
-        // Colours only on a terminal, not in `docker logs`.
-        .with_ansi(std::io::stdout().is_terminal())
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn"));
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                // Colours only on a terminal, not in `docker logs`.
+                .with_ansi(std::io::stdout().is_terminal())
+                .with_filter(filter),
         )
+        // Warnings and errors for the admin page, whatever RUST_LOG says
+        .with(log_board::ToBoard.with_filter(tracing_subscriber::filter::LevelFilter::WARN))
         .init();
     if let Ok(path) = &dotenv {
         tracing::info!("loaded {}", path.display());
@@ -303,6 +317,10 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Command::Probe(args) => probe(args).await,
+        Command::Admin(args) => {
+            let db = open(&args.data).await?;
+            admin::run(&db, &args).await
+        }
         Command::Serve(args) => serve(*args).await,
     }
 }
@@ -320,25 +338,31 @@ async fn open(data: &DataArgs) -> Result<Db> {
 async fn serve(args: ServeArgs) -> Result<()> {
     let db = open(&args.data).await?;
     let http = wf_ingest::http_client()?;
-    let models = wf_core::model::active(&db, args.open_meteo.models.as_deref()).await?;
-    tracing::info!(
-        "models: {}",
-        models
-            .iter()
-            .map(|m| m.id.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    // Unknown ids in WF_MODELS stop the start, as before the admin page
+    wf_core::model::active(&db, args.open_meteo.models.as_deref()).await?;
+    let models = wf_core::model::active(&db, None).await?;
+    let settings =
+        wf_core::admin::settings::SettingsStore::load(db.clone(), settings::from_env(&args))
+            .await?;
     let mut cfg = args.open_meteo.config();
     if cfg.base_url.is_none() {
         cfg.base_url = args.data.source("open-meteo");
     }
     let api_key = cfg.api_key.clone();
-    let forecasts = Arc::new(Forecasts::new(
-        db.clone(),
-        OpenMeteo::new(http.clone(), cfg),
-        models,
-    ));
+    let forecasts = Arc::new(
+        Forecasts::new(db.clone(), OpenMeteo::new(http.clone(), cfg), models)
+            .with_settings(settings.clone()),
+    );
+    tracing::info!(
+        "models: {}",
+        forecasts
+            .models()
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    forecasts.open_meteo().load_usage().await?;
     let geocoder = Arc::new(Geocoder::new(
         http.clone(),
         non_empty(&args.geocoding_url).or_else(|| args.data.source("geocoding")),
@@ -363,13 +387,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 http.clone(),
                 args.data.map_urls(),
             )
-            .with_depth(wf_map::basemap::Depth {
-                world_zoom: args.basemap_world_zoom,
-                region: args.basemap_region.0,
-                region_zoom: args.basemap_zoom,
-                max_spots: args.basemap_spots,
-                terrain_zoom: args.terrain_zoom,
-            }),
+            .with_settings(settings.clone()),
         )
     });
     let alarms = Arc::new(alarms::build(
@@ -379,29 +397,29 @@ async fn serve(args: ServeArgs) -> Result<()> {
         &args.mail,
         non_empty(&args.public_url),
     )?);
-    let tracked: Vec<String> = args
-        .tracked_stations
-        .iter()
-        .map(|s| s.trim().to_ascii_lowercase())
-        .filter(|s| !s.is_empty())
-        .collect();
+    if let Some(mail) = &alarms.mail {
+        mail.set_per_day(settings.get().mail_per_day);
+    }
     if let (true, Some(map)) = (args.scheduler, &map) {
         let m = map.clone();
         supervise("map", move || m.clone().keep_current());
-        if args.icon_global {
-            let m = map.clone();
-            supervise("map icon_global", move || m.clone().keep_icon_global());
-        }
-        if args.basemap == "auto" {
-            let (m, db) = (map.clone(), db.clone());
-            supervise("basemap", move || m.clone().keep_basemap(db.clone()));
-        }
+        // Both follow their settings: ICON global and the basemap can be turned on and off on
+        // the admin page
+        let m = map.clone();
+        supervise("icon_global", move || m.clone().keep_icon_global());
+        let (m, db) = (map.clone(), db.clone());
+        supervise("basemap", move || m.clone().keep_basemap(db.clone()));
     }
     if args.scheduler {
+        let (h, url) = (http.clone(), args.data.source("github/latest"));
+        supervise("release", move || {
+            release::keep_looking(h.clone(), url.clone())
+        });
         let a = alarms.clone();
         supervise("alarms", move || a.clone().run());
         let (db, forecasts, measurements) = (db.clone(), forecasts.clone(), measurements.clone());
         let sources = args.data.station_sources();
+        let scheduler_settings = settings.clone();
         supervise("scheduler", move || {
             Scheduler {
                 db: db.clone(),
@@ -409,7 +427,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 forecasts: forecasts.clone(),
                 measurements: measurements.clone(),
                 sources: sources.clone(),
-                tracked: tracked.clone(),
+                settings: scheduler_settings.clone(),
             }
             .run()
         });
@@ -429,7 +447,10 @@ async fn serve(args: ServeArgs) -> Result<()> {
         state = state.with_map(map);
     }
     state = state.with_alarms(alarms);
-    state = state.with_climate(climate);
+    state = state
+        .with_climate(climate)
+        .with_data_dir(args.data.data_dir.clone())
+        .with_settings(settings);
     state = state.with_client_ip_header(match args.client_ip_header.trim() {
         "" | "none" => None,
         h => Some(

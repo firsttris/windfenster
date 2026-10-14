@@ -98,7 +98,7 @@ async fn the_signed_in_user_and_signing_out() -> Result<()> {
     let (_, me) = call(&app, "GET", "/api/me", None, true).await?;
     assert_eq!(
         me,
-        json!({"id": id, "name": "Tristan", "email": null, "emailConfirmed": false, "passkeys": 1})
+        json!({"id": id, "name": "Tristan", "email": null, "emailConfirmed": false, "passkeys": 1, "admin": false})
     );
 
     let (status, me) = call(&app, "PATCH", "/api/me", Some(json!({"name": "T."})), true).await?;

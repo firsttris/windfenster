@@ -37,7 +37,8 @@ only the hours not on disk yet. The DWD writes a run's files one variable at a t
 taken once its wind *and* its gust are listed (an hour whose gust is not out yet waits, unless a
 later hour's gust is listed already). One bad file costs that hour, not the run: the loop goes on
 with the next hour and tries again in 10 minutes. The two newest runs per model are kept; older ones are deleted.
-`WF_MAP=false` turns the map off, `WF_ICON_GLOBAL=false` leaves the world to ECMWF.
+`WF_MAP=false` turns the map off, `WF_ICON_GLOBAL=false` leaves the world to ECMWF (and removes
+ICON global's runs on disk at the next start).
 
 ### ICON-D2
 

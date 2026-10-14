@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use super::fetch::Error;
 
 mod piece;
-mod progress;
+pub(crate) mod progress;
 #[cfg(test)]
 mod tests;
 
@@ -279,6 +279,8 @@ async fn pieces(
     let got = Arc::new(AtomicU64::new(0));
     let mut progress = Progress::new(what, done_before);
     progress.total = Some(total);
+    let _shown = super::work::Guard(what.to_owned());
+    super::work::begin(what, "bytes", done_before, total);
     let mut queue = missing.into_iter();
     let mut set = tokio::task::JoinSet::new();
     let mut tick = tokio::time::interval(REPORT.min(pace.give_up));
@@ -305,6 +307,7 @@ async fn pieces(
                             s.clone()
                         };
                         part.save(&s).await?;
+                        super::work::advance(what, (s.done.len() as u64 * s.piece).min(total));
                         last_done = Instant::now();
                     }
                     (_, Ok(Piece::Restart)) => {
