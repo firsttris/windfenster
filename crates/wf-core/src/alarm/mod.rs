@@ -365,7 +365,8 @@ pub async fn jobs(db: &SqlitePool) -> sqlx::Result<Vec<Job>> {
          a.min_kn, a.gear, a.forecast, a.live, a.push, a.email, \
          c.id AS account_id, \
          CASE WHEN c.email_confirmed THEN c.email END AS account_email, c.locale, c.time_zone, c.unit \
-         FROM alarm a JOIN favorite f ON f.id = a.favorite_id JOIN account c ON c.id = f.account_id",
+         FROM alarm a JOIN favorite f ON f.id = a.favorite_id JOIN account c ON c.id = f.account_id \
+         WHERE c.disabled_at IS NULL",
     )
     .fetch_all(db)
     .await?;

@@ -48,6 +48,16 @@ pub enum ErrorCode {
     InvalidLink,
     /// This address opened more new places than the server fetches for one; try again later
     TooManyPlaces,
+    /// An admin disabled this account; it cannot sign in
+    AccountDisabled,
+    /// Sign-up is closed on this server, or needs an invitation that is missing or used
+    SignupClosed,
+    /// Only for admins
+    Forbidden,
+    /// The last admin cannot lose the role
+    LastAdmin,
+    /// A setting's value is out of bounds, or the setting is fixed by the environment
+    InvalidSetting,
     Internal,
 }
 
@@ -81,6 +91,11 @@ pub enum ApiError {
     TooSoon,
     InvalidLink,
     TooManyPlaces,
+    AccountDisabled,
+    SignupClosed,
+    Forbidden,
+    LastAdmin,
+    InvalidSetting,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
 }
@@ -133,6 +148,11 @@ impl IntoResponse for ApiError {
             ApiError::TooManyAttempts => {
                 (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyAttempts)
             }
+            ApiError::AccountDisabled => (StatusCode::FORBIDDEN, ErrorCode::AccountDisabled),
+            ApiError::SignupClosed => (StatusCode::FORBIDDEN, ErrorCode::SignupClosed),
+            ApiError::Forbidden => (StatusCode::FORBIDDEN, ErrorCode::Forbidden),
+            ApiError::LastAdmin => (StatusCode::CONFLICT, ErrorCode::LastAdmin),
+            ApiError::InvalidSetting => (StatusCode::BAD_REQUEST, ErrorCode::InvalidSetting),
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");
                 (StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::Internal)

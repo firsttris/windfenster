@@ -29,6 +29,8 @@ pub struct Account {
     /// Passkeys registered (on how many devices or managers one can sign in)
     #[ts(type = "number")]
     pub passkeys: i64,
+    /// May open the admin page (made one on the server with `windfenster admin`)
+    pub admin: bool,
 }
 
 /// A name as stored: trimmed, inner whitespace collapsed; None when empty or too long.
@@ -139,22 +141,24 @@ pub async fn used_passkey(
 
 /// An account as the app shows it.
 pub async fn get(db: &SqlitePool, account_id: i64) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, Option<String>, bool, i64)> = sqlx::query_as(
+    let row: Option<(i64, String, Option<String>, bool, i64, String)> = sqlx::query_as(
         "SELECT a.id, a.name, a.email, a.email_confirmed, \
-         (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) FROM account a WHERE a.id = ?",
+         (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id), a.role \
+         FROM account a WHERE a.id = ?",
     )
     .bind(account_id)
     .fetch_optional(db)
     .await?;
-    Ok(
-        row.map(|(id, name, email, email_confirmed, passkeys)| Account {
+    Ok(row.map(
+        |(id, name, email, email_confirmed, passkeys, role)| Account {
             id,
             name,
             email,
             email_confirmed,
             passkeys,
-        }),
-    )
+            admin: role == "admin",
+        },
+    ))
 }
 
 /// An e-mail address as stored: trimmed and lower-case; None when it does not look like one.
@@ -308,26 +312,30 @@ pub async fn start_session(
     .bind(now + SESSION_S)
     .execute(db)
     .await?;
-    Ok(())
+    seen(db, account_id, now).await
 }
 
-/// The account of a session that has not run out; a session in use lasts on.
+/// id, name, email, confirmed, session end, passkeys, role
+type SessionRow = (i64, String, Option<String>, bool, i64, i64, String);
+
+/// The account of a session that has not run out, unless the account is disabled; a session in
+/// use lasts on, and the account counts as seen.
 pub async fn of_session(
     db: &SqlitePool,
     token_hash: &[u8],
     now: i64,
 ) -> sqlx::Result<Option<Account>> {
-    let row: Option<(i64, String, Option<String>, bool, i64, i64)> = sqlx::query_as(
+    let row: Option<SessionRow> = sqlx::query_as(
         "SELECT a.id, a.name, a.email, a.email_confirmed, s.expires_at, \
-         (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id) \
+         (SELECT COUNT(*) FROM passkey p WHERE p.account_id = a.id), a.role \
          FROM session s JOIN account a ON a.id = s.account_id \
-         WHERE s.token_hash = ? AND s.expires_at > ?",
+         WHERE s.token_hash = ? AND s.expires_at > ? AND a.disabled_at IS NULL",
     )
     .bind(token_hash)
     .bind(now)
     .fetch_optional(db)
     .await?;
-    let Some((id, name, email, email_confirmed, expires_at, passkeys)) = row else {
+    let Some((id, name, email, email_confirmed, expires_at, passkeys, role)) = row else {
         return Ok(None);
     };
     if expires_at - now < SESSION_S - RENEW_S {
@@ -336,6 +344,7 @@ pub async fn of_session(
             .bind(token_hash)
             .execute(db)
             .await?;
+        seen(db, id, now).await?;
     }
     Ok(Some(Account {
         id,
@@ -343,7 +352,30 @@ pub async fn of_session(
         email,
         email_confirmed,
         passkeys,
+        admin: role == "admin",
     }))
+}
+
+/// Marks the account as seen now.
+pub async fn seen(db: &SqlitePool, account_id: i64, now: i64) -> sqlx::Result<()> {
+    sqlx::query("UPDATE account SET last_seen_at = ? WHERE id = ?")
+        .bind(now)
+        .bind(account_id)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+/// Whether an admin disabled the account: it may not sign in.
+pub async fn disabled(db: &SqlitePool, account_id: i64) -> sqlx::Result<bool> {
+    Ok(
+        sqlx::query_scalar::<_, Option<i64>>("SELECT disabled_at FROM account WHERE id = ?")
+            .bind(account_id)
+            .fetch_optional(db)
+            .await?
+            .flatten()
+            .is_some(),
+    )
 }
 
 pub async fn end_session(db: &SqlitePool, token_hash: &[u8]) -> sqlx::Result<()> {
@@ -514,7 +546,8 @@ mod tests {
                 name: "Tristan".into(),
                 email: None,
                 email_confirmed: false,
-                passkeys: 2
+                passkeys: 2,
+                admin: false
             }
         );
         assert!(of_session(&db, b"other", 1_000).await?.is_none());

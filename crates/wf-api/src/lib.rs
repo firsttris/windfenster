@@ -1,6 +1,7 @@
 //! The HTTP side of Windfenster: JSON API under `/api`, station pages with meta tags,
 //! everything else is the SPA.
 
+pub mod admin;
 pub mod alarms;
 pub mod auth;
 pub mod client;
@@ -240,6 +241,7 @@ pub fn router(state: AppState) -> Router {
             "/favorites/{id}",
             put(favorites::change).delete(favorites::remove),
         )
+        .nest("/admin", admin::routes())
         .fallback(|| async { ApiError::NotFound });
     Router::new()
         .nest("/api", api)

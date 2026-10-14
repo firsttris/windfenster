@@ -122,6 +122,9 @@ fn cookie(value: &str, max_age: i64, secure: bool) -> HeaderValue {
 
 /// A new session for the account: stored by its hash, the token goes to the browser.
 async fn start_session(s: &AppState, account_id: i64) -> Result<HeaderMap, ApiError> {
+    if account::disabled(&s.db, account_id).await? {
+        return Err(ApiError::AccountDisabled);
+    }
     let token = hex::encode(random::<32>());
     let now = wf_core::time::now();
     // Sessions that ran out go along the way: there are few, and a sign-in is rare.

@@ -1,4 +1,5 @@
 use std::io::IsTerminal;
+mod admin;
 mod alarms;
 mod supervise;
 
@@ -42,6 +43,8 @@ enum Command {
     ImportStations(DataArgs),
     /// Ask Open-Meteo for every model at a point and print what comes back.
     Probe(ProbeArgs),
+    /// Make an account an admin (`--remove` takes it back, `--list` shows the admins).
+    Admin(admin::AdminArgs),
 }
 
 /// `WF_BASEMAP_REGION`: a box, or none
@@ -72,7 +75,7 @@ fn parse_region(s: &str) -> Result<Region, String> {
 }
 
 #[derive(Args)]
-struct DataArgs {
+pub struct DataArgs {
     /// Directory for the database and the map textures.
     #[arg(long, env = "WF_DATA_DIR", default_value = "/data")]
     data_dir: PathBuf,
@@ -303,6 +306,10 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Command::Probe(args) => probe(args).await,
+        Command::Admin(args) => {
+            let db = open(&args.data).await?;
+            admin::run(&db, &args).await
+        }
         Command::Serve(args) => serve(*args).await,
     }
 }

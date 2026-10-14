@@ -1,6 +1,6 @@
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { LogIn, Map as MapIcon, Search, UserRound } from 'lucide-react';
+import { LogIn, Map as MapIcon, Search, Settings, UserRound } from 'lucide-react';
 import { useEffect } from 'react';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
 import { meQuery } from '@/lib/api';
@@ -147,10 +147,25 @@ function AccountButton() {
     );
   }
   return (
+    <>
+      {me.data.admin && (
+        <Button variant="outline" size="icon" aria-label={m.nav_admin()} title={m.nav_admin()} asChild>
+          <Link to="/admin">
+            <Settings aria-hidden="true" />
+          </Link>
+        </Button>
+      )}
+      <AccountLink name={me.data.name} />
+    </>
+  );
+}
+
+function AccountLink({ name }: { name: string }) {
+  return (
     <Button variant="outline" className="max-md:size-10 max-md:px-0" asChild>
-      <Link to="/account" aria-label={m.nav_account({ name: me.data.name })}>
+      <Link to="/account" aria-label={m.nav_account({ name })}>
         <UserRound aria-hidden="true" />
-        <span className="hidden max-w-32 truncate md:inline">{me.data.name}</span>
+        <span className="hidden max-w-32 truncate md:inline">{name}</span>
       </Link>
     </Button>
   );

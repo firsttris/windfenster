@@ -109,5 +109,7 @@ before this check existed (up to version 0.1.8) count as confirmed.
 - `windfenster import-stations`: fetches the station lists and the water gauges now
 - `windfenster probe --lat 48.78 --lon 8.08`: asks Open-Meteo for every model at a point and
   prints what comes back
+- `windfenster admin <e-mail, name or #id>`: makes the account an admin (`--remove` takes the
+  role, `--list` shows the admins); see [The admin page](admin.md)
 
 In the container: `docker compose exec windfenster windfenster probe --lat 48.78 --lon 8.08`.

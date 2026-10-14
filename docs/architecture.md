@@ -58,7 +58,7 @@ for the wind.
 
 | Folder | |
 |---|---|
-| `src/routes/` | pages: start, station, point, map, gear, account, sign-in, sources |
+| `src/routes/` | pages: start, station, point, map, gear, account, sign-in, sources, admin |
 | `src/components/forecast/` | the ten days: quick view, day cards, model chips |
 | `src/components/map/` | the map: colour field, particles, pins, timeline, spot card |
 | `src/components/live/`, `verification/` | live tile, history and statistics; comparison chart, ranking, agreement |
@@ -90,6 +90,7 @@ start; a pushed migration is never changed, sqlx checks their checksums).
 | `wind_stats` | the ten-year summary per station |
 | `account`, `passkey`, `session` | accounts, WebAuthn credentials, sessions (only the token's hash) |
 | `favorite`, `gear`, `alarm`, `push_subscription`, `alarm_sent` | spots, gear, alarms and what was sent |
+| `setting`, `admin_log`, `invite`, `alarm_delivery`, `usage_daily` | the admin page: settings changed there, what admins did, invitations, every alarm message handed to a channel, counters per day (Open-Meteo calls, e-mails) |
 
 The wind map's fields are **files**, not rows: `{WF_DATA_DIR}/map/{model}/{run}/{step}.png`, `.rgba`
 and `.json`, plus the basemap and relief as PMTiles. See [The wind map](wind-map.md).

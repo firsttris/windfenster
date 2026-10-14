@@ -130,6 +130,7 @@ pub async fn finish_sign_up(
             email: None,
             email_confirmed: false,
             passkeys: 1,
+            admin: false,
         }),
     ))
 }
