@@ -50,12 +50,17 @@ fn client_ip(
     header: Option<&HeaderName>,
     peer: Option<IpAddr>,
 ) -> Option<IpAddr> {
-    header
+    let from_header = header
         .and_then(|h| headers.get(h))
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.rsplit(',').next())
-        .and_then(|v| v.trim().parse().ok())
-        .or(peer)
+        .and_then(|v| v.trim().parse().ok());
+    if header.is_some() && from_header.is_none() {
+        // The proxy that should set it is not in front: anyone could send it themselves and
+        // pass the limits per client; the admin page warns.
+        wf_core::status::board().missing_ip_header();
+    }
+    from_header.or(peer)
 }
 
 /// Requests counted per address in a fixed window: (window start, count).

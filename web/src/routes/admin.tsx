@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate } from '@tanstack/react-router';
-import { Users } from 'lucide-react';
+import { LayoutDashboard, Users } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { OverviewTab } from '@/components/admin/overview';
 import { UsersTab } from '@/components/admin/users';
 import { Loading, Page } from '@/components/page';
 import { type AdminTab, parseTab } from '@/lib/admin';
@@ -16,7 +17,10 @@ const TABS: {
   label: () => string;
   icon: ComponentType<{ className?: string }>;
   view: () => ReactNode;
-}[] = [{ id: 'users', label: m.admin_tabUsers, icon: Users, view: () => <UsersTab /> }];
+}[] = [
+  { id: 'overview', label: m.admin_tabOverview, icon: LayoutDashboard, view: () => <OverviewTab /> },
+  { id: 'users', label: m.admin_tabUsers, icon: Users, view: () => <UsersTab /> },
+];
 
 interface AdminSearch {
   tab?: AdminTab;

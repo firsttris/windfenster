@@ -19,14 +19,29 @@ impl MapData {
     /// The background loop for ICON global, apart from the others: a run is about a gigabyte
     /// to fetch and must not hold up ICON-D2 and ECMWF.
     pub async fn keep_icon_global(self: Arc<Self>) {
+        let board = wf_core::status::board();
+        board.register("icon_global", EVERY.as_secs() as i64);
         let mut tick = tokio::time::interval(EVERY);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => if !board.take("icon_global") { continue },
+            }
+            let report = board.start("icon_global");
             match self.update_icon_global(wf_core::time::now()).await {
-                Ok(0) => {}
-                Ok(n) => tracing::info!("map: {n} new {} hours", files::MODEL),
-                Err(e) => tracing::warn!("map {}: {e}", files::MODEL),
+                Ok(n) => {
+                    if n > 0 {
+                        tracing::info!("map: {n} new {} hours", files::MODEL);
+                    }
+                    board.source_ok("dwd");
+                    report.ok(Some(n as i64));
+                }
+                Err(e) => {
+                    tracing::warn!("map {}: {e}", files::MODEL);
+                    board.source_failed("dwd", &e);
+                    report.failed(&e);
+                }
             }
         }
     }

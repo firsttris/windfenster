@@ -78,21 +78,57 @@ struct Payload<'a> {
 impl Alarms {
     /// Checks the alarms every ten minutes, for good.
     pub async fn run(self: Arc<Self>) {
+        let board = wf_core::status::board();
+        board.register("alarms", EVERY.as_secs() as i64);
         let mut tick = tokio::time::interval(EVERY);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => if !board.take("alarms") { continue },
+            }
             let now = wf_core::time::now();
-            if let Err(e) = self.check(now).await {
-                tracing::error!("alarms: {e}");
+            let report = board.start("alarms");
+            match self.check(now).await {
+                Ok(n) => report.ok(Some(n as i64)),
+                Err(e) => {
+                    tracing::error!("alarms: {e}");
+                    report.failed(&e);
+                }
             }
         }
     }
 
+    /// Notes what a channel made of a message, for the admin page.
+    async fn record(
+        &self,
+        job_or_account: (i64, Option<i64>),
+        channel: &str,
+        kind: &str,
+        title: &str,
+        outcome: Result<(), String>,
+    ) {
+        let (account_id, favorite_id) = job_or_account;
+        let detail = outcome.as_ref().err().map(String::as_str);
+        let r = alarm::delivery::Record {
+            account_id,
+            favorite_id,
+            channel,
+            kind,
+            title,
+            ok: outcome.is_ok(),
+            detail,
+        };
+        if let Err(e) = alarm::delivery::record(&self.db, wf_core::time::now(), &r).await {
+            tracing::warn!("recording an alarm delivery: {e}");
+        }
+    }
+
     /// One round over every alarm.
-    pub async fn check(&self, now: i64) -> Result<(), Error> {
+    /// Checks every alarm once; returns how many there were.
+    pub async fn check(&self, now: i64) -> Result<usize, Error> {
         let jobs = alarm::jobs(&self.db).await?;
         if jobs.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         let index = match &self.map {
             Some(m) => Some(m.index().await?),
@@ -105,15 +141,24 @@ impl Alarms {
         }
         // What was told about days long past is no longer needed.
         alarm::forget(&self.db, check::yyyymmdd(now - 3 * 86_400)).await?;
-        Ok(())
+        Ok(jobs.len())
     }
 
     /// Sends a message by the channels the alarm asks for; true when any reached the user.
     async fn deliver(&self, job: &Job, text: &Text, tag: &str) -> bool {
         let url = spot_path(job);
+        let who = (job.account_id, Some(job.favorite.id));
+        let kind = if tag.starts_with("live-") {
+            "live"
+        } else {
+            "window"
+        };
         let mut reached = false;
         if job.settings.push {
-            reached |= self.push_to(job.account_id, text, &url, tag).await > 0;
+            let sent = self.push_to(job.account_id, text, &url, tag).await;
+            reached |= sent.reached > 0;
+            self.record(who, "push", kind, &text.title, sent.outcome())
+                .await;
         }
         if job.settings.email
             && let (Some(mail), Some(to)) = (&self.mail, &job.email)
@@ -126,23 +171,27 @@ impl Alarms {
                 link.as_deref(),
                 account.as_deref(),
             );
-            match mail.send(to, &text.title, &body).await {
+            let sent = mail.send(to, &text.title, &body).await;
+            match &sent {
                 Ok(()) => reached = true,
                 Err(e) => tracing::warn!("alarm e-mail: {e}"),
             }
+            let outcome = sent.map_err(|e| e.to_string());
+            self.record(who, "email", kind, &text.title, outcome).await;
         }
         reached
     }
 
     /// Sends to every browser of the account; forgets those the push service says are gone.
-    /// Returns how many took it.
-    async fn push_to(&self, account_id: i64, text: &Text, url: &str, tag: &str) -> usize {
-        let Some(push) = &self.push else { return 0 };
+    async fn push_to(&self, account_id: i64, text: &Text, url: &str, tag: &str) -> Pushed {
+        let mut out = Pushed::default();
+        let Some(push) = &self.push else { return out };
         let subs = match alarm::subscriptions(&self.db, account_id).await {
             Ok(s) => s,
             Err(e) => {
                 tracing::warn!("push targets: {e}");
-                return 0;
+                out.error = Some(e.to_string());
+                return out;
             }
         };
         let payload = serde_json::to_vec(&Payload {
@@ -152,35 +201,82 @@ impl Alarms {
             tag,
         })
         .unwrap_or_default();
-        let mut reached = 0;
+        out.devices = subs.len();
         for sub in subs {
             match push.send(&sub, &payload).await {
-                Ok(push::Sent::Delivered) => reached += 1,
+                Ok(push::Sent::Delivered) => out.reached += 1,
                 Ok(push::Sent::Gone) => {
+                    out.gone += 1;
                     if let Err(e) = alarm::unsubscribe(&self.db, &sub.endpoint).await {
                         tracing::warn!("forgetting a push target: {e}");
                     }
                 }
-                Err(e) => tracing::warn!("push: {e}"),
+                Err(e) => {
+                    tracing::warn!("push: {e}");
+                    out.error = Some(e.to_string());
+                }
             }
         }
-        reached
+        out
     }
 
     /// A test message to all of the account's browsers and its address.
     pub async fn test(&self, account_id: i64, email: Option<&str>, locale: &str) -> Reached {
         let lang = Lang::of(locale);
         let t = text::test(lang);
-        let browsers = self.push_to(account_id, &t, "/account", "test").await;
+        let who = (account_id, None);
+        let pushed = self.push_to(account_id, &t, "/account", "test").await;
+        if pushed.devices > 0 || pushed.error.is_some() {
+            self.record(who, "push", "test", &t.title, pushed.outcome())
+                .await;
+        }
         let email = match (&self.mail, email) {
-            (Some(mail), Some(to)) => mail
-                .send(to, &t.title, &text::email_body(lang, &t, None, None))
-                .await
-                .inspect_err(|e| tracing::warn!("test e-mail: {e}"))
-                .is_ok(),
+            (Some(mail), Some(to)) => {
+                let sent = mail
+                    .send(to, &t.title, &text::email_body(lang, &t, None, None))
+                    .await
+                    .inspect_err(|e| tracing::warn!("test e-mail: {e}"));
+                let ok = sent.is_ok();
+                self.record(
+                    who,
+                    "email",
+                    "test",
+                    &t.title,
+                    sent.map_err(|e| e.to_string()),
+                )
+                .await;
+                ok
+            }
             _ => false,
         };
-        Reached { browsers, email }
+        Reached {
+            browsers: pushed.reached,
+            email,
+        }
+    }
+}
+
+/// What a push message met at the account's browsers
+#[derive(Default)]
+struct Pushed {
+    devices: usize,
+    reached: usize,
+    /// Browsers the push service says are gone (unsubscribed)
+    gone: usize,
+    error: Option<String>,
+}
+
+impl Pushed {
+    fn outcome(&self) -> Result<(), String> {
+        if self.reached > 0 {
+            Ok(())
+        } else if let Some(e) = &self.error {
+            Err(e.clone())
+        } else if self.gone > 0 {
+            Err("push: gone".into())
+        } else {
+            Err("push: no device".into())
+        }
     }
 }
 

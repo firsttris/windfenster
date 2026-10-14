@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminUser } from '@/bindings/AdminUser';
-import { bytes, filterUsers, parseTab, signInKind } from './admin';
+import { bytes, cadence, diskUsed, filterUsers, parseTab, percent, signInKind, span, took } from './admin';
 
 const user = (u: Partial<AdminUser>): AdminUser => ({
   id: 1,
@@ -48,5 +48,49 @@ describe('admin', () => {
     expect(signInKind({ passkeys: 2, password: true })).toBe('both');
     expect(signInKind({ passkeys: 0, password: true })).toBe('password');
     expect(signInKind({ passkeys: 0, password: false })).toBe('none');
+  });
+});
+
+describe('admin times', () => {
+  it('names how often a task runs', () => {
+    expect(cadence(300)).toEqual({ unit: 'min', n: 5 });
+    expect(cadence(540)).toEqual({ unit: 'min', n: 9 });
+    expect(cadence(3_600)).toEqual({ unit: 'hour', n: 1 });
+    expect(cadence(86_400)).toEqual({ unit: 'day', n: 1 });
+    expect(cadence(7 * 86_400)).toEqual({ unit: 'week', n: 1 });
+  });
+
+  it('says how long a run took', () => {
+    expect(took(800)).toMatch(/^0[.,]8 s$/);
+    expect(took(48_000)).toBe('48 s');
+    expect(took(180_000)).toBe('3 min');
+  });
+
+  it('says spans and shares', () => {
+    expect(span(6 * 86_400 + 5)).toMatch(/6/);
+    expect(span(30)).toMatch(/1/);
+    expect(percent(3412, 9000)).toBe(38);
+    expect(percent(5, 0)).toBe(0);
+  });
+});
+
+describe('admin disk', () => {
+  it('adds up the parts', () => {
+    expect(
+      diskUsed({
+        free: 99,
+        models: [
+          ['icon_d2', 10],
+          ['ecmwf_ifs025', 5],
+        ],
+        basemap: 1,
+        terrain: 2,
+        spots: 3,
+        spotFiles: 1,
+        database: 4,
+        partial: 5,
+        other: 6,
+      }),
+    ).toBe(36);
   });
 });

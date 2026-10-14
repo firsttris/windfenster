@@ -1,6 +1,7 @@
 use std::io::IsTerminal;
 mod admin;
 mod alarms;
+mod log_board;
 mod supervise;
 
 use std::net::SocketAddr;
@@ -10,7 +11,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use tokio::net::TcpListener;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 use wf_core::db::{self, Db};
 use wf_core::geo::GridPoint;
 use wf_ingest::forecasts::Forecasts;
@@ -276,12 +279,17 @@ async fn main() -> Result<()> {
     // Development: read `.env` from the working directory or a parent. Variables already set
     // in the environment win, so Docker configuration is unaffected.
     let dotenv = dotenvy::dotenv();
-    tracing_subscriber::fmt()
-        // Colours only on a terminal, not in `docker logs`.
-        .with_ansi(std::io::stdout().is_terminal())
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn"));
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                // Colours only on a terminal, not in `docker logs`.
+                .with_ansi(std::io::stdout().is_terminal())
+                .with_filter(filter),
         )
+        // Warnings and errors for the admin page, whatever RUST_LOG says
+        .with(log_board::ToBoard.with_filter(tracing_subscriber::filter::LevelFilter::WARN))
         .init();
     if let Ok(path) = &dotenv {
         tracing::info!("loaded {}", path.display());
@@ -398,7 +406,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         supervise("map", move || m.clone().keep_current());
         if args.icon_global {
             let m = map.clone();
-            supervise("map icon_global", move || m.clone().keep_icon_global());
+            supervise("icon_global", move || m.clone().keep_icon_global());
         } else {
             match map.drop_icon_global().await {
                 Ok(0) => {}
@@ -443,7 +451,9 @@ async fn serve(args: ServeArgs) -> Result<()> {
         state = state.with_map(map);
     }
     state = state.with_alarms(alarms);
-    state = state.with_climate(climate);
+    state = state
+        .with_climate(climate)
+        .with_data_dir(args.data.data_dir.clone());
     state = state.with_client_ip_header(match args.client_ip_header.trim() {
         "" | "none" => None,
         h => Some(

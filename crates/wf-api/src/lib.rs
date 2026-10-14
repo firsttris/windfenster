@@ -60,6 +60,10 @@ pub struct AppState {
     pub climate: Option<Arc<wf_ingest::climate::Climate>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
+    /// The data folder, for the admin page's disk usage
+    pub data_dir: Option<std::path::PathBuf>,
+    /// The data folder's disk usage, measured at most every five minutes
+    disk: moka::future::Cache<(), wf_map::disk::DiskUsage>,
     /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
     pub dev_ui: Option<String>,
     /// Signing in with passkeys; off without an address they could belong to.
@@ -118,6 +122,11 @@ impl AppState {
                 .time_to_live(Duration::from_secs(30))
                 .build(),
             public_url,
+            data_dir: None,
+            disk: moka::future::Cache::builder()
+                .max_capacity(1)
+                .time_to_live(Duration::from_secs(300))
+                .build(),
             dev_ui,
             cache,
             places: search::new_cache(),
@@ -164,6 +173,24 @@ impl AppState {
             client_ip_header: header,
             ..self
         }
+    }
+
+    /// With the data folder, for the admin page.
+    pub fn with_data_dir(self, dir: std::path::PathBuf) -> Self {
+        Self {
+            data_dir: Some(dir),
+            ..self
+        }
+    }
+
+    /// The data folder's disk usage, from the cache when measured within five minutes.
+    async fn disk_usage(&self) -> Option<wf_map::disk::DiskUsage> {
+        let dir = self.data_dir.clone()?;
+        Some(
+            self.disk
+                .get_with((), async move { wf_map::disk::usage(&dir).await })
+                .await,
+        )
     }
 
     /// With wind statistics from the archives.

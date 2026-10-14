@@ -5,7 +5,7 @@
 
 mod cut;
 mod dircache;
-mod download;
+pub(crate) mod download;
 pub mod fetch;
 pub mod mvt;
 pub mod serve;

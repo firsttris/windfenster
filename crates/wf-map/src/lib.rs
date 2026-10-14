@@ -5,6 +5,7 @@
 
 pub mod basemap;
 pub mod crop;
+pub mod disk;
 pub mod ecmwf;
 pub mod grid;
 pub mod icon_d2;

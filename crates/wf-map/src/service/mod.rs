@@ -139,20 +139,43 @@ impl MapData {
 
     /// The background loop: new hours every ten minutes.
     pub async fn keep_current(self: Arc<Self>) {
+        let board = wf_core::status::board();
+        board.register("map", EVERY.as_secs() as i64);
         let mut tick = tokio::time::interval(EVERY);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => if !board.take("map") { continue },
+            }
             let now = wf_core::time::now();
-            for (model, result) in [
-                (icon_d2_files::MODEL, self.update_icon_d2(now).await),
-                (ecmwf_files::MODEL, self.update_ecmwf(now).await),
+            let report = board.start("map");
+            let mut written = 0;
+            let mut failed = Vec::new();
+            for (model, source, result) in [
+                (icon_d2_files::MODEL, "dwd", self.update_icon_d2(now).await),
+                (ecmwf_files::MODEL, "ecmwf", self.update_ecmwf(now).await),
             ] {
                 match result {
-                    Ok(0) => {}
-                    Ok(n) => tracing::info!("map: {n} new {model} hours"),
-                    Err(e) => tracing::warn!("map {model}: {e}"),
+                    Ok(n) => {
+                        board.source_ok(source);
+                        written += n;
+                        if n > 0 {
+                            tracing::info!("map: {n} new {model} hours");
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("map {model}: {e}");
+                        board.source_failed(source, &e);
+                        failed.push(format!("{model}: {e}"));
+                    }
                 }
+            }
+            let written = Some(written as i64);
+            match failed.len() {
+                0 => report.ok(written),
+                1 => report.partly(written, failed.join("; ")),
+                _ => report.failed(failed.join("; ")),
             }
         }
     }

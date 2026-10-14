@@ -34,6 +34,7 @@ where
                 Ok(()) => break,
                 Err(e) if e.is_panic() => {
                     tracing::error!("{name}: the loop panicked; starting it again in {pause:?}");
+                    wf_core::status::board().panicked(name);
                     tokio::time::sleep(pause).await;
                 }
                 // Cancelled: the runtime is shutting down

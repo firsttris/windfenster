@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use super::fetch::Error;
 
 mod piece;
-mod progress;
+pub(crate) mod progress;
 #[cfg(test)]
 mod tests;
 

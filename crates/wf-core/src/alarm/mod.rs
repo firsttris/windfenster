@@ -2,6 +2,7 @@
 //! from the forecast, live from the station) and by which channel (push, e-mail); the browsers
 //! that take push messages; and what was told, so that only news is told again.
 
+pub mod delivery;
 pub mod window;
 
 use serde::{Deserialize, Serialize};

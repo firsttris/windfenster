@@ -116,6 +116,10 @@ and `.json`, plus the basemap and relief as PMTiles. See [The wind map](wind-map
 | a minute | detail basemap spots around places people look at, two at a time |
 | weekly | the station lists |
 
+Every loop reports each run (when, how long, what came of it) and each outside source's answers to
+a status board in memory (`wf_core::status`), which the admin page reads; the log's warnings and
+errors go there too, the last 500. The admin page can ask a task to run now: its loop wakes.
+
 Each step of the scheduler has a time limit (2 minutes for one file like the METARs, 5 for the
 per-station fetches, 10 for the forecast refresh): a source that hangs is given up and tried
 again next turn, so it cannot hold up the others. Every loop runs under a supervisor that

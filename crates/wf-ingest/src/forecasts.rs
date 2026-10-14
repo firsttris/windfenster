@@ -146,7 +146,18 @@ impl Forecasts {
         interactive: bool,
     ) -> Result<(), openmeteo::Error> {
         let ids: Vec<&str> = wanted.iter().map(|(m, _)| m.id.as_str()).collect();
-        let data = self.om.forecast(p, &ids, interactive).await?;
+        let data = match self.om.forecast(p, &ids, interactive).await {
+            Ok(d) => {
+                wf_core::status::board().source_ok("open_meteo");
+                d
+            }
+            Err(e) => {
+                if !matches!(e, openmeteo::Error::Budget(_)) {
+                    wf_core::status::board().source_failed("open_meteo", &e);
+                }
+                return Err(e);
+            }
+        };
         let store = async {
             forecast::set_place_info(&self.db, p, data.timezone.as_deref(), data.elevation_m)
                 .await?;
@@ -171,7 +182,8 @@ impl Forecasts {
 
     /// After new runs: fetches them for the hot places, most recently requested first, then
     /// marks the runs complete. A run stays pending (and is retried) while the source fails.
-    pub async fn refresh(&self, now: i64) -> anyhow::Result<()> {
+    /// Returns how many places were fetched.
+    pub async fn refresh(&self, now: i64) -> anyhow::Result<usize> {
         let mut pending = Vec::new();
         for m in &self.models {
             if let Some(run) = forecast::latest_run(&self.db, &m.id).await?
@@ -181,9 +193,10 @@ impl Forecasts {
             }
         }
         if pending.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         let mut retry = false;
+        let mut fetched = 0;
         for p in forecast::hot_places(&self.db, now - HOT_FOR_S).await? {
             let state = state_map(forecast::series_state(&self.db, p).await?);
             let wanted: Vec<(&Model, Run)> = pending
@@ -195,7 +208,7 @@ impl Forecasts {
                 continue;
             }
             match self.fetch(p, &wanted, now, false).await {
-                Ok(()) => {}
+                Ok(()) => fetched += 1,
                 Err(openmeteo::Error::Budget(limit)) => {
                     tracing::warn!(
                         "Open-Meteo budget of {limit} calls used up; refresh stops for today"
@@ -217,7 +230,7 @@ impl Forecasts {
                 forecast::complete_run(&self.db, run.id, now).await?;
             }
         }
-        Ok(())
+        Ok(fetched)
     }
 
     pub async fn purge(&self, now: i64) -> sqlx::Result<()> {

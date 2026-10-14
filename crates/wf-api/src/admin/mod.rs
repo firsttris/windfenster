@@ -1,6 +1,7 @@
 //! The admin page's API under `/api/admin`: only for accounts with the admin role, made on the
 //! server with `windfenster admin`. Every change an admin makes is written to the admin log.
 
+pub mod overview;
 pub mod users;
 
 use axum::Router;
@@ -52,4 +53,7 @@ pub fn routes() -> Router<AppState> {
         .route("/users/{id}/export", get(users::export))
         .route("/users/{id}/confirm-email", post(users::confirm_email))
         .route("/log", get(users::log))
+        .route("/log/lines", get(overview::log_lines))
+        .route("/overview", get(overview::overview))
+        .route("/tasks/{id}/run", post(overview::run))
 }

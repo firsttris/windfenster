@@ -149,3 +149,38 @@ async fn manages_accounts_and_logs_it() -> Result<()> {
     assert_eq!(log[0]["target"], "Ben");
     Ok(())
 }
+
+#[tokio::test]
+async fn the_overview_and_running_a_task() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    let me = signed_in(&dir).await?;
+    wf_core::admin::users::set_admin(&db(&dir).await?, me, true).await?;
+    wf_core::status::board().register("test-overview", 60);
+    let (status, o) = call(&app, "GET", "/api/admin/overview", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(o["users"]["admins"], 1);
+    assert!(
+        o["tasks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == "test-overview")
+    );
+    assert!(o["budget"]["limit"].is_number());
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/admin/tasks/test-overview/run",
+        None,
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(wf_core::status::board().take("test-overview"));
+    let (status, _) = call(&app, "POST", "/api/admin/tasks/nope/run", None, true).await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, lines) = call(&app, "GET", "/api/admin/log/lines", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(lines.is_array());
+    Ok(())
+}

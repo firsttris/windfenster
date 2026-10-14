@@ -18,6 +18,7 @@ pub mod model;
 pub mod observation;
 pub mod series;
 pub mod station;
+pub mod status;
 pub mod taf;
 pub mod text;
 pub mod time;

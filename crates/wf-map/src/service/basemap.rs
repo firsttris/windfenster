@@ -55,44 +55,82 @@ impl MapData {
         }
         // When the region is next to be checked: at once, then daily
         let mut region_next = 0;
+        let board = wf_core::status::board();
+        board.register("basemap", REGION_EVERY_S);
+        board.register("spots", ROUND.as_secs() as i64);
         let mut tick = tokio::time::interval(ROUND);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            tick.tick().await;
+            tokio::select! {
+                _ = tick.tick() => {}
+                () = board.asked() => {}
+            }
+            if board.take("basemap") {
+                region_next = 0;
+            }
+            board.take("spots");
             let now = wf_core::time::now();
             if now >= region_next {
-                match crate::basemap::fetch::keep_current(
-                    &self.root,
-                    &self.http,
-                    &self.urls.protomaps,
-                    &self.depth.cut(),
-                    now,
-                )
-                .await
-                {
-                    Ok(_) => region_next = now + REGION_EVERY_S,
-                    // Again in an hour
-                    Err(e) => {
-                        tracing::warn!("basemap: {e}");
-                        region_next = now + 3_600;
-                    }
-                }
-                let terrain = crate::basemap::terrain::keep_current(
-                    &self.root,
-                    &self.http,
-                    &self.urls.mapterhorn,
-                    self.depth.terrain_zoom,
-                    now,
-                );
-                if let Err(e) = terrain.await {
-                    tracing::warn!("terrain: {e}");
-                    region_next = now + 3_600;
-                }
+                region_next = self.keep_region(now).await;
             }
-            if let Err(e) = self.keep_spots(&db, now).await {
-                tracing::warn!("basemap spots: {e}");
+            let report = board.start("spots");
+            match self.keep_spots(&db, now).await {
+                Ok(n) => report.ok(Some(n as i64)),
+                Err(e) => {
+                    tracing::warn!("basemap spots: {e}");
+                    board.source_failed("protomaps", &e);
+                    report.failed(&e);
+                }
             }
         }
+    }
+
+    /// The basemap and the relief, made anew when due; returns when to check them next.
+    async fn keep_region(&self, now: i64) -> i64 {
+        let board = wf_core::status::board();
+        let report = board.start("basemap");
+        let mut failed = Vec::new();
+        let mut next = now + REGION_EVERY_S;
+        match crate::basemap::fetch::keep_current(
+            &self.root,
+            &self.http,
+            &self.urls.protomaps,
+            &self.depth.cut(),
+            now,
+        )
+        .await
+        {
+            Ok(_) => board.source_ok("protomaps"),
+            // Again in an hour
+            Err(e) => {
+                tracing::warn!("basemap: {e}");
+                board.source_failed("protomaps", &e);
+                failed.push(format!("basemap: {e}"));
+                next = now + 3_600;
+            }
+        }
+        let terrain = crate::basemap::terrain::keep_current(
+            &self.root,
+            &self.http,
+            &self.urls.mapterhorn,
+            self.depth.terrain_zoom,
+            now,
+        );
+        match terrain.await {
+            Ok(_) => board.source_ok("mapterhorn"),
+            Err(e) => {
+                tracing::warn!("terrain: {e}");
+                board.source_failed("mapterhorn", &e);
+                failed.push(format!("terrain: {e}"));
+                next = now + 3_600;
+            }
+        }
+        match failed.len() {
+            0 => report.ok(None),
+            1 => report.partly(None, failed.join("; ")),
+            _ => report.failed(failed.join("; ")),
+        }
+        next
     }
 
     /// One round of spots; only for our own basemap (an operator's file is left as it is).
@@ -100,14 +138,14 @@ impl MapData {
         &self,
         db: &wf_core::db::Db,
         now: i64,
-    ) -> Result<(), crate::basemap::fetch::Error> {
+    ) -> Result<usize, crate::basemap::fetch::Error> {
         // An operator's file: nothing to add. Ours: what it holds now, not what the settings
         // ask for, which a download of hours may still be bringing.
         let Some(held) = crate::basemap::fetch::read_note(&self.root)
             .await
             .and_then(|n| n.cut())
         else {
-            return Ok(());
+            return Ok(0);
         };
         let places = wf_core::forecast::hot_places(db, now - WANTED_S)
             .await
@@ -180,7 +218,7 @@ impl MapData {
         if changed {
             self.readers.forget_spots();
         }
-        Ok(())
+        Ok(spots::on_disk(&self.root).await.len())
     }
 }
 

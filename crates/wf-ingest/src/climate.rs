@@ -80,8 +80,16 @@ pub struct Climate {
     running: std::sync::Mutex<HashSet<i64>>,
     /// Between two requests to the IEM
     gap: Duration,
-    /// Stations whose last attempt failed, and when
-    failed: std::sync::Mutex<std::collections::HashMap<i64, std::time::Instant>>,
+    /// Stations whose last attempt failed: when, and why
+    failed: std::sync::Mutex<std::collections::HashMap<i64, (std::time::Instant, String)>>,
+}
+
+/// Statistics being made and those that failed lately, for the admin page
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Work {
+    pub running: Vec<i64>,
+    /// Station row id, seconds since it failed, why
+    pub failed: Vec<(i64, u64, String)>,
 }
 
 impl Climate {
@@ -94,6 +102,33 @@ impl Climate {
             gap: IEM_GAP,
             running: std::sync::Mutex::new(HashSet::new()),
             failed: std::sync::Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    /// What is being made, and what failed within the last hours.
+    pub fn work(&self) -> Work {
+        let running = self
+            .running
+            .lock()
+            .map(|r| r.iter().copied().collect())
+            .unwrap_or_default();
+        let failed = self
+            .failed
+            .lock()
+            .map(|f| {
+                f.iter()
+                    .filter(|(_, (at, _))| at.elapsed() < RETRY_AFTER)
+                    .map(|(id, (at, e))| (*id, at.elapsed().as_secs(), e.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        Work { running, failed }
+    }
+
+    /// Forgets that a station failed, so the next look tries it again at once.
+    pub fn retry(&self, id: i64) {
+        if let Ok(mut f) = self.failed.lock() {
+            f.remove(&id);
         }
     }
 
@@ -118,7 +153,7 @@ impl Climate {
         let failed_lately = self
             .failed
             .lock()
-            .map(|f| f.get(&id).is_some_and(|at| at.elapsed() < RETRY_AFTER))
+            .map(|f| f.get(&id).is_some_and(|(at, _)| at.elapsed() < RETRY_AFTER))
             .unwrap_or(false);
         if failed_lately {
             // An older year's statistics are better than none meanwhile
@@ -134,11 +169,20 @@ impl Climate {
         {
             let me = Arc::clone(self);
             let station = station.clone();
+            let source = if station.source == StationSource::Dwd {
+                "dwd"
+            } else {
+                "iem"
+            };
             tokio::spawn(async move {
-                if let Err(e) = me.make(id, &station, want, now).await {
-                    tracing::warn!("wind statistics of {}: {e}", station.slug);
-                    if let Ok(mut f) = me.failed.lock() {
-                        f.insert(id, std::time::Instant::now());
+                match me.make(id, &station, want, now).await {
+                    Ok(()) => wf_core::status::board().source_ok(source),
+                    Err(e) => {
+                        tracing::warn!("wind statistics of {}: {e}", station.slug);
+                        wf_core::status::board().source_failed(source, &e);
+                        if let Ok(mut f) = me.failed.lock() {
+                            f.insert(id, (std::time::Instant::now(), format!("{e:#}")));
+                        }
                     }
                 }
                 if let Ok(mut r) = me.running.lock() {

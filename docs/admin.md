@@ -24,6 +24,33 @@ keeps the role: it cannot be taken, and the account cannot be disabled or delete
 
 Every change an admin makes is written to the admin log (who, when, what), kept a year.
 
+## Overview
+
+What needs a decision comes first: a missing or plain-http `WF_PUBLIC_URL`, requests without the
+client-address header (`WF_CLIENT_IP_HEADER`; without a proxy in front that sets it, anyone can
+set it and pass the limits per visitor), a task whose last run failed, a source that failed three
+times or more in a day, a loop that crashed and was started again, an Open-Meteo budget used to
+80 %, less than 2 GB free. Then the day's numbers: Open-Meteo calls against the budget, the data
+folder on the disk, accounts, alarm messages.
+
+Every background task with how often it runs, when it last ran, how long it took and what came of
+it (with the error as the log has it), and a button that runs it now:
+
+| Task | Every | |
+|---|---|---|
+| New model runs, refresh places | 5 min | Open-Meteo |
+| METAR, water gauges | 9 min | aviationweather.gov, PEGELONLINE |
+| TAF, DWD 10-minute values | 29 min | aviationweather.gov, DWD |
+| Cleanup and verification | hourly | the database |
+| Station lists | weekly (checked hourly; "now" fetches them whatever their age) | OurAirports, aviationweather.gov, DWD |
+| Wind map ICON-D2 and ECMWF, ICON global | 10 min | DWD, ECMWF |
+| Basemap and relief | daily | Protomaps, Mapterhorn |
+| Detail spots | 1 min | Protomaps |
+| Alarms | 10 min | push services, SMTP |
+
+Each outside source shows when it last answered and how often it failed in the last 24 hours.
+The state lives in memory and fills again within a round after a restart.
+
 ## Users
 
 The list of accounts with how each signs in (passkey, password), when it was last seen (to the
