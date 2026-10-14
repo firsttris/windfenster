@@ -158,6 +158,13 @@ impl Scheduler {
                 if let Err(e) = verification::purge(&self.db, keep_from).await {
                     tracing::error!("verification purge: {e}");
                 }
+                // Sessions and links that ran out, else gone only at someone's next sign-in
+                if let Err(e) = wf_core::account::prune_sessions(&self.db, now).await {
+                    tracing::error!("session purge: {e}");
+                }
+                if let Err(e) = wf_core::account::prune_email_confirmations(&self.db, now).await {
+                    tracing::error!("confirmation link purge: {e}");
+                }
                 let usage_from = wf_core::usage::day(now - KEEP_OBSERVATIONS_S);
                 if let Err(e) = wf_core::usage::purge(&self.db, usage_from).await {
                     tracing::error!("usage purge: {e}");

@@ -354,6 +354,17 @@ pub async fn end_session(db: &SqlitePool, token_hash: &[u8]) -> sqlx::Result<()>
     Ok(())
 }
 
+/// Links to confirm an address that ran out; returns how many went.
+pub async fn prune_email_confirmations(db: &SqlitePool, now: i64) -> sqlx::Result<u64> {
+    Ok(
+        sqlx::query("DELETE FROM email_confirmation WHERE expires_at <= ?")
+            .bind(now)
+            .execute(db)
+            .await?
+            .rows_affected(),
+    )
+}
+
 /// Sessions that ran out; returns how many went.
 pub async fn prune_sessions(db: &SqlitePool, now: i64) -> sqlx::Result<u64> {
     Ok(sqlx::query("DELETE FROM session WHERE expires_at <= ?")
@@ -467,6 +478,17 @@ mod tests {
         assert!(!confirmed().await?);
         assert!(confirm_email(&db, b"t3", 800).await?);
         assert!(confirmed().await?);
+        // Links that ran out go in the hourly purge, the others stay.
+        add_email_confirmation(&db, b"t4", id, "b@x.de", 800, 5_000).await?;
+        let links = async || -> sqlx::Result<Vec<Vec<u8>>> {
+            sqlx::query_scalar("SELECT token_hash FROM email_confirmation ORDER BY token_hash")
+                .fetch_all(&db)
+                .await
+        };
+        prune_email_confirmations(&db, 2_000).await?;
+        assert_eq!(links().await?, vec![b"t4".to_vec()]);
+        assert_eq!(prune_email_confirmations(&db, 5_000).await?, 1);
+        assert!(links().await?.is_empty());
         Ok(())
     }
 

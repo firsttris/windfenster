@@ -18,7 +18,8 @@ passkey or an address and a password (at least 10 characters); either can be add
 account page. Passkeys are made discoverable, so the browser offers them in the sign-in field
 by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain later makes them
 useless, so set it before the first sign-up. A session is a random token in an HTTP-only cookie
-(half a year, renewed while used; only its SHA-256 is stored).
+(half a year, renewed while used; only its SHA-256 is stored); sessions and confirmation links that ran
+out are deleted every hour.
 
 ## Spots
 
