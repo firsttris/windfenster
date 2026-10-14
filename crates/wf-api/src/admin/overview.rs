@@ -53,6 +53,15 @@ pub enum Warning {
         #[ts(type = "number")]
         free: u64,
     },
+    /// A newer Windfenster is out
+    NewVersion {
+        version: String,
+        url: String,
+    },
+    /// The basemap or relief is due and waits for an admin (mode "ask")
+    BasemapWaiting,
+    /// A public instance with accounts and no legal notice or privacy policy
+    LegalMissing,
 }
 
 /// Open-Meteo calls today against the budget
@@ -121,7 +130,36 @@ pub async fn overview(
     let disk = s.disk_usage().await;
     let (push, email, failed) =
         wf_core::alarm::delivery::counts(&s.db, now - now.rem_euclid(86_400)).await?;
-    let warnings = warnings(&s, &tasks, &sources, &budget, disk.as_ref());
+    let users = users::summary(&s.db, now).await?;
+    let mut warnings = warnings(&s, &tasks, &sources, &budget, disk.as_ref());
+    if let Some(r) = board
+        .release()
+        .filter(|r| status::newer(&r.version, crate::VERSION))
+    {
+        warnings.insert(
+            0,
+            Warning::NewVersion {
+                version: r.version,
+                url: r.url,
+            },
+        );
+    }
+    if let Some(map) = &s.map
+        && map.renewal_waiting().await
+    {
+        warnings.insert(0, Warning::BasemapWaiting);
+    }
+    let settings = s.settings.get();
+    let public = s
+        .public_url
+        .as_deref()
+        .is_some_and(|u| u.starts_with("https://"));
+    if public
+        && users.total > 0
+        && (settings.imprint.trim().is_empty() || settings.privacy.trim().is_empty())
+    {
+        warnings.push(Warning::LegalMissing);
+    }
     Ok(Json(AdminOverview {
         version: crate::VERSION.to_owned(),
         started_at: board.started_at(),
@@ -131,7 +169,7 @@ pub async fn overview(
         sources,
         budget,
         disk,
-        users: users::summary(&s.db, now).await?,
+        users,
         alarms: AlarmsToday {
             push,
             email,

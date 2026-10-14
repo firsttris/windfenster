@@ -97,6 +97,18 @@ struct Inner {
     missing_ip_header: u64,
     /// Restarts after a panic, per loop
     panics: BTreeMap<String, u32>,
+    /// The newest release on GitHub, as last looked up
+    release: Option<Release>,
+}
+
+/// A release of Windfenster.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Release {
+    /// e.g. "0.1.17", without the "v"
+    pub version: String,
+    pub url: String,
 }
 
 pub struct Board {
@@ -281,6 +293,14 @@ impl Board {
         self.wake.notified().await;
     }
 
+    pub fn set_release(&self, release: Release) {
+        self.lock().release = Some(release);
+    }
+
+    pub fn release(&self) -> Option<Release> {
+        self.lock().release.clone()
+    }
+
     pub fn missing_ip_header(&self) {
         self.lock().missing_ip_header += 1;
     }
@@ -305,9 +325,27 @@ impl Run {
     }
 }
 
+/// Whether version `latest` is newer than `running` (x.y.z, the numbers compared).
+pub fn newer(latest: &str, running: &str) -> bool {
+    let parts = |v: &str| -> Vec<u64> {
+        v.split('.')
+            .map(|p| p.trim().parse().unwrap_or(0))
+            .collect()
+    };
+    parts(latest) > parts(running)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compares_versions_as_numbers() {
+        assert!(newer("0.1.17", "0.1.16"));
+        assert!(newer("0.10.0", "0.9.9"));
+        assert!(!newer("0.1.16", "0.1.16"));
+        assert!(!newer("0.1.9", "0.1.16"));
+    }
 
     // One board per process: the tests use task and source names of their own.
     #[test]

@@ -80,6 +80,21 @@ Signed-in requests carry the session cookie the sign-in sets (HTTP-only, half a 
 | `GET /api/push` | the server's push key, whether e-mail is set up |
 | `POST`, `DELETE /api/push/subscriptions` | subscribe a browser to push, or unsubscribe |
 
+## The site and the admin page
+
+| Method and path | Gives or does |
+|---|---|
+| `GET /api/site` | whether accounts can be made (`open`, `invite`, `closed`), the notice, whether there is a legal notice and a privacy policy |
+| `GET /api/site/imprint`, `/api/site/privacy` | their text |
+
+Under `/api/admin` the admin page's requests answer admins only (`403 forbidden` else):
+`overview`, `tasks/{id}/run`, `settings` and `settings/{key}`, `map` (with `renew`, `cancel`,
+`postpone`, `spots`, `spots/pinned`, `leftovers`), `forecasts`, `measurements`,
+`stats/{station}/retry`, `users` (with `role`, `disable`, `enable`, `signout`, `export`,
+`confirm-email`), `invites`, `alarms` and `alarms/test-mail`, `storage` (with `vacuum`, `prune`,
+`backup`, `push-key`), `system` and `system/caches/clear`, `log` and `log/lines`. They change with
+the admin page; see [The admin page](admin.md).
+
 ## Pages
 
 `GET /station/{slug}` is the app's page with the station's title, description, Open Graph tags and

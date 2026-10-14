@@ -149,6 +149,26 @@ impl MapData {
         }
     }
 
+    /// Whether a renewal waits for an admin: the mode is "ask", the basemap or relief is due,
+    /// nobody said "now" yet and it is not put off.
+    pub async fn renewal_waiting(&self) -> bool {
+        let now = wf_core::time::now();
+        let s = self.settings.get();
+        if s.basemap_mode != wf_core::admin::settings::BasemapMode::Ask
+            || s.basemap_postponed_until > now
+            || self.renewal.approved.load(Ordering::Relaxed)
+        {
+            return false;
+        }
+        let depth = self.depth();
+        fetch::due_now(&self.root, &depth.cut(), now)
+            .await
+            .is_some()
+            || terrain::due_now(&self.root, depth.terrain_zoom, now)
+                .await
+                .is_some()
+    }
+
     /// Renews what is due on the next round, whatever the mode; the loop is woken.
     pub fn renew_now(&self) {
         self.renewal.approved.store(true, Ordering::Relaxed);

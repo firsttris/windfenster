@@ -2,6 +2,7 @@ use std::io::IsTerminal;
 mod admin;
 mod alarms;
 mod log_board;
+mod release;
 mod settings;
 mod supervise;
 
@@ -410,6 +411,10 @@ async fn serve(args: ServeArgs) -> Result<()> {
         supervise("basemap", move || m.clone().keep_basemap(db.clone()));
     }
     if args.scheduler {
+        let (h, url) = (http.clone(), args.data.source("github/latest"));
+        supervise("release", move || {
+            release::keep_looking(h.clone(), url.clone())
+        });
         let a = alarms.clone();
         supervise("alarms", move || a.clone().run());
         let (db, forecasts, measurements) = (db.clone(), forecasts.clone(), measurements.clone());

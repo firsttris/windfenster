@@ -1,11 +1,14 @@
 //! The admin page's API under `/api/admin`: only for accounts with the admin role, made on the
 //! server with `windfenster admin`. Every change an admin makes is written to the admin log.
 
+pub mod alarms;
 pub mod data;
 pub mod invites;
 pub mod map;
 pub mod overview;
 pub mod settings;
+pub mod storage;
+pub mod system;
 pub mod users;
 
 use axum::Router;
@@ -77,4 +80,13 @@ pub fn routes() -> Router<AppState> {
         .route("/forecasts", get(data::forecasts))
         .route("/measurements", get(data::measurements))
         .route("/stats/{station}/retry", post(data::retry_stats))
+        .route("/alarms", get(alarms::get))
+        .route("/alarms/test-mail", post(alarms::test_mail))
+        .route("/storage", get(storage::get))
+        .route("/storage/vacuum", post(storage::vacuum))
+        .route("/storage/prune", post(storage::prune))
+        .route("/storage/backup", get(storage::backup))
+        .route("/storage/push-key", get(storage::push_key))
+        .route("/system", get(system::get))
+        .route("/system/caches/clear", post(system::clear_caches))
 }

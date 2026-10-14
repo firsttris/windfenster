@@ -1,14 +1,18 @@
 /** The admin page's requests; only admins get answers (`forbidden` else). */
 import { queryOptions } from '@tanstack/react-query';
+import type { AdminAlarms } from '@/bindings/AdminAlarms';
 import type { AdminForecasts } from '@/bindings/AdminForecasts';
 import type { AdminLogEntry } from '@/bindings/AdminLogEntry';
 import type { AdminMap } from '@/bindings/AdminMap';
 import type { AdminMeasurements } from '@/bindings/AdminMeasurements';
 import type { AdminOverview } from '@/bindings/AdminOverview';
 import type { AdminSettings } from '@/bindings/AdminSettings';
+import type { AdminStorage } from '@/bindings/AdminStorage';
+import type { AdminSystem } from '@/bindings/AdminSystem';
 import type { AdminUserDetail } from '@/bindings/AdminUserDetail';
 import type { AdminUsers } from '@/bindings/AdminUsers';
 import type { Invite } from '@/bindings/Invite';
+import type { LogLine } from '@/bindings/LogLine';
 import { api } from './api';
 
 export const adminUsersQuery = queryOptions({
@@ -60,4 +64,26 @@ export const adminMeasurementsQuery = queryOptions({
 export const adminInvitesQuery = queryOptions({
   queryKey: ['admin', 'invites'],
   queryFn: () => api<Invite[]>('/admin/invites'),
+});
+
+export const adminAlarmsQuery = queryOptions({
+  queryKey: ['admin', 'alarms'],
+  queryFn: () => api<AdminAlarms>('/admin/alarms'),
+  refetchInterval: 60_000,
+});
+
+export const adminStorageQuery = queryOptions({
+  queryKey: ['admin', 'storage'],
+  queryFn: () => api<AdminStorage>('/admin/storage'),
+});
+
+export const adminSystemQuery = queryOptions({
+  queryKey: ['admin', 'system'],
+  queryFn: () => api<AdminSystem>('/admin/system'),
+});
+
+export const adminLogLinesQuery = queryOptions({
+  queryKey: ['admin', 'log-lines'],
+  queryFn: () => api<LogLine[]>('/admin/log/lines'),
+  refetchInterval: 30_000,
 });

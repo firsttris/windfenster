@@ -149,6 +149,17 @@ function warningText(w: Warning): { title: string; text: string; tab: AdminTab; 
         tab: 'forecasts',
         tone: 'warn',
       };
+    case 'new_version':
+      return {
+        title: m.admin_warnNewVersion({ version: w.version }),
+        text: m.admin_warnNewVersionText(),
+        tab: 'system',
+        tone: 'warn',
+      };
+    case 'basemap_waiting':
+      return { title: m.admin_warnBasemap(), text: m.admin_warnBasemapText(), tab: 'map', tone: 'warn' };
+    case 'legal_missing':
+      return { title: m.admin_warnLegal(), text: m.admin_warnLegalText(), tab: 'system', tone: 'warn' };
     case 'disk_low':
       return {
         title: m.admin_warnDisk({ free: bytes(w.free) }),

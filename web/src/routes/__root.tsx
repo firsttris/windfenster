@@ -3,7 +3,7 @@ import { createRootRouteWithContext, Link, Outlet, useRouterState } from '@tanst
 import { LogIn, Map as MapIcon, Search, Settings, UserRound } from 'lucide-react';
 import { useEffect } from 'react';
 import { SearchButton, SearchProvider, useOpenSearch } from '@/components/search';
-import { meQuery } from '@/lib/api';
+import { meQuery, siteQuery } from '@/lib/api';
 import { watchTheme } from '@/lib/prefs';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
@@ -26,6 +26,7 @@ function RootLayout() {
   return (
     <SearchProvider>
       <div className={fullscreen ? 'relative flex h-dvh flex-col overflow-hidden' : 'flex min-h-dvh flex-col'}>
+        {!fullscreen && <Banner />}
         <Header over={fullscreen} />
         <Outlet />
         {!fullscreen && <Footer />}
@@ -34,7 +35,23 @@ function RootLayout() {
   );
 }
 
+/** The operator's notice above every page, when there is one (admin page, System). */
+function Banner() {
+  const site = useQuery(siteQuery);
+  const text = site.data?.banner;
+  if (!text) return null;
+  return (
+    <aside
+      aria-label={m.banner_label()}
+      className="border-warning-border border-b bg-warning-surface px-4 py-2 text-center text-[13px] text-warning-foreground"
+    >
+      {text}
+    </aside>
+  );
+}
+
 function Footer() {
+  const site = useQuery(siteQuery);
   return (
     <footer className="mx-auto mt-auto w-full max-w-[1360px] px-4 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-line border-t pt-5 pb-6 text-muted-foreground text-xs">
@@ -64,6 +81,16 @@ function Footer() {
           </Link>
         </span>
         <span className="flex flex-wrap items-center gap-3">
+          {site.data?.imprint && (
+            <Link to="/imprint" className="text-subtle hover:text-foreground">
+              {m.footer_imprint()}
+            </Link>
+          )}
+          {site.data?.privacy && (
+            <Link to="/privacy" className="text-subtle hover:text-foreground">
+              {m.footer_privacy()}
+            </Link>
+          )}
           <span>
             {m.footer_openSource()} ·{' '}
             <a href={REPO} className="text-subtle hover:text-foreground">

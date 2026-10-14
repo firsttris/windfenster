@@ -18,6 +18,8 @@ pub const PER_DAY: u32 = 500;
 pub struct Mail {
     transport: AsyncSmtpTransport<Tokio1Executor>,
     from: Mailbox,
+    /// The server as the admin page shows it: scheme, host and port, no user or password
+    server: String,
     /// Where the day's mails are counted; without, nothing is counted or limited
     store: Option<sqlx::SqlitePool>,
     per_day: AtomicU32,
@@ -35,6 +37,7 @@ impl Mail {
             from: from
                 .parse()
                 .map_err(|e: lettre::address::AddressError| Error::Mail(e.to_string()))?,
+            server: without_credentials(url),
             store: None,
             per_day: AtomicU32::new(PER_DAY),
         })
@@ -44,6 +47,16 @@ impl Mail {
     pub fn with_store(mut self, db: sqlx::SqlitePool) -> Self {
         self.store = Some(db);
         self
+    }
+
+    /// The SMTP server without user and password, e.g. `smtps://smtp.example.org:465`
+    pub fn server(&self) -> &str {
+        &self.server
+    }
+
+    /// The sender, e.g. `Windfenster <alarm@example.org>`
+    pub fn from(&self) -> String {
+        self.from.to_string()
     }
 
     /// Mails a day at most
@@ -89,8 +102,28 @@ impl Mail {
     }
 }
 
+/// `smtps://user:password@host:465?tls=…` → `smtps://host:465`
+fn without_credentials(url: &str) -> String {
+    let (scheme, rest) = url.split_once("://").unwrap_or(("smtp", url));
+    let host = rest.rsplit_once('@').map_or(rest, |(_, h)| h);
+    let host = host.split(['?', '/']).next().unwrap_or(host);
+    format!("{scheme}://{host}")
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shows_the_server_without_credentials() {
+        assert_eq!(
+            super::without_credentials("smtps://alarm%40x.org:geheim@smtp.x.org:465"),
+            "smtps://smtp.x.org:465"
+        );
+        assert_eq!(
+            super::without_credentials("smtp://u:p@mail.x.org:587?tls=required"),
+            "smtp://mail.x.org:587"
+        );
+    }
+
     use super::*;
 
     #[tokio::test]

@@ -14,9 +14,11 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as GearRouteImport } from './routes/gear'
+import { Route as ImprintRouteImport } from './routes/imprint'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as PointRouteImport } from './routes/point'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as StationSlugRouteImport } from './routes/station.$slug'
 
@@ -45,6 +47,11 @@ const GearRoute = GearRouteImport.update({
   path: '/gear',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImprintRoute = ImprintRouteImport.update({
+  id: '/imprint',
+  path: '/imprint',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -58,6 +65,11 @@ const MapRoute = MapRouteImport.update({
 const PointRoute = PointRouteImport.update({
   id: '/point',
   path: '/point',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SourcesRoute = SourcesRouteImport.update({
@@ -77,9 +89,11 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
@@ -89,9 +103,11 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
@@ -102,9 +118,11 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/gear': typeof GearRoute
+  '/imprint': typeof ImprintRoute
   '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/point': typeof PointRoute
+  '/privacy': typeof PrivacyRoute
   '/sources': typeof SourcesRoute
   '/station/$slug': typeof StationSlugRoute
 }
@@ -116,9 +134,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -128,9 +148,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   id:
@@ -140,9 +162,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/confirm-email'
     | '/gear'
+    | '/imprint'
     | '/login'
     | '/map'
     | '/point'
+    | '/privacy'
     | '/sources'
     | '/station/$slug'
   fileRoutesById: FileRoutesById
@@ -153,9 +177,11 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   GearRoute: typeof GearRoute
+  ImprintRoute: typeof ImprintRoute
   LoginRoute: typeof LoginRoute
   MapRoute: typeof MapRoute
   PointRoute: typeof PointRoute
+  PrivacyRoute: typeof PrivacyRoute
   SourcesRoute: typeof SourcesRoute
   StationSlugRoute: typeof StationSlugRoute
 }
@@ -197,6 +223,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GearRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/imprint': {
+      id: '/imprint'
+      path: '/imprint'
+      fullPath: '/imprint'
+      preLoaderRoute: typeof ImprintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -216,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/point'
       fullPath: '/point'
       preLoaderRoute: typeof PointRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sources': {
@@ -241,9 +281,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
   GearRoute: GearRoute,
+  ImprintRoute: ImprintRoute,
   LoginRoute: LoginRoute,
   MapRoute: MapRoute,
   PointRoute: PointRoute,
+  PrivacyRoute: PrivacyRoute,
   SourcesRoute: SourcesRoute,
   StationSlugRoute: StationSlugRoute,
 }

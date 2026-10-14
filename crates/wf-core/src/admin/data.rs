@@ -234,6 +234,93 @@ pub async fn table_rows(db: &SqlitePool) -> sqlx::Result<Vec<TableRows>> {
     Ok(out)
 }
 
+/// Alarms and the ways they go out.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AlarmCounts {
+    #[ts(type = "number")]
+    pub alarms: i64,
+    /// Spots with an alarm
+    #[ts(type = "number")]
+    pub spots: i64,
+    #[ts(type = "number")]
+    pub accounts: i64,
+    /// Addresses set, and those confirmed
+    #[ts(type = "number")]
+    pub addresses: i64,
+    #[ts(type = "number")]
+    pub confirmed: i64,
+    /// Browsers taking push messages, by push service ("google", "mozilla", "apple",
+    /// "microsoft", "other")
+    #[ts(type = "Array<[string, number]>")]
+    pub devices: Vec<(String, i64)>,
+}
+
+pub async fn alarm_counts(db: &SqlitePool) -> sqlx::Result<AlarmCounts> {
+    let (alarms, spots, accounts): (i64, i64, i64) = sqlx::query_as(
+        "SELECT COUNT(*), COUNT(DISTINCT a.favorite_id), COUNT(DISTINCT f.account_id) \
+         FROM alarm a JOIN favorite f ON f.id = a.favorite_id",
+    )
+    .fetch_one(db)
+    .await?;
+    let (addresses, confirmed): (i64, i64) = sqlx::query_as(
+        "SELECT COUNT(email), COALESCE(SUM(email IS NOT NULL AND email_confirmed), 0) FROM account",
+    )
+    .fetch_one(db)
+    .await?;
+    let devices = sqlx::query_as(
+        "SELECT CASE \
+           WHEN endpoint LIKE '%googleapis.com/%' THEN 'google' \
+           WHEN endpoint LIKE '%mozilla.com/%' THEN 'mozilla' \
+           WHEN endpoint LIKE '%push.apple.com/%' THEN 'apple' \
+           WHEN endpoint LIKE '%notify.windows.com/%' THEN 'microsoft' \
+           ELSE 'other' END AS service, COUNT(*) FROM push_subscription \
+         GROUP BY service ORDER BY COUNT(*) DESC",
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(AlarmCounts {
+        alarms,
+        spots,
+        accounts,
+        addresses,
+        confirmed,
+        devices,
+    })
+}
+
+/// What a cleanup would remove now: sessions and links that ran out, accounts not seen for
+/// a year.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Stale {
+    #[ts(type = "number")]
+    pub sessions: i64,
+    #[ts(type = "number")]
+    pub links: i64,
+    #[ts(type = "number")]
+    pub inactive_accounts: i64,
+}
+
+pub async fn stale(db: &SqlitePool, now: i64) -> sqlx::Result<Stale> {
+    let one = |sql: &'static str| async move {
+        sqlx::query_scalar::<_, i64>(sql)
+            .bind(now)
+            .fetch_one(db)
+            .await
+    };
+    Ok(Stale {
+        sessions: one("SELECT COUNT(*) FROM session WHERE expires_at <= ?").await?,
+        links: one("SELECT COUNT(*) FROM email_confirmation WHERE expires_at <= ?").await?,
+        inactive_accounts: one(
+            "SELECT COUNT(*) FROM account WHERE COALESCE(last_seen_at, created_at) < ? - 365 * 86400",
+        )
+        .await?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,6 +342,10 @@ mod tests {
         let m = measurement_counts(&db, 1_000).await?;
         assert_eq!((m.metar_hour, m.verified_day), (0, None));
         assert_eq!(table_rows(&db).await?.len(), TABLES.len());
+        let a = alarm_counts(&db).await?;
+        assert_eq!((a.alarms, a.devices.len()), (0, 0));
+        crate::account::create(&db, "h", "Ann", "k", "{}", 0).await?;
+        assert_eq!(stale(&db, 400 * 86_400).await?.inactive_accounts, 1);
         Ok(())
     }
 }

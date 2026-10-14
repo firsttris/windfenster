@@ -202,6 +202,33 @@ impl AppState {
         )
     }
 
+    /// Entries per in-memory cache, for the admin page.
+    fn cache_sizes(&self) -> Vec<(&'static str, u64)> {
+        vec![
+            ("forecasts", self.cache.entry_count()),
+            ("places", self.places.entry_count()),
+            ("rankings", self.rankings.entry_count()),
+            ("map_pieces", self.pieces.entry_count()),
+            ("gauge_history", self.gauge_history.entry_count()),
+            (
+                "pins",
+                self.pins.entry_count() + self.gauge_pins.entry_count(),
+            ),
+        ]
+    }
+
+    /// Empties the caches: the next requests are answered from the database and the files.
+    fn clear_caches(&self) {
+        self.cache.invalidate_all();
+        self.places.invalidate_all();
+        self.rankings.invalidate_all();
+        self.pieces.invalidate_all();
+        self.gauge_history.invalidate_all();
+        self.pins.invalidate_all();
+        self.gauge_pins.invalidate_all();
+        self.disk.invalidate_all();
+    }
+
     /// Measures the disk usage anew on the next look (after a change).
     async fn forget_disk_usage(&self) {
         self.disk.invalidate_all();

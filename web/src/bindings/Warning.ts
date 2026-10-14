@@ -3,4 +3,4 @@
 /**
  * Something an admin should look at; the page words it.
  */
-export type Warning = { "code": "public_url_missing" } | { "code": "public_url_not_https" } | { "code": "ip_header_missing", count: number, } | { "code": "task_failed", task: string, } | { "code": "source_failing", source: string, errors: number, } | { "code": "loop_panicked", name: string, count: number, } | { "code": "budget_high", percent: number, } | { "code": "disk_low", free: number, };
+export type Warning = { "code": "public_url_missing" } | { "code": "public_url_not_https" } | { "code": "ip_header_missing", count: number, } | { "code": "task_failed", task: string, } | { "code": "source_failing", source: string, errors: number, } | { "code": "loop_panicked", name: string, count: number, } | { "code": "budget_high", percent: number, } | { "code": "disk_low", free: number, } | { "code": "new_version", version: string, url: string, } | { "code": "basemap_waiting" } | { "code": "legal_missing" };

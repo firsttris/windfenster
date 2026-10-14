@@ -131,3 +131,38 @@ the alarms delivered to it in the last 30 days. An admin can
 - delete it with everything it holds.
 
 Nobody sees passwords, admins neither.
+
+## Alarms and mail
+
+The alarms there are and the day's messages (delivered by push, by e-mail, not delivered), the
+SMTP server (never its password) with the sender, today's mails against the limit (500 a day by
+default, all mails together: confirmations, alarms, tests; beyond it alarms go by push only), a test
+mail to any address, the push key's age and the browsers by push service, and every message handed
+to a channel in the last 30 days with what came of it (`push 410`, `e-mail: limit` ...).
+
+A new push key: delete `vapid.pem` in the data folder and restart; every browser has to subscribe
+again (the account page offers it).
+
+## Storage and database
+
+The data folder by part (the wind map's runs per model, relief, database, detail spots, basemap,
+leftovers, the rest) with what is free, the rows per table, and:
+
+- **Backup**: the database as a consistent copy (`VACUUM INTO`, made beside it, sent and removed),
+  and the push key `vapid.pem`. A restore needs nothing more.
+- **Compact** the database (`VACUUM`): gives the room of deleted rows back; the server answers
+  slower meanwhile.
+- **Expired sessions and links**: removed now instead of in the hourly cleanup.
+- **Inactive accounts**: how many were not seen for over a year (the users section lists them).
+
+## System
+
+The version and whether a newer one is out (the server asks GitHub for the newest release once a
+day; nothing is installed by itself), the environment variables (secrets only as "set"), the
+in-memory caches with their entries and a button that empties them, and what visitors see of the
+operator: a **notice** above every page, the **legal notice** and the **privacy policy** (plain text,
+paragraphs separated by a blank line; linked at the foot of every page, at `/imprint` and
+`/privacy`). The overview warns when a public instance (https) with accounts has neither.
+
+The log shows the server's last 500 warnings and errors since the start, and the admin actions of
+the last year.

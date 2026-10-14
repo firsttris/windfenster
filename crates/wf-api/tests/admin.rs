@@ -455,3 +455,85 @@ async fn the_site_says_the_banner_and_the_legal_pages() -> Result<()> {
     assert_eq!(text, "# Impressum\n\nTristan");
     Ok(())
 }
+
+#[tokio::test]
+async fn alarms_storage_and_system() -> Result<()> {
+    let (dir, app) = admin_app(|dir, s| s.with_data_dir(dir.to_path_buf())).await?;
+    let (status, a) = call(&app, "GET", "/api/admin/alarms", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!((&a["smtp"], &a["mailPerDay"]), (&Value::Null, &json!(500)));
+    assert_eq!(a["counts"]["alarms"], 0);
+    // No SMTP here
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/admin/alarms/test-mail",
+        Some(json!({"to": "a@x.de"})),
+        true,
+    )
+    .await?;
+    assert_eq!(
+        (status, body),
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"code": "email_off"})
+        )
+    );
+
+    let (status, st) = call(&app, "GET", "/api/admin/storage", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    // The tests' database is test.db, counted with the rest here
+    assert!(st["disk"]["other"].as_u64().unwrap() > 0);
+    assert!(
+        st["tables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["table"] == "account")
+    );
+    let (status, _) = call(&app, "POST", "/api/admin/storage/vacuum", None, true).await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, n) = call(&app, "POST", "/api/admin/storage/prune", None, true).await?;
+    assert_eq!((status, n), (StatusCode::OK, json!(0)));
+
+    // The backup is a whole SQLite database, and none is left beside the real one
+    let req = axum::http::Request::get("/api/admin/storage/backup")
+        .header("cookie", format!("wf_session={}", common::session::TOKEN))
+        .body(axum::body::Body::empty())?;
+    let res = tower::ServiceExt::oneshot(app.clone(), req).await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(res.into_body(), 1 << 30).await?;
+    assert!(bytes.starts_with(b"SQLite format 3\0"));
+    let left: Vec<_> = std::fs::read_dir(dir.path())?
+        .flatten()
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("windfenster-backup")
+        })
+        .collect();
+    assert!(left.is_empty());
+    let (status, _) = call(&app, "GET", "/api/admin/storage/push-key", None, true).await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, sys) = call(&app, "GET", "/api/admin/system", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(sys["version"], env!("CARGO_PKG_VERSION"));
+    assert!(
+        sys["caches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c[0] == "forecasts")
+    );
+    let smtp = sys["env"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "WF_SMTP_URL")
+        .unwrap();
+    assert!(smtp["value"].is_null() || smtp["value"] == "set");
+    let (status, _) = call(&app, "POST", "/api/admin/system/caches/clear", None, true).await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    Ok(())
+}

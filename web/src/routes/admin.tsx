@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate } from '@tanstack/react-router';
-import { CloudSun, Gauge, LayoutDashboard, Map as MapIcon, Users } from 'lucide-react';
+import { Bell, CloudSun, Database, Gauge, LayoutDashboard, Map as MapIcon, Settings, Users } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { AlarmsTab } from '@/components/admin/alarms';
 import { ForecastsTab } from '@/components/admin/forecasts';
 import { MapTab } from '@/components/admin/map';
 import { MeasurementsTab } from '@/components/admin/measurements';
 import { OverviewTab } from '@/components/admin/overview';
+import { StorageTab } from '@/components/admin/storage';
+import { SystemTab } from '@/components/admin/system';
 import { UsersTab } from '@/components/admin/users';
 import { Loading, Page } from '@/components/page';
 import { type AdminTab, parseTab } from '@/lib/admin';
@@ -26,6 +29,9 @@ const TABS: {
   { id: 'forecasts', label: m.admin_tabForecasts, icon: CloudSun, view: () => <ForecastsTab /> },
   { id: 'measurements', label: m.admin_tabMeasurements, icon: Gauge, view: () => <MeasurementsTab /> },
   { id: 'users', label: m.admin_tabUsers, icon: Users, view: () => <UsersTab /> },
+  { id: 'alarms', label: m.admin_tabAlarms, icon: Bell, view: () => <AlarmsTab /> },
+  { id: 'storage', label: m.admin_tabStorage, icon: Database, view: () => <StorageTab /> },
+  { id: 'system', label: m.admin_tabSystem, icon: Settings, view: () => <SystemTab /> },
 ];
 
 interface AdminSearch {

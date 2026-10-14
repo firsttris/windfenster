@@ -4632,6 +4632,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "reqwest",
+ "serde",
  "serde_json",
  "sqlx",
  "tokio",
