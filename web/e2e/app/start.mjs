@@ -6,15 +6,20 @@
  */
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { writeMapData } from './map-data.mjs';
 import { startStandIn } from './stand-in.mjs';
 
 const STAND_IN_PORT = 5298;
+/** Where the data folder's path is written for the tests */
+export const DATA_DIR_NOTE = join(tmpdir(), 'windfenster-e2e-data-dir');
 const bin = process.env.WF_BIN || resolve(import.meta.dirname, '../../../target/debug/windfenster');
 const data = mkdtempSync(join(tmpdir(), 'windfenster-e2e-'));
+// The admin test makes its account an admin on the command line, as an operator does: it needs
+// the data folder.
+writeFileSync(DATA_DIR_NOTE, data);
 const now = Math.floor(Date.now() / 1000);
 
 const standIn = await startStandIn(STAND_IN_PORT, now);
