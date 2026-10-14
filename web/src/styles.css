@@ -189,6 +189,13 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* The open list of a native select: options inherit the text colour of their select, but the
+     browser may draw the list on its own light background (the map's pills: a transparent select
+     over glass, light text on a white list). Popover colours keep both in the same theme. */
+  option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
   /* Room for the scrollbar on every page, so switching to a longer tab (the admin menu, the
      account page) does not shift the page sideways; not on the full-screen map, which never
      scrolls, and not on phones, whose scrollbars lie over the page */
