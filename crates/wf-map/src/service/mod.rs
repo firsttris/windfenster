@@ -43,6 +43,8 @@ pub struct Urls {
     pub icon_d2: String,
     pub icon_global: String,
     pub ecmwf: String,
+    /// ECMWF's mirror, for when data.ecmwf.int is busy
+    pub ecmwf_mirror: String,
     /// Protomaps' daily builds, for the basemap
     pub protomaps: String,
     /// Mapterhorn's downloads, for the relief
@@ -55,6 +57,7 @@ impl Default for Urls {
             icon_d2: icon_d2_files::BASE.into(),
             icon_global: icon_global_files::BASE.into(),
             ecmwf: ecmwf_files::BASE.into(),
+            ecmwf_mirror: ecmwf_files::MIRROR.into(),
             protomaps: crate::basemap::fetch::BUILDS.into(),
             mapterhorn: crate::basemap::terrain::DOWNLOADS.into(),
         }

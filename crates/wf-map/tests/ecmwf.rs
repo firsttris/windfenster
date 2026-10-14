@@ -1,5 +1,6 @@
 //! The ECMWF pipeline against a stand-in for data.ecmwf.int: an index per step, the step's
-//! GRIB2 file answering byte ranges, steps out up to a point.
+//! GRIB2 file answering byte ranges, steps out up to a point; and a busy portal (429) that sends
+//! the round to the mirror.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
@@ -104,7 +105,8 @@ async fn fetches_the_whole_world_by_range() {
         dir.path().to_path_buf(),
         reqwest::Client::new(),
         Urls {
-            ecmwf: base,
+            ecmwf: base.clone(),
+            ecmwf_mirror: base,
             ..Urls::default()
         },
     );
@@ -138,4 +140,42 @@ async fn fetches_the_whole_world_by_range() {
     assert_eq!(fake.ranges.load(Ordering::SeqCst), 14);
     let steps: Vec<u32> = map.runs(ecmwf::MODEL).await.unwrap()[0].steps.clone();
     assert_eq!(steps, [0, 3, 6, 9, 12]);
+}
+
+#[tokio::test]
+async fn goes_on_from_the_mirror_when_the_portal_is_busy() {
+    let fake = Fake::default();
+    fake.last.store(3, Ordering::SeqCst);
+    let mirror = Router::new()
+        .route("/{date}/{hour}/ifs/0p25/oper/{name}", get(serve))
+        .with_state(fake.clone());
+    let busy_calls = Arc::new(AtomicUsize::new(0));
+    let calls = busy_calls.clone();
+    let busy = Router::new().fallback(move || {
+        calls.fetch_add(1, Ordering::SeqCst);
+        async { StatusCode::TOO_MANY_REQUESTS }
+    });
+    let mut bases = Vec::new();
+    for app in [busy, mirror] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        bases.push(format!("http://{}", listener.local_addr().unwrap()));
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let map = MapData::new(
+        dir.path().to_path_buf(),
+        reqwest::Client::new(),
+        Urls {
+            ecmwf: bases[0].clone(),
+            ecmwf_mirror: bases[1].clone(),
+            ..Urls::default()
+        },
+    );
+
+    // The portal answers the first question (the 06 UTC run) busy and is not asked again; on
+    // the mirror the 06 UTC run is not out, the 00 UTC run has steps 0 and 3.
+    assert_eq!(map.update_ecmwf(R00 + 8 * 3_600).await.unwrap(), 2);
+    assert_eq!(busy_calls.load(Ordering::SeqCst), 1);
+    let steps: Vec<u32> = map.runs(ecmwf::MODEL).await.unwrap()[0].steps.clone();
+    assert_eq!(steps, [0, 3]);
 }

@@ -63,7 +63,7 @@ it (with the error as the log has it), and a button that runs it now:
 | TAF, DWD 10-minute values | 29 min | aviationweather.gov, DWD |
 | Cleanup and verification | hourly | the database |
 | Station lists | weekly (checked hourly; "now" fetches them whatever their age) | OurAirports, aviationweather.gov, DWD |
-| Wind map ICON-D2 and ECMWF, ICON global | 10 min | DWD, ECMWF |
+| Wind map ICON-D2 and ECMWF, ICON global | 10 min | DWD, ECMWF (its Google Cloud copy when busy) |
 | Basemap and relief | daily | Protomaps, Mapterhorn |
 | Detail spots | 1 min | Protomaps |
 | Alarms | 10 min | push services, SMTP |

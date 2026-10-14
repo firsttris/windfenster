@@ -310,6 +310,7 @@ mod renewal_tests {
             icon_d2: none.clone(),
             icon_global: none.clone(),
             ecmwf: none.clone(),
+            ecmwf_mirror: none.clone(),
             protomaps: none.clone(),
             mapterhorn: none,
         }
