@@ -149,7 +149,7 @@ Signed in (passkey, or e-mail and password) you can
 
 - **save a spot**: the star on a station or point page, with your own name and the wind
   directions that work there. The start page lists your spots with the wind measured now and the
-  coming days as one band;
+  coming days as one band, in place of the two example stations it shows a first visit;
 - enter **your gear** under *My gear*: every kite, wing, sail and parawing with the wind range you
   ride it in, or a template per kind and level. The forecast then shows what fits each hour;
 - set an **alarm** per spot (the bell): from how much wind, optionally only when some of your gear
