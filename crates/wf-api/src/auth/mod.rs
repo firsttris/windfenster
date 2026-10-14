@@ -7,6 +7,7 @@
 pub mod email;
 pub mod password;
 mod routes;
+pub(crate) mod signup;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,6 +38,8 @@ enum Pending {
         handle: Uuid,
         name: String,
         state: PasskeyRegistration,
+        /// The invitation it came with, used once the account is made
+        invite: Option<String>,
     },
     AddPasskey {
         account_id: i64,
@@ -88,13 +91,13 @@ impl Passkeys {
     }
 }
 
-fn random<const N: usize>() -> [u8; N] {
+pub(crate) fn random<const N: usize>() -> [u8; N] {
     let mut b = [0u8; N];
     openssl::rand::rand_bytes(&mut b).expect("the system's random source");
     b
 }
 
-fn hash(token: &str) -> [u8; 32] {
+pub(crate) fn hash(token: &str) -> [u8; 32] {
     openssl::sha::sha256(token.as_bytes())
 }
 

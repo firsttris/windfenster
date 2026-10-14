@@ -13,6 +13,7 @@ import type { NearGauge } from '@/bindings/NearGauge';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { PushInfo } from '@/bindings/PushInfo';
 import type { SearchResults } from '@/bindings/SearchResults';
+import type { Site } from '@/bindings/Site';
 import type { StationForecast } from '@/bindings/StationForecast';
 import type { StationHistory } from '@/bindings/StationHistory';
 import type { StationLive } from '@/bindings/StationLive';
@@ -65,6 +66,13 @@ export function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: strin
 export const meQuery = queryOptions({
   queryKey: ['me'],
   queryFn: () => api<Account | null>('/me'),
+  staleTime: 5 * 60_000,
+});
+
+/** Whether accounts can be made, the notice above every page, the legal pages */
+export const siteQuery = queryOptions({
+  queryKey: ['site'],
+  queryFn: () => api<Site>('/site'),
   staleTime: 5 * 60_000,
 });
 

@@ -27,8 +27,8 @@ export function canUsePasskeys(): boolean {
 }
 
 /** A new account with a passkey made on this device; signed in afterwards. */
-export async function signUp(name: string): Promise<Account> {
-  const o = await send<PasskeyOptions>('POST', '/auth/signup', { name });
+export async function signUp(name: string, invite?: string): Promise<Account> {
+  const o = await send<PasskeyOptions>('POST', '/auth/signup', { name, invite });
   const credential = await startRegistration({
     optionsJSON: publicKey<PublicKeyCredentialCreationOptionsJSON>(o),
   });

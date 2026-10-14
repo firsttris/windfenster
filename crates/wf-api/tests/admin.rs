@@ -318,3 +318,140 @@ async fn forecasts_measurements_and_the_map() -> Result<()> {
     assert_eq!((status, n), (StatusCode::OK, json!(0)));
     Ok(())
 }
+
+#[tokio::test]
+async fn sign_up_open_by_invitation_or_closed() -> Result<()> {
+    let (_dir, app) = admin_app(|_, s| {
+        let store =
+            wf_core::admin::settings::SettingsStore::fresh(s.db.clone(), Default::default())
+                .unwrap();
+        s.with_settings(store)
+    })
+    .await?;
+    let signup = |invite: Option<&str>, email: &str| {
+        let mut body = json!({"name": "Neu", "email": email, "password": "lang genug 123"});
+        if let Some(i) = invite {
+            body["invite"] = json!(i);
+        }
+        let app = app.clone();
+        async move { call(&app, "POST", "/api/auth/signup/password", Some(body), false).await }
+    };
+    let (_, site) = call(&app, "GET", "/api/site", None, false).await?;
+    assert_eq!(
+        site,
+        json!({"signup": "open", "banner": null, "imprint": false, "privacy": false})
+    );
+    assert_eq!(signup(None, "a@x.de").await?.0, StatusCode::OK);
+
+    let set = |value: Value| {
+        let app = app.clone();
+        async move {
+            call(
+                &app,
+                "PUT",
+                "/api/admin/settings/signup",
+                Some(json!({"value": value})),
+                true,
+            )
+            .await
+        }
+    };
+    set(json!("closed")).await?;
+    assert_eq!(
+        signup(None, "b@x.de").await?.1,
+        json!({"code": "signup_closed"})
+    );
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/auth/signup",
+        Some(json!({"name": "P"})),
+        false,
+    )
+    .await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::FORBIDDEN, json!({"code": "signup_closed"}))
+    );
+
+    set(json!("invite")).await?;
+    assert_eq!(
+        signup(None, "c@x.de").await?.1,
+        json!({"code": "signup_closed"})
+    );
+    let (status, inv) = call(&app, "POST", "/api/admin/invites", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    let link = inv["link"].as_str().unwrap();
+    let token = link.rsplit("invite=").next().unwrap().to_owned();
+    assert_eq!(
+        signup(Some("nope"), "c@x.de").await?.1,
+        json!({"code": "signup_closed"})
+    );
+    assert_eq!(signup(Some(&token), "c@x.de").await?.0, StatusCode::OK);
+    // Once only
+    assert_eq!(
+        signup(Some(&token), "d@x.de").await?.1,
+        json!({"code": "signup_closed"})
+    );
+    let (_, list) = call(&app, "GET", "/api/admin/invites", None, true).await?;
+    assert_eq!(list[0]["usedBy"], "Neu");
+    let (_, inv) = call(&app, "POST", "/api/admin/invites", None, true).await?;
+    let (_, list) = call(&app, "GET", "/api/admin/invites", None, true).await?;
+    let open = list
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["usedAt"].is_null())
+        .unwrap();
+    let id = open["id"].as_str().unwrap();
+    let (status, _) = call(
+        &app,
+        "DELETE",
+        &format!("/api/admin/invites/{id}"),
+        None,
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let token = inv["link"]
+        .as_str()
+        .unwrap()
+        .rsplit("invite=")
+        .next()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        signup(Some(&token), "e@x.de").await?.1,
+        json!({"code": "signup_closed"})
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_site_says_the_banner_and_the_legal_pages() -> Result<()> {
+    let (_dir, app) = admin_app(|_, s| {
+        let store =
+            wf_core::admin::settings::SettingsStore::fresh(s.db.clone(), Default::default())
+                .unwrap();
+        s.with_settings(store)
+    })
+    .await?;
+    let (status, _) = call(&app, "GET", "/api/site/imprint", None, false).await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    for (key, value) in [
+        ("banner", "Wartung Sonntag"),
+        ("imprint", "# Impressum\n\nTristan"),
+    ] {
+        let uri = format!("/api/admin/settings/{key}");
+        let (status, _) = call(&app, "PUT", &uri, Some(json!({"value": value})), true).await?;
+        assert_eq!(status, StatusCode::OK);
+    }
+    let (_, site) = call(&app, "GET", "/api/site", None, false).await?;
+    assert_eq!(
+        (&site["banner"], &site["imprint"], &site["privacy"]),
+        (&json!("Wartung Sonntag"), &json!(true), &json!(false))
+    );
+    let (_, text) = call(&app, "GET", "/api/site/imprint", None, false).await?;
+    assert_eq!(text, "# Impressum\n\nTristan");
+    Ok(())
+}

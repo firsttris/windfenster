@@ -8,6 +8,7 @@ import type { AdminOverview } from '@/bindings/AdminOverview';
 import type { AdminSettings } from '@/bindings/AdminSettings';
 import type { AdminUserDetail } from '@/bindings/AdminUserDetail';
 import type { AdminUsers } from '@/bindings/AdminUsers';
+import type { Invite } from '@/bindings/Invite';
 import { api } from './api';
 
 export const adminUsersQuery = queryOptions({
@@ -54,4 +55,9 @@ export const adminMeasurementsQuery = queryOptions({
   queryKey: ['admin', 'measurements'],
   queryFn: () => api<AdminMeasurements>('/admin/measurements'),
   refetchInterval: 60_000,
+});
+
+export const adminInvitesQuery = queryOptions({
+  queryKey: ['admin', 'invites'],
+  queryFn: () => api<Invite[]>('/admin/invites'),
 });

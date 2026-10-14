@@ -113,6 +113,11 @@ verified day ("Run now" runs the hourly cleanup and verification).
 
 ## Users
 
+**Sign-up** is open (anyone makes an account), by invitation or closed. By invitation, an admin
+makes a link (`/login?invite=…`, shown once, valid 14 days, used once) and sends it on; the
+invitations of the last 30 days show who used them, open ones can be withdrawn. Closed, the
+sign-in page says so; existing accounts sign in as before.
+
 The list of accounts with how each signs in (passkey, password), when it was last seen (to the
 day), its spots and alarms, and its role. Picking one shows its sessions, push devices, gear and
 the alarms delivered to it in the last 30 days. An admin can

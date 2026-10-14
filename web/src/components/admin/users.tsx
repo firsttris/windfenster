@@ -14,13 +14,16 @@ import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
+import { InvitesCard, SignupMode } from './invites';
 import { Chip, ROW, Row, TabHead, Table } from './parts';
+import { useSettings } from './setting';
 
 const FIELD =
   'h-9 min-w-0 rounded-[9px] border bg-background px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
 export function UsersTab() {
   const users = useQuery(adminUsersQuery);
+  const settings = useSettings();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<UserFilter>('all');
   const [picked, setPicked] = useState<number | null>(null);
@@ -34,7 +37,10 @@ export function UsersTab() {
       <TabHead
         title={m.admin_tabUsers()}
         lead={s && m.admin_usersLead({ total: s.total, week: s.newWeek, month: s.activeMonth })}
-      />
+      >
+        <SignupMode />
+      </TabHead>
+      {settings.data?.settings.signup === 'invite' && <InvitesCard />}
       <div className="flex flex-wrap items-start gap-5">
         <Card className="min-w-0 flex-[999_1_520px] gap-2.5 p-4">
           <div className="flex flex-wrap gap-2">

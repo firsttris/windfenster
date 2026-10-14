@@ -2,6 +2,7 @@
 //! server with `windfenster admin`. Every change an admin makes is written to the admin log.
 
 pub mod data;
+pub mod invites;
 pub mod map;
 pub mod overview;
 pub mod settings;
@@ -56,6 +57,8 @@ pub fn routes() -> Router<AppState> {
         .route("/users/{id}/export", get(users::export))
         .route("/users/{id}/confirm-email", post(users::confirm_email))
         .route("/log", get(users::log))
+        .route("/invites", get(invites::list).post(invites::create))
+        .route("/invites/{id}", delete(invites::withdraw))
         .route("/log/lines", get(overview::log_lines))
         .route("/overview", get(overview::overview))
         .route("/tasks/{id}/run", post(overview::run))

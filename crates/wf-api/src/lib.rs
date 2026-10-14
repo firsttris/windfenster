@@ -16,6 +16,7 @@ mod map_piece;
 mod meta;
 pub mod ranking;
 pub mod search;
+pub mod site;
 mod spa;
 pub mod stats;
 pub mod water;
@@ -231,6 +232,8 @@ pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health))
         .route("/models", get(models))
+        .route("/site", get(site::site))
+        .route("/site/{page}", get(site::legal))
         .route("/stations", get(search::search))
         .route("/stations/{slug}", get(forecast::station))
         .route("/stations/{slug}/live", get(live::live))
