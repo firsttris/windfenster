@@ -26,5 +26,6 @@ wf-core.workspace = true
 wf-map.workspace = true
 
 [dev-dependencies]
+anyhow.workspace = true
 axum.workspace = true
 tempfile.workspace = true

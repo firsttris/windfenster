@@ -4474,6 +4474,7 @@ dependencies = [
 name = "wf-alarm"
 version = "0.1.16"
 dependencies = [
+ "anyhow",
  "axum",
  "chrono",
  "chrono-tz",

@@ -39,6 +39,8 @@ pub enum Error {
     Push(String),
     #[error("e-mail: {0}")]
     Mail(String),
+    #[error("e-mail: the day's {0} mails are sent")]
+    MailCap(u32),
 }
 
 pub struct Alarms {
