@@ -229,19 +229,3 @@
     backdrop-filter: none;
   }
 }
-
-/* The header over the map: lighter than the panels, the map runs on under it */
-@utility glass-bar {
-  background-color: color-mix(in oklab, var(--background) 52%, transparent);
-  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
-  @media (min-width: 768px) {
-    backdrop-filter: blur(18px) saturate(1.5);
-  }
-  @media (max-width: 767px) {
-    background-color: color-mix(in oklab, var(--background) 95%, transparent);
-  }
-  @media (prefers-reduced-transparency: reduce) {
-    background-color: var(--background);
-    backdrop-filter: none;
-  }
-}

@@ -112,30 +112,45 @@ function Footer() {
  * below it, routes/map.tsx). */
 function Header({ over }: { over: boolean }) {
   const openSearch = useOpenSearch();
+  // Over the map there is no bar: logo, menu and buttons float on it, each on its own ground, and
+  // the map takes drags between them.
+  const link = cn(
+    'px-3 font-medium text-muted-foreground text-sm no-underline hover:text-foreground',
+    over ? 'rounded-full py-1.5' : 'rounded-sm py-2',
+  );
   return (
-    <header className={over ? 'glass-bar absolute inset-x-0 top-0 z-40 border-b' : 'border-line border-b'}>
+    <header
+      className={
+        over
+          ? 'pointer-events-none absolute inset-x-0 top-0 z-40 [&_a]:pointer-events-auto [&_button]:pointer-events-auto'
+          : 'border-line border-b'
+      }
+    >
       <div
         className={cn(
-          'mx-auto flex max-w-[1360px] items-center gap-2 px-3 min-[380px]:gap-3 min-[380px]:px-4 sm:gap-7 sm:px-6',
-          over ? 'h-16' : 'py-3',
+          'mx-auto flex items-center gap-2 px-3 min-[380px]:gap-3 min-[380px]:px-4',
+          // over the map in line with its pills, 16 px from the edge; all of them 40 px high
+          over ? 'h-16 sm:gap-4' : 'max-w-[1360px] py-3 sm:gap-7 sm:px-6',
         )}
       >
-        <Link to="/" aria-label={m.nav_home()} className="text-foreground no-underline">
+        <Link
+          to="/"
+          aria-label={m.nav_home()}
+          className={cn(
+            'text-foreground no-underline',
+            over && 'glass flex h-10 items-center rounded-full border pr-3 pl-1 shadow-none min-[380px]:pr-4',
+          )}
+        >
           <Logo />
         </Link>
-        <nav aria-label={m.nav_main()} className="hidden gap-1 sm:flex">
-          <Link
-            to="/"
-            className="rounded-sm px-3 py-2 font-medium text-muted-foreground text-sm no-underline hover:text-foreground"
-            activeProps={{ className: 'bg-secondary !text-foreground' }}
-          >
+        <nav
+          aria-label={m.nav_main()}
+          className={cn('hidden gap-1 sm:flex', over && 'glass h-10 items-center rounded-full border p-1 shadow-none')}
+        >
+          <Link to="/" className={link} activeProps={{ className: 'bg-secondary !text-foreground' }}>
             {m.nav_forecast()}
           </Link>
-          <Link
-            to="/map"
-            className="rounded-sm px-3 py-2 font-medium text-muted-foreground text-sm no-underline hover:text-foreground"
-            activeProps={{ className: 'bg-secondary !text-foreground' }}
-          >
+          <Link to="/map" className={link} activeProps={{ className: 'bg-secondary !text-foreground' }}>
             {m.nav_map()}
           </Link>
         </nav>
