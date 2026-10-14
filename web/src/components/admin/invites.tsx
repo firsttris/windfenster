@@ -15,7 +15,7 @@ import { Segmented } from '@/ui/segmented';
 import { Chip } from './parts';
 import { useSettings } from './setting';
 
-export function SignupMode() {
+export function SignupSwitch() {
   const settings = useSettings();
   const value = settings.data?.settings.signup ?? null;
   return (

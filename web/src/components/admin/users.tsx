@@ -14,7 +14,7 @@ import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
-import { InvitesCard, SignupMode } from './invites';
+import { InvitesCard, SignupSwitch } from './invites';
 import { Chip, ROW, Row, TabHead, Table } from './parts';
 import { useSettings } from './setting';
 
@@ -38,7 +38,7 @@ export function UsersTab() {
         title={m.admin_tabUsers()}
         lead={s && m.admin_usersLead({ total: s.total, week: s.newWeek, month: s.activeMonth })}
       >
-        <SignupMode />
+        <SignupSwitch />
       </TabHead>
       {settings.data?.settings.signup === 'invite' && <InvitesCard />}
       <div className="flex flex-wrap items-start gap-5">
