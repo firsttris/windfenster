@@ -9,7 +9,8 @@ wind station), a **point** (any place on earth, by map click or search) and the 
 Spots, gear and alarms come with an account.
 
 The app speaks German and English (the switch in the footer), follows the system's light or dark
-mode (the sun and moon button), and shows wind in knots, m/s or km/h (kept in the browser).
+mode (the sun and moon button), and shows wind in knots, m/s or km/h (the switch beside the ten days' colour scale, kept in the
+browser).
 
 ## Finding a place
 
@@ -27,14 +28,14 @@ From the top:
    forecast (TAF) in plain words and the raw METAR translated group by group. Beside it **Do the
    models agree?**: the spread between the models at the windiest daytime hour of the next two
    days.
-2. **Model chips**, right above the forecast, in two groups side by side: **Fine · hourly** for
-   the regional high-resolution models (ICON-D2, AROME, HARMONIE), **Global · every 3 hours** for
-   the global ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. Ticks
-   before each group's title show its step, dense or sparse. On narrower screens the chips show
-   their names only, a line beneath says the resolution and reach of the one chosen, and on a
-   phone the row swipes. The model chosen
-   sets the step of the days below. Which one opens first follows the
-   [ranking](forecasts.md#verification-and-ranking); the note beside the chips says why.
+2. **Model chips**, right above the forecast, in one row: first the regional high-resolution
+   models (ICON-D2, AROME, HARMONIE, hour by hour), after a line the global ones (ECMWF, GFS,
+   every 3 hours) and the **Windfenster mix**, a weighted mean of all of them. On narrower screens
+   the chips show their names only, a line beneath says the resolution and reach of the one
+   chosen, and on a phone the row swipes. The model chosen sets the step of the days below.
+   Which one opens first follows the [ranking](forecasts.md#verification-and-ranking); the mark
+   beside the count (a tick when the ranking chose) says why; the chosen model's run stands under
+   the count.
 3. **The ten-day forecast.**
 4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.
@@ -108,7 +109,8 @@ made is in [Forecasts and models](forecasts.md#verification-and-ranking).
 
 ![The wind map with the gust layer: a storm west of Ireland in yellow, orange and red over the British Isles and France](screenshot-map-gusts.png)
 
-Over the map lie only two pills and the scale, top left, and the timeline at the foot.
+Over the map lie only two pills and the scale, top left, and the timeline at the foot; on a
+screen 1280 px or wider the two pills sit in the top row, beside the menu.
 
 - **Models**: ICON-D2, ICON global and ECMWF IFS are drawn at once, the finest on top, blended
   without an edge. The model pill (with its resolution and, on a wide screen, its run) picks one;
@@ -119,7 +121,7 @@ Over the map lie only two pills and the scale, top left, and the timeline at the
   at its end; drag the knob or tap a day. The keys play (**Space**), step an hour (**←/→**, with
   **Shift** a day) and jump to now (**N**). On a phone it sits in a sheet at the foot, with play
   and the hour. The track is coloured by the wind at the picked spot.
-- **Tap a place**: the spot card, under the pills on a wide screen, shows the model's wind and
+- **Tap a place**: the spot card, under the scale on a wide screen, shows the model's wind and
   gusts there and its coming hours; tap an hour to go there. A station also shows its last
   measurement and six hours as a small curve. **Escape** closes it.
 - **Stations** show their measured wind as a dot in the scale's colour, from closer up as a badge
@@ -148,7 +150,7 @@ Signed in (passkey, or e-mail and password) you can
 
 - **save a spot**: the star on a station or point page, with your own name and the wind
   directions that work there. The start page lists your spots with the wind measured now and the
-  coming days as one band;
+  coming days as one band, in place of the two example stations it shows a first visit;
 - enter **your gear** under *My gear*: every kite, wing, sail and parawing with the wind range you
   ride it in, or a template per kind and level. The forecast then shows what fits each hour;
 - set an **alarm** per spot (the bell): from how much wind, optionally only when some of your gear

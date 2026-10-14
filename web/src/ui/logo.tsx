@@ -26,7 +26,7 @@ export function Logo({ className }: { className?: string }) {
         <WindMark className="size-5" />
       </span>
       {/* A notch smaller on the narrowest phones, so the header keeps its buttons in view */}
-      <span className="font-bold text-[19px] tracking-[-0.05em] min-[380px]:text-[22px]">windfenster</span>
+      <span className="font-bold text-[19px] tracking-[-0.05em] min-[380px]:text-[22px]">Windfenster</span>
     </span>
   );
 }

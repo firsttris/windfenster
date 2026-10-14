@@ -62,10 +62,11 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await expect(alarm.getByText('E-Mails sind auf diesem Server nicht eingerichtet.')).toBeVisible();
   await alarm.press('Escape');
 
-  // The home page lists it
+  // The home page lists it, in place of the example stations
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Deine Spots' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Baden Airpark/ }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Zum Beispiel' })).toHaveCount(0);
 
   // Out, and in again with the same passkey
   await page.getByRole('link', { name: `Konto von ${name}` }).click();
@@ -73,6 +74,9 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await expect(page.getByText('1 Passkey für dieses Konto')).toBeVisible();
   await page.getByRole('button', { name: 'Abmelden' }).click();
   await expect(page.getByRole('link', { name: 'Anmelden' })).toBeVisible();
+  // Signed out, the start page shows the examples again
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Zum Beispiel' })).toBeVisible();
   // The sign-in page offers the passkey in the e-mail field as soon as it opens (autofill); the
   // virtual authenticator takes it at once, as a tap on the offer would
   await page.goto('/login');

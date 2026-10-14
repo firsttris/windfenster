@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import type { MapFrame } from '@/bindings/MapFrame';
+import { InHeader } from '@/components/header-slot';
 import { basemapFor } from '@/components/map/basemap';
 
 import { Legend } from '@/components/map/legend';
@@ -59,6 +60,8 @@ function MapPage() {
   const [unit] = useUnit();
   const now = useNow();
   const desktop = useMedia('(min-width: 768px)', true);
+  // Wide enough for model and layer in the header's row, beside the menu
+  const wide = useMedia('(min-width: 1280px)', true);
   // Made once per basemap file, not per refetch: a new one would make a new map. New detail
   // boxes only load the tiles again (MapCanvas `detail`).
   const info = index.data?.basemap ?? null;
@@ -227,7 +230,8 @@ function MapPage() {
           />
         )}
         {/* As in the mockups: model and layer as two pills, the scale slim beneath; on wide
-            screens the spot picked under them (on phones it is the sheet at the foot) */}
+            screens the pills move up into the header's row, and the spot picked lies under the
+            scale (on phones it is the sheet at the foot) */}
         <div
           className={cn(
             'absolute flex flex-col items-start',
@@ -237,39 +241,41 @@ function MapPage() {
           )}
         >
           <h1 className="sr-only">{m.map_title()}</h1>
-          <div className={cn('flex items-center', desktop ? 'w-max gap-2' : 'max-w-full gap-1.5')}>
-            {ready.length > 0 && (
+          <InHeader when={wide}>
+            <div className={cn('flex items-center', desktop ? 'w-max gap-2' : 'max-w-full gap-1.5')}>
+              {ready.length > 0 && (
+                <PillSelect
+                  label={m.map_model()}
+                  value={choice.selected?.model ?? ready[0].model}
+                  onChange={setChosen}
+                  options={ready.map((l) => {
+                    const md = modelOf(l.model);
+                    const run = desktop ? runOf(l.frames) : null;
+                    const parts = [
+                      md && `${formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km`,
+                      run !== null && m.map_run({ run: runHour(run) }),
+                    ].filter(Boolean);
+                    return {
+                      value: l.model,
+                      label: nameOf(l.model),
+                      detail: parts.length > 0 ? parts.join(' · ') : undefined,
+                    };
+                  })}
+                  className={cn(desktop && 'h-10 px-3.5 text-sm')}
+                />
+              )}
               <PillSelect
-                label={m.map_model()}
-                value={choice.selected?.model ?? ready[0].model}
-                onChange={setChosen}
-                options={ready.map((l) => {
-                  const md = modelOf(l.model);
-                  const run = desktop ? runOf(l.frames) : null;
-                  const parts = [
-                    md && `${formatNumber(md.resolutionKm, md.resolutionKm < 10 ? 1 : 0)} km`,
-                    run !== null && m.map_run({ run: runHour(run) }),
-                  ].filter(Boolean);
-                  return {
-                    value: l.model,
-                    label: nameOf(l.model),
-                    detail: parts.length > 0 ? parts.join(' · ') : undefined,
-                  };
-                })}
-                className={cn(desktop && 'h-10 px-3.5 text-sm')}
+                label={m.map_layer()}
+                value={field}
+                onChange={(f) => setField(f as FieldLayer)}
+                options={[
+                  { value: 'wind', label: m.map_layerWind() },
+                  { value: 'gusts', label: m.map_layerGusts() },
+                ]}
+                className={cn('shrink-0', desktop && 'h-10 px-3.5 text-sm')}
               />
-            )}
-            <PillSelect
-              label={m.map_layer()}
-              value={field}
-              onChange={(f) => setField(f as FieldLayer)}
-              options={[
-                { value: 'wind', label: m.map_layerWind() },
-                { value: 'gusts', label: m.map_layerGusts() },
-              ]}
-              className={cn('shrink-0', desktop && 'h-10 px-3.5 text-sm')}
-            />
-          </div>
+            </div>
+          </InHeader>
           <div
             className={cn(
               'glass flex flex-col gap-1 rounded-[10px] border px-2.5 pt-1.5 pb-1 shadow-none',

@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import { Fragment } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
 import type { Model } from '@/bindings/Model';
@@ -18,17 +18,18 @@ interface Props {
   hint: string;
   /** The choice comes from the station's ranking */
   auto: boolean;
+  /** The chosen model's run and how long ago it came ("Lauf 12 UTC · vor 6 Min.") */
+  run?: string;
 }
 
-/** The models that cover the place, as in the mockup: two groups side by side in one row, a
- * line between them, the fine regional ones (hour by hour) and the global ones with the mix
- * (every 3 hours). Each group's title says so, with ticks as dense as its steps. Narrower than
- * xl the chips show their names only and a line beneath tells the one chosen; on phones and
- * tablets the row swipes. */
-export function ModelChips({ fc, selected, onSelect, top, hint, auto }: Props) {
+/** The models that cover the place in one row: the fine regional ones (hour by hour), a line,
+ * the global ones with the mix (every 3 hours). How the first one was chosen is behind the info
+ * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
+ * tells the one chosen; on phones and tablets the row swipes. */
+export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Props) {
   const groups = [
-    { title: m.models_rowSuper(), ticks: 13, models: fc.models.filter((x) => x.class === 'super') },
-    { title: m.models_rowGlobal(), ticks: 5, models: fc.models.filter((x) => x.class !== 'super') },
+    { key: 'super', models: fc.models.filter((x) => x.class === 'super') },
+    { key: 'global', models: fc.models.filter((x) => x.class !== 'super') },
   ].filter((g) => g.models.length > 0);
   const chosen = fc.models.find((x) => x.id === selected);
   return (
@@ -38,52 +39,57 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto }: Props) {
     >
       <div className="relative -mx-4 flex items-stretch gap-3.5 overflow-x-auto px-4 [scrollbar-width:none] sm:gap-[22px] lg:mx-0 lg:overflow-visible lg:px-0">
         <div className="hidden min-w-24 shrink-0 flex-col justify-center gap-0.5 lg:flex">
-          <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.1em]">
-            {m.models_source()}
+          <span className="flex items-center gap-1.5 font-semibold text-sm">
+            {/* Every chip counts, the mix too */}
+            {m.models_count({ count: fc.models.length })}
+            <HintMark hint={hint} auto={auto} />
           </span>
-          <span className="font-semibold text-sm">
-            {m.models_count({ count: fc.models.filter((x) => x.id !== MIX).length })}
-          </span>
+          {run && <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">{run}</span>}
         </div>
         {groups.map((g, i) => (
-          <Fragment key={g.title}>
+          <Fragment key={g.key}>
             {i > 0 && <span aria-hidden="true" className="w-px shrink-0 self-stretch bg-border sm:my-0.5" />}
-            <div className="flex shrink-0 flex-col gap-[7px] sm:gap-2">
-              <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-[10px] text-muted-foreground uppercase tracking-[0.08em] sm:gap-2 sm:text-[11px]">
-                <Ticks count={g.ticks} />
-                {g.title}
-              </span>
-              <div className="flex gap-1.5 sm:gap-2">
-                {g.models.map((model) => (
-                  <Chip
-                    key={model.id}
-                    fc={fc}
-                    model={model}
-                    on={model.id === selected}
-                    top={model.id === top}
-                    onSelect={onSelect}
-                  />
-                ))}
-              </div>
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {g.models.map((model) => (
+                <Chip
+                  key={model.id}
+                  fc={fc}
+                  model={model}
+                  on={model.id === selected}
+                  top={model.id === top}
+                  onSelect={onSelect}
+                />
+              ))}
             </div>
           </Fragment>
         ))}
       </div>
       {chosen && (
-        <p className="m-0 text-muted-foreground text-xs leading-snug xl:hidden">
-          <b className="font-semibold text-foreground">{modelName(fc, chosen.id)}</b> · {details(chosen)}
-          {chosen.id === top && <> · {m.models_top()}</>}
+        <p className="m-0 flex items-center gap-1.5 text-muted-foreground text-xs leading-snug xl:hidden">
+          <span>
+            <b className="font-semibold text-foreground">{modelName(fc, chosen.id)}</b> · {details(chosen)}
+            {chosen.id === top && <> · {m.models_top()}</>}
+            {/* From lg on the run stands left, under the count */}
+            {run && <span className="lg:hidden"> · {run}</span>}
+          </span>
+          {/* The count and its mark stand left from lg on */}
+          <HintMark hint={hint} auto={auto} className="lg:hidden" />
         </p>
-      )}
-      {auto ? (
-        <p className="m-0 hidden items-center gap-2 border-t pt-2.5 text-success-foreground text-xs leading-snug sm:flex">
-          <Check className="size-4 shrink-0 text-success" strokeWidth={2.4} aria-hidden="true" />
-          <span>{hint}</span>
-        </p>
-      ) : (
-        <p className="m-0 hidden border-t pt-2.5 text-muted-foreground text-xs leading-snug sm:block">{hint}</p>
       )}
     </section>
+  );
+}
+
+/** How the first model was chosen, on hover: a tick when the station's ranking chose it. */
+function HintMark({ hint, auto, className }: { hint: string; auto: boolean; className?: string }) {
+  return (
+    <span role="img" aria-label={hint} title={hint} className={cn('cursor-help', className)}>
+      {auto ? (
+        <Check className="size-3.5 text-success" strokeWidth={2.4} aria-hidden="true" />
+      ) : (
+        <Info className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      )}
+    </span>
   );
 }
 
@@ -92,20 +98,6 @@ function details(model: Model): string {
   return model.id === MIX
     ? m.mix_sub({ days: Math.min(10, Math.round(model.maxLeadH / 24)) })
     : `${formatNumber(model.resolutionKm, Number.isInteger(model.resolutionKm) ? 0 : 1)} km · ${m.models_days({ days: Math.round(model.maxLeadH / 24) })}`;
-}
-
-/** A group's step as ticks: dense for hourly, sparse for every 3 hours */
-function Ticks({ count }: { count: number }) {
-  const w = 40;
-  return (
-    <svg aria-hidden="true" viewBox={`0 0 ${w} 10`} className="h-[9px] w-[27px] shrink-0 sm:h-2.5 sm:w-10">
-      <path
-        d={Array.from({ length: count }, (_, i) => `M${1 + (i * (w - 2)) / (count - 1)} 1v8`).join('')}
-        stroke="currentColor"
-        strokeWidth={1.4}
-      />
-    </svg>
-  );
 }
 
 function Chip({
