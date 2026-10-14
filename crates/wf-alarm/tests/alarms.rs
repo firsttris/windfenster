@@ -109,6 +109,7 @@ async fn tells_once_when_the_station_measures_it() -> Result<(), Box<dyn std::er
         lon: 8.08,
         name: "Airpark".into(),
         sector: Some(Sector { from: 180, to: 300 }),
+        model: None,
     };
     let fav = favorite::add(&db, me, &input, 1).await?.unwrap();
     let settings = AlarmSettings {
@@ -207,6 +208,7 @@ async fn sleeps_at_night_and_needs_the_direction() -> Result<(), Box<dyn std::er
         lon: 8.08,
         name: "Airpark".into(),
         sector: Some(Sector { from: 180, to: 300 }),
+        model: None,
     };
     let fav = favorite::add(&db, me, &input, 1).await?.unwrap();
     let settings = AlarmSettings {

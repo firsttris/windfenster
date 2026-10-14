@@ -33,9 +33,9 @@ From the top:
    every 3 hours) and the **Windfenster mix**, a weighted mean of all of them. On narrower screens
    the chips show their names only, a line beneath says the resolution and reach of the one
    chosen, and on a phone the row swipes. The model chosen sets the step of the days below.
-   Which one opens first follows the [ranking](forecasts.md#verification-and-ranking); the mark
-   beside the count (a tick when the ranking chose) says why; the chosen model's run stands under
-   the count.
+   Which one opens first follows the [ranking](forecasts.md#verification-and-ranking), or a
+   saved spot's own starting model; the mark beside the count (a tick when the ranking chose)
+   says why; the chosen model's run stands under the count.
 3. **The ten-day forecast.**
 4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.
@@ -148,8 +148,9 @@ With *reduce motion* set in the system, arrows that stand still take the particl
 
 Signed in (passkey, or e-mail and password) you can
 
-- **save a spot**: the star on a station or point page, with your own name and the wind
-  directions that work there. The start page lists your spots with the wind measured now and the
+- **save a spot**: the star on a station or point page, with your own name, the wind
+  directions that work there and the model its forecast opens with (*Starting model*: automatic,
+  the one that hits best there, or the mix or a model of your choice). The start page lists your spots with the wind measured now and the
   coming days as one band, in place of the two example stations it shows a first visit;
 - enter **your gear** under *My gear*: every kite, wing, sail and parawing with the wind range you
   ride it in, or a template per kind and level. The forecast then shows what fits each hour;

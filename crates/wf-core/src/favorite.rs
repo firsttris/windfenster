@@ -1,5 +1,5 @@
 //! A user's favourites: stations or points with their own name and, optionally, the wind
-//! directions that work there.
+//! directions that work there and the model their forecast opens with.
 
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -47,6 +47,8 @@ pub struct Favorite {
     pub lon: f64,
     pub name: String,
     pub sector: Option<Sector>,
+    /// The model the forecast opens with (a model's id or "mix"); null for automatic
+    pub model: Option<String>,
 }
 
 /// What the app sends to add or change a favourite.
@@ -60,6 +62,9 @@ pub struct FavoriteInput {
     pub lon: f64,
     pub name: String,
     pub sector: Option<Sector>,
+    /// Null or left out: automatic
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 type Row = (
@@ -70,9 +75,10 @@ type Row = (
     String,
     Option<i64>,
     Option<i64>,
+    Option<String>,
 );
 
-fn of_row((id, slug, lat, lon, name, from, to): Row) -> Favorite {
+fn of_row((id, slug, lat, lon, name, from, to, model): Row) -> Favorite {
     let sector = match (from, to) {
         (Some(from), Some(to)) => Some(Sector {
             from: from as u16,
@@ -87,12 +93,13 @@ fn of_row((id, slug, lat, lon, name, from, to): Row) -> Favorite {
         lon,
         name,
         sector,
+        model,
     }
 }
 
 pub async fn list(db: &SqlitePool, account_id: i64) -> sqlx::Result<Vec<Favorite>> {
     let rows: Vec<Row> = sqlx::query_as(
-        "SELECT id, slug, lat, lon, name, wind_from, wind_to FROM favorite \
+        "SELECT id, slug, lat, lon, name, wind_from, wind_to, model FROM favorite \
          WHERE account_id = ? ORDER BY position, id",
     )
     .bind(account_id)
@@ -117,9 +124,9 @@ pub async fn add(
         return Ok(None);
     }
     let row: Row = sqlx::query_as(
-        "INSERT INTO favorite (account_id, slug, lat, lon, name, wind_from, wind_to, position, \
-         created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
-         RETURNING id, slug, lat, lon, name, wind_from, wind_to",
+        "INSERT INTO favorite (account_id, slug, lat, lon, name, wind_from, wind_to, model, \
+         position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         RETURNING id, slug, lat, lon, name, wind_from, wind_to, model",
     )
     .bind(account_id)
     .bind(&f.slug)
@@ -128,6 +135,7 @@ pub async fn add(
     .bind(&f.name)
     .bind(f.sector.map(|s| s.from))
     .bind(f.sector.map(|s| s.to))
+    .bind(&f.model)
     .bind(last.map_or(0, |p| p + 1))
     .bind(now)
     .fetch_one(db)
@@ -135,23 +143,25 @@ pub async fn add(
     Ok(Some(of_row(row)))
 }
 
-/// Changes a favourite's name and directions (where it is stays); None when it is not the
-/// account's.
+/// Changes a favourite's name, directions and model (where it is stays); None when it is not
+/// the account's.
 pub async fn update(
     db: &SqlitePool,
     account_id: i64,
     id: i64,
     name: &str,
     sector: Option<Sector>,
+    model: Option<&str>,
 ) -> sqlx::Result<Option<Favorite>> {
     let row: Option<Row> = sqlx::query_as(
-        "UPDATE favorite SET name = ?, wind_from = ?, wind_to = ? \
+        "UPDATE favorite SET name = ?, wind_from = ?, wind_to = ?, model = ? \
          WHERE id = ? AND account_id = ? \
-         RETURNING id, slug, lat, lon, name, wind_from, wind_to",
+         RETURNING id, slug, lat, lon, name, wind_from, wind_to, model",
     )
     .bind(name)
     .bind(sector.map(|s| s.from))
     .bind(sector.map(|s| s.to))
+    .bind(model)
     .bind(id)
     .bind(account_id)
     .fetch_optional(db)
@@ -214,6 +224,7 @@ mod tests {
             lon: 8.08,
             name: "Baggersee".into(),
             sector: Some(Sector { from: 200, to: 290 }),
+            model: Some("arome".into()),
         };
         let point = FavoriteInput {
             slug: None,
@@ -221,20 +232,28 @@ mod tests {
             lon: 28.09,
             name: "Prasonisi".into(),
             sector: None,
+            model: None,
         };
         let a = add(&db, me, &edsb, 1).await?.unwrap();
         let b = add(&db, me, &point, 2).await?.unwrap();
         assert_eq!(a.sector, Some(Sector { from: 200, to: 290 }));
+        assert_eq!(
+            (a.model.as_deref(), b.model.as_deref()),
+            (Some("arome"), None)
+        );
         assert_eq!(list(&db, me).await?, vec![a.clone(), b.clone()]);
         assert!(list(&db, other).await?.is_empty());
 
         reorder(&db, me, &[b.id, a.id]).await?;
         assert_eq!(list(&db, me).await?[0].name, "Prasonisi");
         // Someone else's favourite cannot be changed or removed.
-        assert!(update(&db, other, a.id, "x", None).await?.is_none());
+        assert!(update(&db, other, a.id, "x", None, None).await?.is_none());
         assert!(!remove(&db, other, a.id).await?);
-        let changed = update(&db, me, a.id, "Rhein", None).await?.unwrap();
+        let changed = update(&db, me, a.id, "Rhein", None, Some("mix"))
+            .await?
+            .unwrap();
         assert_eq!((changed.name.as_str(), changed.sector), ("Rhein", None));
+        assert_eq!(changed.model.as_deref(), Some("mix"));
         assert!(remove(&db, me, b.id).await?);
         assert_eq!(list(&db, me).await?.len(), 1);
         // Gone with the account

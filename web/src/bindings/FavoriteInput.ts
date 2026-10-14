@@ -8,4 +8,8 @@ export type FavoriteInput = {
 /**
  * A station's slug; else the point `lat`, `lon`
  */
-slug: string | null, lat: number, lon: number, name: string, sector: Sector | null, };
+slug: string | null, lat: number, lon: number, name: string, sector: Sector | null, 
+/**
+ * Null or left out: automatic
+ */
+model: string | null, };

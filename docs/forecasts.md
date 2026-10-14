@@ -81,7 +81,9 @@ flowchart LR
   point takes the ranking of a station at most 5 km away.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
   for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h. Before that a
-  fixed order decides (ICON-D2, AROME, HARMONIE, then ECMWF IFS, GFS).
+  fixed order decides (ICON-D2, AROME, HARMONIE, then ECMWF IFS, GFS). A saved spot can name its
+  own starting model instead (the spot's dialog, *Starting model*); where that model has no values,
+  the auto choice holds.
 
 ## The Windfenster mix
 
