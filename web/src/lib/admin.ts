@@ -92,3 +92,38 @@ export function percent(used: number, limit: number): number {
 export function diskUsed(d: DiskUsage): number {
   return d.models.reduce((a, [, b]) => a + b, 0) + d.basemap + d.terrain + d.spots + d.database + d.partial + d.other;
 }
+
+/** A Protomaps build (YYYYMMDD) as a date in words: "13.10.2026". */
+export function buildDate(build: string): string {
+  const m = /^(\d{4})(\d{2})(\d{2})$/.exec(build);
+  if (!m) return build;
+  return new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))),
+  );
+}
+
+/** A Unix time as a date: "13.10.2026". */
+export function date(unix: number): string {
+  return new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium' }).format(new Date(unix * 1000));
+}
+
+/** A region as typed: "west,south,east,north"; empty for none. */
+export function regionText(r: [number, number, number, number] | null): string {
+  return r ? r.join(',') : '';
+}
+
+/** A region from what was typed; undefined when it is no region, null for none. */
+export function parseRegion(text: string): [number, number, number, number] | null | undefined {
+  if (!text.trim() || text.trim() === 'none') return null;
+  const v = text.split(',').map((p) => Number(p.trim()));
+  if (v.length !== 4 || v.some((n) => !Number.isFinite(n))) return undefined;
+  const [w, s, e, n] = v;
+  if (w < -180 || e > 180 || s < -90 || n > 90 || w >= e || s >= n) return undefined;
+  return [w, s, e, n];
+}
+
+/** Seconds a job still needs at its rate; null when it cannot be told. */
+export function remaining(done: number, total: number, rate: number): number | null {
+  if (rate <= 0 || total <= done) return null;
+  return (total - done) / rate;
+}

@@ -79,6 +79,10 @@ pmtiles extract https://build.protomaps.com/20261010.pmtiles data/map/basemap.pm
 
 Europe to zoom 12 is about 7 GB; the Upper Rhine to zoom 15 about 210 MB. `WF_BASEMAP=off`
 leaves the file to you; the server cuts its tiles the same way where it stops.
+
+With `WF_BASEMAP=ask` (or "Ask" on the [admin page](admin.md#map-and-basemap)) the server does not
+renew by itself: when the basemap or relief is due, the admin page shows it with the newest
+build, and an admin says when.
 OpenStreetMap is credited on the map.
 
 ## Changing the depth

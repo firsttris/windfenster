@@ -116,6 +116,10 @@ and `.json`, plus the basemap and relief as PMTiles. See [The wind map](wind-map
 | a minute | detail basemap spots around places people look at, two at a time |
 | weekly | the station lists |
 
+Settings the admin page changes live in `wf_core::admin::settings`: the loops and the API read the
+current ones each time they need a value (an environment variable that is set wins over a stored
+one, which wins over the default), so a change takes effect without a restart.
+
 Every loop reports each run (when, how long, what came of it) and each outside source's answers to
 a status board in memory (`wf_core::status`), which the admin page reads; the log's warnings and
 errors go there too, the last 500. The admin page can ask a task to run now: its loop wakes.

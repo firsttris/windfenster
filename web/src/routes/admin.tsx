@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate } from '@tanstack/react-router';
-import { LayoutDashboard, Users } from 'lucide-react';
+import { CloudSun, Gauge, LayoutDashboard, Map as MapIcon, Users } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { ForecastsTab } from '@/components/admin/forecasts';
+import { MapTab } from '@/components/admin/map';
+import { MeasurementsTab } from '@/components/admin/measurements';
 import { OverviewTab } from '@/components/admin/overview';
 import { UsersTab } from '@/components/admin/users';
 import { Loading, Page } from '@/components/page';
@@ -19,6 +22,9 @@ const TABS: {
   view: () => ReactNode;
 }[] = [
   { id: 'overview', label: m.admin_tabOverview, icon: LayoutDashboard, view: () => <OverviewTab /> },
+  { id: 'map', label: m.admin_tabMap, icon: MapIcon, view: () => <MapTab /> },
+  { id: 'forecasts', label: m.admin_tabForecasts, icon: CloudSun, view: () => <ForecastsTab /> },
+  { id: 'measurements', label: m.admin_tabMeasurements, icon: Gauge, view: () => <MeasurementsTab /> },
   { id: 'users', label: m.admin_tabUsers, icon: Users, view: () => <UsersTab /> },
 ];
 

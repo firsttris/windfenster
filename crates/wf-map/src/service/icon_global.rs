@@ -28,6 +28,16 @@ impl MapData {
                 _ = tick.tick() => {}
                 () = board.asked() => if !board.take("icon_global") { continue },
             }
+            if !self.settings.get().icon_global {
+                // Turned off: its runs go, else they would take some 3 GB and the map would
+                // keep showing their last hours
+                match self.drop_icon_global().await {
+                    Ok(0) => {}
+                    Ok(n) => tracing::info!("map: removed {n} ICON global runs (turned off)"),
+                    Err(e) => tracing::warn!("map: removing ICON global runs: {e}"),
+                }
+                continue;
+            }
             let report = board.start("icon_global");
             match self.update_icon_global(wf_core::time::now()).await {
                 Ok(n) => {
@@ -106,7 +116,7 @@ impl MapData {
         Ok(written)
     }
 
-    /// ICON global turned off (`WF_ICON_GLOBAL=false`): its runs and grid table go, else they
+    /// ICON global turned off (`WF_ICON_GLOBAL=false` or on the admin page): its runs and grid table go, else they
     /// would take some 3 GB for good and the map would keep showing their last hours. Returns
     /// how many runs went.
     pub async fn drop_icon_global(&self) -> std::io::Result<usize> {

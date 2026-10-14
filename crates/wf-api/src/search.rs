@@ -55,7 +55,10 @@ pub async fn search(
             // A search not asked lately goes out to the geocoder: limited per client, beyond
             // which only stations are found.
             let cached = s.places.contains_key(&key);
-            let allowed = cached || s.limits.search(ip, wf_core::time::now()).await;
+            let allowed = cached
+                || s.limits
+                    .search(ip, wf_core::time::now(), (&*s.settings.get()).into())
+                    .await;
             let found = if allowed {
                 s.places
                     .try_get_with(key, async move {

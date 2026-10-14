@@ -16,7 +16,12 @@ const PARALLEL: usize = 16;
 /// Copies the tiles of `areas` from `reader` into a new archive at `target`; returns how many
 /// entries it holds. Memory stays flat however many tiles (`writer`); the log says how far it
 /// is every few minutes.
-pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Result<u64, Error> {
+pub(crate) async fn copy(
+    reader: Reader,
+    areas: &[Area],
+    target: &Path,
+    what: &'static str,
+) -> Result<u64, Error> {
     let reader = Arc::new(reader);
     let header = reader.get_header();
     let max_zoom = areas.iter().map(|a| a.max_zoom).max().unwrap_or(0);
@@ -52,6 +57,8 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
     let began = std::time::Instant::now();
     let mut said = began;
     let mut walked = 0u64;
+    let _shown = super::work::Guard(what.to_owned());
+    super::work::begin(what, "tiles", 0, expected);
     // A batch at a time from the tiles as they are made: the world deep is too many to list.
     let mut tiles = tiles::wanted(areas);
     loop {
@@ -80,12 +87,13 @@ pub(crate) async fn copy(reader: Reader, areas: &[Area], target: &Path) -> Resul
                 break;
             }
         }
+        super::work::advance(what, walked);
         if said.elapsed() >= REPORT {
             said = std::time::Instant::now();
             let rate = walked as f64 / began.elapsed().as_secs_f64().max(1.0);
             let left = (expected.saturating_sub(walked)) as f64 / rate.max(1.0) / 60.0;
             tracing::info!(
-                "basemap: {walked} of {expected} tiles, {rate:.0} a second, about {left:.0} min to go"
+                "{what}: {walked} of {expected} tiles, {rate:.0} a second, about {left:.0} min to go"
             );
         }
     }

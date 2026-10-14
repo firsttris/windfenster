@@ -119,17 +119,46 @@ pub async fn read_note(root: &Path) -> Option<Note> {
     serde_json::from_slice(&bytes).ok()
 }
 
+/// Why a basemap or relief is to be made now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ts_rs::TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Due {
+    /// None there
+    Missing,
+    /// Ours grew old
+    Old,
+    /// Cut otherwise than the settings ask (zooms, region)
+    Changed,
+    /// From an older version: Europe alone, or spots in the same file
+    Legacy,
+}
+
 /// Whether to make our basemap now: none there, ours grown old, cut otherwise than asked for
 /// (zooms, region, or Europe alone from before the world), or from before the spots had their
 /// own files. A file without our note is the operator's.
-pub fn due(file_exists: bool, note: Option<&Note>, cut: &Cut, now: i64) -> bool {
+pub fn due(file_exists: bool, note: Option<&Note>, cut: &Cut, now: i64) -> Option<Due> {
     match (file_exists, note) {
-        (false, _) => true,
-        (true, None) => false,
-        (true, Some(n)) => {
-            !n.spots.is_empty() || n.cut().as_ref() != Some(cut) || now - n.made_at > RENEW_S
-        }
+        (false, _) => Some(Due::Missing),
+        (true, None) => None,
+        (true, Some(n)) if !n.spots.is_empty() || n.cut().is_none() => Some(Due::Legacy),
+        (true, Some(n)) if n.cut().as_ref() != Some(cut) => Some(Due::Changed),
+        (true, Some(n)) if now - n.made_at > RENEW_S => Some(Due::Old),
+        _ => None,
     }
+}
+
+/// Whether our basemap is due now, and why.
+pub async fn due_now(root: &Path, cut: &Cut, now: i64) -> Option<Due> {
+    let exists = tokio::fs::try_exists(super::path(root))
+        .await
+        .unwrap_or(false);
+    due(exists, read_note(root).await.as_ref(), cut, now)
+}
+
+/// When our basemap is renewed for its age, if it is ours
+pub fn renew_at(note: &Note) -> i64 {
+    note.made_at + RENEW_S
 }
 
 /// A PMTiles file on a web server, read by byte range with our HTTP client.
@@ -264,7 +293,7 @@ pub async fn keep_current(
     let file = super::path(root);
     let note = read_note(root).await;
     let exists = tokio::fs::try_exists(&file).await.unwrap_or(false);
-    if !due(exists, note.as_ref(), cut, now) {
+    if due(exists, note.as_ref(), cut, now).is_none() {
         return Ok(None);
     }
     tokio::fs::create_dir_all(root).await?;
@@ -288,7 +317,7 @@ pub async fn keep_current(
     } else {
         part.clear().await;
         super::cut::room_for_cut(http, &build_url(base, &build), &reader, &areas, root).await?;
-        let n = super::cut::copy(reader, &areas, &part.file).await?;
+        let n = super::cut::copy(reader, &areas, &part.file, "basemap").await?;
         format!("{n} tile entries")
     };
     tokio::fs::rename(&part.file, &file).await?;
@@ -404,35 +433,34 @@ mod tests {
             region: Some(europe),
         };
         assert_eq!(ours.cut(), Some(cut));
-        assert!(due(false, None, &cut, 0));
+        assert_eq!(due(false, None, &cut, 0), Some(Due::Missing));
         // Someone else's file
-        assert!(!due(true, None, &cut, 0));
-        assert!(!due(true, Some(&ours), &cut, 86_400));
+        assert_eq!(due(true, None, &cut, 0), None);
+        assert_eq!(due(true, Some(&ours), &cut, 86_400), None);
         // Old, another zoom or region asked for, or from before the spots had files of their own
-        assert!(due(true, Some(&ours), &cut, RENEW_S + 1));
-        assert!(due(
-            true,
-            Some(&ours),
-            &Cut::new(6, Some(europe), 12),
-            86_400
-        ));
-        assert!(due(
-            true,
-            Some(&ours),
-            &Cut::new(7, Some(europe), 8),
-            86_400
-        ));
-        assert!(due(true, Some(&ours), &Cut::new(6, None, 8), 86_400));
+        assert_eq!(due(true, Some(&ours), &cut, RENEW_S + 1), Some(Due::Old));
+        assert_eq!(
+            due(true, Some(&ours), &Cut::new(6, Some(europe), 12), 86_400),
+            Some(Due::Changed)
+        );
+        assert_eq!(
+            due(true, Some(&ours), &Cut::new(7, Some(europe), 8), 86_400),
+            Some(Due::Changed)
+        );
+        assert_eq!(
+            due(true, Some(&ours), &Cut::new(6, None, 8), 86_400),
+            Some(Due::Changed)
+        );
         let older = Note {
             spots: vec![[48.78, 8.08]],
             ..ours.clone()
         };
-        assert!(due(true, Some(&older), &cut, 86_400));
+        assert_eq!(due(true, Some(&older), &cut, 86_400), Some(Due::Legacy));
         // A note from before the world (and the zoom setting): Europe alone at zoom 8, cut anew
         let read: Note =
             serde_json::from_str(r#"{"build":"20261011","spots":[],"made_at":1}"#).unwrap();
         assert_eq!((read.zoom, read.cut()), (8, None));
-        assert!(due(true, Some(&read), &cut, 86_400));
+        assert_eq!(due(true, Some(&read), &cut, 86_400), Some(Due::Legacy));
     }
 
     #[test]

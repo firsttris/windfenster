@@ -60,6 +60,8 @@ pub struct AppState {
     pub climate: Option<Arc<wf_ingest::climate::Climate>>,
     /// Public address, e.g. https://windfenster.example, for canonical links.
     pub public_url: Option<String>,
+    /// Settings changed on the admin page, over the environment's and the defaults
+    pub settings: Arc<wf_core::admin::settings::SettingsStore>,
     /// The data folder, for the admin page's disk usage
     pub data_dir: Option<std::path::PathBuf>,
     /// The data folder's disk usage, measured at most every five minutes
@@ -122,6 +124,7 @@ impl AppState {
                 .time_to_live(Duration::from_secs(30))
                 .build(),
             public_url,
+            settings: wf_core::admin::settings::SettingsStore::defaults(),
             data_dir: None,
             disk: moka::future::Cache::builder()
                 .max_capacity(1)
@@ -175,6 +178,11 @@ impl AppState {
         }
     }
 
+    /// With the settings as stored and set by the environment.
+    pub fn with_settings(self, settings: Arc<wf_core::admin::settings::SettingsStore>) -> Self {
+        Self { settings, ..self }
+    }
+
     /// With the data folder, for the admin page.
     pub fn with_data_dir(self, dir: std::path::PathBuf) -> Self {
         Self {
@@ -191,6 +199,11 @@ impl AppState {
                 .get_with((), async move { wf_map::disk::usage(&dir).await })
                 .await,
         )
+    }
+
+    /// Measures the disk usage anew on the next look (after a change).
+    async fn forget_disk_usage(&self) {
+        self.disk.invalidate_all();
     }
 
     /// With wind statistics from the archives.

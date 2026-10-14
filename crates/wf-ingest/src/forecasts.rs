@@ -2,26 +2,26 @@
 //! the places people looked at recently.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
+use wf_core::admin::settings::SettingsStore;
 use wf_core::forecast::{self, Forecast, ModelSeries, Notice, Run, SeriesData};
 use wf_core::geo::GridPoint;
 use wf_core::model::{Model, ModelClass};
 
 use crate::openmeteo::{self, OpenMeteo};
 
-/// Places requested within this time are refreshed after each run.
-pub const HOT_FOR_S: i64 = 7 * 86_400;
 /// Runs are kept this long (for recomputing the verification).
 pub const KEEP_RUNS_S: i64 = 10 * 86_400;
-/// Free points are dropped this long after the last request.
-pub const KEEP_POINTS_S: i64 = 2 * 86_400;
 
 pub struct Forecasts {
     db: SqlitePool,
     om: OpenMeteo,
+    /// Every model the server knows; the settings pick those in use
     models: Vec<Model>,
+    settings: Arc<SettingsStore>,
     updates: broadcast::Sender<GridPoint>,
 }
 
@@ -31,8 +31,31 @@ impl Forecasts {
             om: om.with_store(db.clone()),
             db,
             models,
+            settings: SettingsStore::defaults(),
             updates: broadcast::channel(256).0,
         }
+    }
+
+    /// With the settings of the admin page (models in use, how long places are kept current).
+    pub fn with_settings(self, settings: Arc<SettingsStore>) -> Self {
+        self.om.set_daily_budget(settings.get().open_meteo_budget);
+        Self { settings, ..self }
+    }
+
+    /// The settings changed: takes up the budget.
+    pub fn settings_changed(&self) {
+        self.om
+            .set_daily_budget(self.settings.get().open_meteo_budget);
+    }
+
+    /// Places opened within this long are refreshed after every model run.
+    pub fn hot_s(&self) -> i64 {
+        i64::from(self.settings.get().hot_days) * 86_400
+    }
+
+    /// Every model the server knows, in use or not.
+    pub fn all_models(&self) -> &[Model] {
+        &self.models
     }
 
     /// The Open-Meteo client, for its day's usage
@@ -40,8 +63,19 @@ impl Forecasts {
         &self.om
     }
 
-    pub fn models(&self) -> &[Model] {
-        &self.models
+    /// The models in use: those the settings name, else all.
+    pub fn models(&self) -> Vec<Model> {
+        let settings = self.settings.get();
+        self.models
+            .iter()
+            .filter(|m| {
+                settings
+                    .models
+                    .as_ref()
+                    .is_none_or(|ids| ids.contains(&m.id))
+            })
+            .cloned()
+            .collect()
     }
 
     /// Announces every place whose series changed.
@@ -50,9 +84,9 @@ impl Forecasts {
     }
 
     /// Active models whose domain contains the point.
-    pub fn covering(&self, p: GridPoint) -> Vec<&Model> {
-        self.models
-            .iter()
+    pub fn covering(&self, p: GridPoint) -> Vec<Model> {
+        self.models()
+            .into_iter()
             .filter(|m| m.covers(p.lat(), p.lon()))
             .collect()
     }
@@ -83,7 +117,7 @@ impl Forecasts {
     /// is estimated from the schedule and corrected once the metadata answers.
     pub async fn detect_runs(&self, now: i64) -> sqlx::Result<usize> {
         let mut new = 0;
-        for m in &self.models {
+        for m in &self.models() {
             let reported = self.reported_run(m).await;
             let mut known = forecast::latest_run(&self.db, &m.id).await?;
             if let (Some(at), Some(run)) = (reported, known)
@@ -119,7 +153,8 @@ impl Forecasts {
         forecast::touch_place(&self.db, p, pinned, now).await?;
         let state = state_map(forecast::series_state(&self.db, p).await?);
         let mut wanted = Vec::new();
-        for m in self.covering(p) {
+        let covering = self.covering(p);
+        for m in &covering {
             let run = self.current_run(m, now).await?;
             if needs(&state, &m.id, &run) {
                 wanted.push((m, run));
@@ -185,7 +220,8 @@ impl Forecasts {
     /// Returns how many places were fetched.
     pub async fn refresh(&self, now: i64) -> anyhow::Result<usize> {
         let mut pending = Vec::new();
-        for m in &self.models {
+        let models = self.models();
+        for m in &models {
             if let Some(run) = forecast::latest_run(&self.db, &m.id).await?
                 && !run.complete
             {
@@ -197,7 +233,7 @@ impl Forecasts {
         }
         let mut retry = false;
         let mut fetched = 0;
-        for p in forecast::hot_places(&self.db, now - HOT_FOR_S).await? {
+        for p in forecast::hot_places(&self.db, now - self.hot_s()).await? {
             let state = state_map(forecast::series_state(&self.db, p).await?);
             let wanted: Vec<(&Model, Run)> = pending
                 .iter()
@@ -234,8 +270,12 @@ impl Forecasts {
     }
 
     pub async fn purge(&self, now: i64) -> sqlx::Result<()> {
-        let (runs, places) =
-            forecast::purge(&self.db, now - KEEP_RUNS_S, now - KEEP_POINTS_S).await?;
+        let (runs, places) = forecast::purge(
+            &self.db,
+            now - KEEP_RUNS_S,
+            now - i64::from(self.settings.get().points_days) * 86_400,
+        )
+        .await?;
         if runs + places > 0 {
             tracing::info!("purged {runs} old runs and {places} free points");
         }
@@ -255,7 +295,6 @@ impl Forecasts {
             .covering(p)
             .into_iter()
             .filter(|m| !empty.contains(&m.id.as_str()))
-            .cloned()
             .collect();
         let order = |id: &str| models.iter().position(|m| m.id == id);
         let mut series: Vec<ModelSeries> = stored

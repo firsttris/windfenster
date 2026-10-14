@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::download;
+use super::fetch::Due;
 use super::fetch::{self, Error};
 use super::tiles::{self, Area};
 
@@ -40,6 +41,51 @@ pub fn path(root: &Path) -> PathBuf {
     root.join(FILE)
 }
 
+/// Whether to make the relief now, and why: none there, a year old, another zoom, Europe alone.
+/// A file without our note is the operator's; zoom 0 wants none.
+fn due(exists: bool, note: Option<&Note>, zoom: u8, now: i64) -> Option<Due> {
+    match (exists, note) {
+        _ if zoom == 0 => None,
+        (false, _) => Some(Due::Missing),
+        (true, None) => None,
+        (true, Some(n)) if !n.world => Some(Due::Legacy),
+        (true, Some(n)) if n.zoom != zoom => Some(Due::Changed),
+        (true, Some(n)) if now - n.made_at > RENEW_S => Some(Due::Old),
+        _ => None,
+    }
+}
+
+/// Our relief as it is: when it was made and to which zoom; None for none or the operator's.
+#[derive(Debug, Clone, PartialEq, Serialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TerrainNote {
+    #[ts(type = "number")]
+    pub made_at: i64,
+    pub zoom: u8,
+    #[ts(type = "number")]
+    pub renew_at: i64,
+}
+
+async fn read_note(root: &Path) -> Option<Note> {
+    let bytes = tokio::fs::read(root.join(NOTE)).await.ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+pub async fn note(root: &Path) -> Option<TerrainNote> {
+    read_note(root).await.map(|n| TerrainNote {
+        made_at: n.made_at,
+        zoom: n.zoom,
+        renew_at: n.made_at + RENEW_S,
+    })
+}
+
+/// Whether the relief is due now, and why.
+pub async fn due_now(root: &Path, zoom: u8, now: i64) -> Option<Due> {
+    let exists = tokio::fs::try_exists(path(root)).await.unwrap_or(false);
+    due(exists, read_note(root).await.as_ref(), zoom, now)
+}
+
 /// Makes the relief up to `zoom` if there is none, it is a year old, cut to another zoom or
 /// Europe alone;
 /// returns what it made, or None when nothing was due. Zoom 0 removes ours (no
@@ -63,12 +109,7 @@ pub async fn keep_current(
         }
         return Ok(None);
     }
-    let due = match (exists, &note) {
-        (false, _) => true,
-        (true, None) => false,
-        (true, Some(n)) => !n.world || n.zoom != zoom || now - n.made_at > RENEW_S,
-    };
-    if !due {
+    if due(exists, note.as_ref(), zoom, now).is_none() {
         return Ok(None);
     }
     let url = format!("{}/planet.pmtiles", base.trim_end_matches('/'));
@@ -85,7 +126,7 @@ pub async fn keep_current(
         format!("the whole planet file ({})", download::gb(n))
     } else {
         part.clear().await;
-        let n = super::cut::copy(reader, &[world], &part.file).await?;
+        let n = super::cut::copy(reader, &[world], &part.file, "terrain").await?;
         format!("{n} relief tiles")
     };
     tokio::fs::rename(&part.file, path(root)).await?;

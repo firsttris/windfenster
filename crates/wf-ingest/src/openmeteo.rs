@@ -152,6 +152,21 @@ impl OpenMeteo {
         }
     }
 
+    /// Whether a key is set (the customer API).
+    pub fn with_key(&self) -> bool {
+        self.key.is_some()
+    }
+
+    /// Sets the daily budget: `None` is the default (9,000 without a key, no limit with one).
+    pub fn set_daily_budget(&self, limit: Option<u32>) {
+        let limit = limit.or(if self.key.is_some() {
+            None
+        } else {
+            Some(FREE_DAILY_BUDGET)
+        });
+        self.budget.lock().unwrap().limit = limit;
+    }
+
     /// Counts every call in the database as well (`usage_daily`); see [`Self::load_usage`].
     pub fn with_store(mut self, db: sqlx::SqlitePool) -> Self {
         self.store = Some(db);

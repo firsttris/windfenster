@@ -2,6 +2,7 @@
 //! and turns them into textures; old runs are removed. One file per model.
 
 mod basemap;
+pub mod basemap_admin;
 mod ecmwf;
 mod icon_d2;
 mod icon_global;
@@ -75,8 +76,11 @@ pub struct MapData {
     readers: crate::basemap::serve::Readers,
     /// Spots tapped on the map, with when (service/basemap.rs)
     tapped: std::sync::Mutex<Vec<(crate::basemap::spots::Spot, i64)>>,
-    /// How much basemap and relief to keep
-    depth: crate::basemap::Depth,
+    /// How much basemap and relief to keep, ICON global or not, renew by itself or ask: the
+    /// admin page's settings
+    settings: Arc<wf_core::admin::settings::SettingsStore>,
+    /// What the admin page said about the basemap's renewal (service/basemap.rs)
+    renewal: basemap_admin::Renewal,
     /// ICON global's triangles to the regular grid, once loaded or made
     icon_global_near: tokio::sync::OnceCell<Arc<Vec<u32>>>,
 }
@@ -92,14 +96,27 @@ impl MapData {
             urls,
             readers: Default::default(),
             tapped: Default::default(),
-            depth: Default::default(),
+            settings: wf_core::admin::settings::SettingsStore::defaults(),
+            renewal: Default::default(),
             icon_global_near: Default::default(),
         }
     }
 
-    /// With another depth of basemap and relief than the default.
-    pub fn with_depth(self, depth: crate::basemap::Depth) -> Self {
-        Self { depth, ..self }
+    /// With the admin page's settings.
+    pub fn with_settings(self, settings: Arc<wf_core::admin::settings::SettingsStore>) -> Self {
+        Self { settings, ..self }
+    }
+
+    /// How much basemap and relief to keep, as the settings say now.
+    pub fn depth(&self) -> crate::basemap::Depth {
+        let s = self.settings.get();
+        crate::basemap::Depth {
+            world_zoom: s.basemap_world_zoom,
+            region: s.basemap_region,
+            region_zoom: s.basemap_zoom,
+            max_spots: s.basemap_spots as usize,
+            terrain_zoom: s.terrain_zoom,
+        }
     }
 
     pub fn root(&self) -> &std::path::Path {

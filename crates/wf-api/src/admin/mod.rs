@@ -1,13 +1,16 @@
 //! The admin page's API under `/api/admin`: only for accounts with the admin role, made on the
 //! server with `windfenster admin`. Every change an admin makes is written to the admin log.
 
+pub mod data;
+pub mod map;
 pub mod overview;
+pub mod settings;
 pub mod users;
 
 use axum::Router;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use wf_core::account::Account;
 
 use crate::auth::SignedIn;
@@ -56,4 +59,19 @@ pub fn routes() -> Router<AppState> {
         .route("/log/lines", get(overview::log_lines))
         .route("/overview", get(overview::overview))
         .route("/tasks/{id}/run", post(overview::run))
+        .route("/settings", get(settings::get))
+        .route("/settings/{key}", put(settings::set))
+        .route("/map", get(map::get))
+        .route("/map/renew", post(map::renew))
+        .route("/map/cancel", post(map::cancel))
+        .route("/map/postpone", post(map::postpone))
+        .route("/map/spots", delete(map::remove_spot))
+        .route(
+            "/map/spots/pinned",
+            put(map::pin_spot).delete(map::unpin_spot),
+        )
+        .route("/map/leftovers", post(map::leftovers))
+        .route("/forecasts", get(data::forecasts))
+        .route("/measurements", get(data::measurements))
+        .route("/stats/{station}/retry", post(data::retry_stats))
 }

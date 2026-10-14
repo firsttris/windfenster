@@ -9,7 +9,7 @@ use std::time::Duration;
 use sqlx::SqlitePool;
 use wf_core::{station, status, verification};
 
-use crate::forecasts::{Forecasts, HOT_FOR_S};
+use crate::forecasts::Forecasts;
 use crate::measurements::Measurements;
 use crate::stations::{self, Sources};
 
@@ -46,7 +46,8 @@ pub struct Scheduler {
     pub forecasts: Arc<Forecasts>,
     pub measurements: Arc<Measurements>,
     pub sources: Sources,
-    pub tracked: Vec<String>,
+    /// The tracked stations come from here, and change without a restart
+    pub settings: Arc<wf_core::admin::settings::SettingsStore>,
 }
 
 /// The tasks this loop runs, as the admin page names them, with how often they run.
@@ -144,6 +145,7 @@ impl Scheduler {
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut due = Due::default();
         let mut mark_tracked = true;
+        let mut settings_seen = self.settings.version();
         loop {
             tokio::select! {
                 _ = tick.tick() => {}
@@ -160,6 +162,11 @@ impl Scheduler {
                     self.import_station_lists().await;
                     mark_tracked = true;
                 }
+            }
+            // The tracked stations may have changed on the admin page
+            if self.settings.version() != settings_seen {
+                settings_seen = self.settings.version();
+                mark_tracked = true;
             }
             if mark_tracked {
                 self.mark_tracked().await;
@@ -202,7 +209,15 @@ impl Scheduler {
 
     /// After every import: a station can come or go with a new list.
     async fn mark_tracked(&self) {
-        match station::set_tracked(&self.db, &self.tracked).await {
+        let tracked: Vec<String> = self
+            .settings
+            .get()
+            .tracked_stations
+            .iter()
+            .map(|s| s.trim().to_ascii_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect();
+        match station::set_tracked(&self.db, &tracked).await {
             Ok(unknown) if !unknown.is_empty() => {
                 tracing::warn!("tracked stations not found: {}", unknown.join(", "));
             }
@@ -223,14 +238,14 @@ impl Scheduler {
         }
         if now >= due.dwd {
             due.dwd = now + 1_740;
-            let dwd = self.measurements.import_dwd(now - HOT_FOR_S);
+            let dwd = self.measurements.import_dwd(now - self.forecasts.hot_s());
             if let Some(Err(e)) = step("dwd", Some("dwd"), PER_STATION, dwd, count).await {
                 tracing::warn!("DWD measurements: {e:#}");
             }
         }
         if now >= due.taf {
             due.taf = now + 1_740;
-            let tafs = self.measurements.import_tafs(now - HOT_FOR_S);
+            let tafs = self.measurements.import_tafs(now - self.forecasts.hot_s());
             if let Some(Err(e)) = step("taf", Some("awc"), PER_STATION, tafs, count).await {
                 tracing::warn!("TAFs: {e:#}");
             }

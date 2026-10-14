@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminUser } from '@/bindings/AdminUser';
-import { bytes, cadence, diskUsed, filterUsers, parseTab, percent, signInKind, span, took } from './admin';
+import {
+  buildDate,
+  bytes,
+  cadence,
+  diskUsed,
+  filterUsers,
+  parseRegion,
+  parseTab,
+  percent,
+  regionText,
+  remaining,
+  signInKind,
+  span,
+  took,
+} from './admin';
 
 const user = (u: Partial<AdminUser>): AdminUser => ({
   id: 1,
@@ -92,5 +106,21 @@ describe('admin disk', () => {
         other: 6,
       }),
     ).toBe(36);
+  });
+});
+
+describe('admin map', () => {
+  it('reads builds, regions and what is left', () => {
+    expect(buildDate('20261013')).toMatch(/2026/);
+    expect(buildDate('nope')).toBe('nope');
+    expect(regionText([-25, 27, 45, 72])).toBe('-25,27,45,72');
+    expect(regionText(null)).toBe('');
+    expect(parseRegion(' 7.5, 47.5, 9, 49.5 ')).toEqual([7.5, 47.5, 9, 49.5]);
+    expect(parseRegion('')).toBeNull();
+    expect(parseRegion('9,47,7,49')).toBeUndefined();
+    expect(parseRegion('1,2,3')).toBeUndefined();
+    expect(remaining(25, 100, 5)).toBe(15);
+    expect(remaining(100, 100, 5)).toBeNull();
+    expect(remaining(1, 100, 0)).toBeNull();
   });
 });

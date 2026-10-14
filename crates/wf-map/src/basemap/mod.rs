@@ -12,6 +12,7 @@ pub mod serve;
 pub mod spots;
 pub mod terrain;
 pub mod tiles;
+pub mod work;
 mod writer;
 
 use std::path::{Path, PathBuf};

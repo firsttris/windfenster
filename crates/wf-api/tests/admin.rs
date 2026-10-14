@@ -184,3 +184,137 @@ async fn the_overview_and_running_a_task() -> Result<()> {
     assert!(lines.is_array());
     Ok(())
 }
+
+async fn admin_app(
+    with: impl FnOnce(&std::path::Path, wf_api::AppState) -> wf_api::AppState,
+) -> Result<(tempfile::TempDir, axum::Router)> {
+    let (dir, app, _) = common::app_with(with).await?;
+    let me = signed_in(&dir).await?;
+    wf_core::admin::users::set_admin(&db(&dir).await?, me, true).await?;
+    Ok((dir, app))
+}
+
+#[tokio::test]
+async fn settings_change_and_stay() -> Result<()> {
+    let (dir, app) = admin_app(|_, s| {
+        let env = std::collections::BTreeMap::from([(
+            "basemapZoom".to_owned(),
+            (json!(8), "WF_BASEMAP_ZOOM".to_owned()),
+        )]);
+        let store = wf_core::admin::settings::SettingsStore::fresh(s.db.clone(), env).unwrap();
+        s.with_settings(store)
+    })
+    .await?;
+    let (status, body) = call(&app, "GET", "/api/admin/settings", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["settings"]["hotDays"], 7);
+    assert_eq!(body["locked"]["basemapZoom"], "WF_BASEMAP_ZOOM");
+    assert!(body["models"].as_array().unwrap().len() >= 5);
+
+    let set = |key: &str, value: Value| {
+        let app = app.clone();
+        let uri = format!("/api/admin/settings/{key}");
+        async move { call(&app, "PUT", &uri, Some(json!({ "value": value })), true).await }
+    };
+    let (status, body) = set("hotDays", json!(3)).await?;
+    assert_eq!(
+        (status, &body["settings"]["hotDays"]),
+        (StatusCode::OK, &json!(3))
+    );
+    assert_eq!(
+        set("hotDays", json!(0)).await?.1,
+        json!({"code": "invalid_setting"})
+    );
+    assert_eq!(
+        set("basemapZoom", json!(9)).await?.1,
+        json!({"code": "invalid_setting"})
+    );
+    assert_eq!(
+        set("models", json!(["nope"])).await?.1,
+        json!({"code": "invalid_setting"})
+    );
+    let (status, body) = set("models", json!(["icon_d2"])).await?;
+    assert_eq!(
+        (status, &body["settings"]["models"]),
+        (StatusCode::OK, &json!(["icon_d2"]))
+    );
+    assert_eq!(set("nope", json!(1)).await?.0, StatusCode::NOT_FOUND);
+    // Stored: after a restart the same
+    let again = wf_core::admin::settings::SettingsStore::load(
+        db(&dir).await?,
+        std::collections::BTreeMap::new(),
+    )
+    .await?;
+    assert_eq!(again.get().hot_days, 3);
+    Ok(())
+}
+
+#[tokio::test]
+async fn forecasts_measurements_and_the_map() -> Result<()> {
+    let (_dir, app) = admin_app(|dir, s| {
+        let map = wf_map::MapData::new(dir.join("map"), reqwest::Client::new(), Default::default());
+        s.with_map(std::sync::Arc::new(map))
+    })
+    .await?;
+    let (status, f) = call(&app, "GET", "/api/admin/forecasts", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(f["days"].as_array().unwrap().len(), 14);
+    assert!(f["runs"].as_array().unwrap().len() >= 5);
+    let (status, m) = call(&app, "GET", "/api/admin/measurements", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(m["tracked"][0]["slug"], "edsb");
+
+    let (status, map) = call(&app, "GET", "/api/admin/map", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(map["basemap"]["due"], "missing");
+    let (status, _) = call(&app, "POST", "/api/admin/map/renew", None, true).await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, map) = call(&app, "GET", "/api/admin/map", None, true).await?;
+    assert_eq!(map["basemap"]["approved"], true);
+    let (status, _) = call(&app, "POST", "/api/admin/map/cancel", None, true).await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/admin/map/postpone",
+        Some(json!({"days": 30})),
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, st) = call(&app, "GET", "/api/admin/settings", None, true).await?;
+    assert!(st["settings"]["basemapPostponedUntil"].as_i64().unwrap() > 0);
+    let pin = json!({"lat": 48.78, "lon": 8.08});
+    let (status, _) = call(
+        &app,
+        "PUT",
+        "/api/admin/map/spots/pinned",
+        Some(pin.clone()),
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, st) = call(&app, "GET", "/api/admin/settings", None, true).await?;
+    assert_eq!(st["settings"]["pinnedSpots"], json!([[48.8, 8.0]]));
+    let (status, _) = call(
+        &app,
+        "DELETE",
+        "/api/admin/map/spots/pinned",
+        Some(pin),
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &app,
+        "DELETE",
+        "/api/admin/map/spots?lat=1&lon=1",
+        None,
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, n) = call(&app, "POST", "/api/admin/map/leftovers", None, true).await?;
+    assert_eq!((status, n), (StatusCode::OK, json!(0)));
+    Ok(())
+}

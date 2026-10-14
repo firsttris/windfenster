@@ -19,6 +19,7 @@ wf-ingest.workspace = true
 wf-map.workspace = true
 wf-alarm.workspace = true
 reqwest.workspace = true
+serde_json.workspace = true
 sqlx.workspace = true
 anyhow.workspace = true
 axum.workspace = true

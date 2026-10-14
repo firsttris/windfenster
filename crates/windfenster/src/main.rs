@@ -2,6 +2,7 @@ use std::io::IsTerminal;
 mod admin;
 mod alarms;
 mod log_board;
+mod settings;
 mod supervise;
 
 use std::net::SocketAddr;
@@ -212,8 +213,9 @@ struct ServeArgs {
     /// The map's detailed basemap and relief: `auto` cuts them from Protomaps' daily build and
     /// Mapterhorn's elevation (the world to `WF_BASEMAP_WORLD_ZOOM`, the region to
     /// `WF_BASEMAP_ZOOM`, 20 km around places people look at to zoom 14) unless the operator
-    /// put one in place; `off` leaves it to the operator.
-    #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "off"])]
+    /// put one in place; `ask` waits for an admin to say when on the admin page; `off` leaves it
+    /// to the operator.
+    #[arg(long, env = "WF_BASEMAP", default_value = "auto", value_parser = ["auto", "ask", "off"])]
     basemap: String,
     /// How deep the basemap covers the whole world; every level about four times more.
     #[arg(long, env = "WF_BASEMAP_WORLD_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(4..=12))]
@@ -335,25 +337,30 @@ async fn open(data: &DataArgs) -> Result<Db> {
 async fn serve(args: ServeArgs) -> Result<()> {
     let db = open(&args.data).await?;
     let http = wf_ingest::http_client()?;
-    let models = wf_core::model::active(&db, args.open_meteo.models.as_deref()).await?;
-    tracing::info!(
-        "models: {}",
-        models
-            .iter()
-            .map(|m| m.id.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    // Unknown ids in WF_MODELS stop the start, as before the admin page
+    wf_core::model::active(&db, args.open_meteo.models.as_deref()).await?;
+    let models = wf_core::model::active(&db, None).await?;
+    let settings =
+        wf_core::admin::settings::SettingsStore::load(db.clone(), settings::from_env(&args))
+            .await?;
     let mut cfg = args.open_meteo.config();
     if cfg.base_url.is_none() {
         cfg.base_url = args.data.source("open-meteo");
     }
     let api_key = cfg.api_key.clone();
-    let forecasts = Arc::new(Forecasts::new(
-        db.clone(),
-        OpenMeteo::new(http.clone(), cfg),
-        models,
-    ));
+    let forecasts = Arc::new(
+        Forecasts::new(db.clone(), OpenMeteo::new(http.clone(), cfg), models)
+            .with_settings(settings.clone()),
+    );
+    tracing::info!(
+        "models: {}",
+        forecasts
+            .models()
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     forecasts.open_meteo().load_usage().await?;
     let geocoder = Arc::new(Geocoder::new(
         http.clone(),
@@ -379,13 +386,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 http.clone(),
                 args.data.map_urls(),
             )
-            .with_depth(wf_map::basemap::Depth {
-                world_zoom: args.basemap_world_zoom,
-                region: args.basemap_region.0,
-                region_zoom: args.basemap_zoom,
-                max_spots: args.basemap_spots,
-                terrain_zoom: args.terrain_zoom,
-            }),
+            .with_settings(settings.clone()),
         )
     });
     let alarms = Arc::new(alarms::build(
@@ -395,35 +396,25 @@ async fn serve(args: ServeArgs) -> Result<()> {
         &args.mail,
         non_empty(&args.public_url),
     )?);
-    let tracked: Vec<String> = args
-        .tracked_stations
-        .iter()
-        .map(|s| s.trim().to_ascii_lowercase())
-        .filter(|s| !s.is_empty())
-        .collect();
+    if let Some(mail) = &alarms.mail {
+        mail.set_per_day(settings.get().mail_per_day);
+    }
     if let (true, Some(map)) = (args.scheduler, &map) {
         let m = map.clone();
         supervise("map", move || m.clone().keep_current());
-        if args.icon_global {
-            let m = map.clone();
-            supervise("icon_global", move || m.clone().keep_icon_global());
-        } else {
-            match map.drop_icon_global().await {
-                Ok(0) => {}
-                Ok(n) => tracing::info!("map: removed {n} ICON global runs (WF_ICON_GLOBAL=false)"),
-                Err(e) => tracing::warn!("map: removing ICON global runs: {e}"),
-            }
-        }
-        if args.basemap == "auto" {
-            let (m, db) = (map.clone(), db.clone());
-            supervise("basemap", move || m.clone().keep_basemap(db.clone()));
-        }
+        // Both follow their settings: ICON global and the basemap can be turned on and off on
+        // the admin page
+        let m = map.clone();
+        supervise("icon_global", move || m.clone().keep_icon_global());
+        let (m, db) = (map.clone(), db.clone());
+        supervise("basemap", move || m.clone().keep_basemap(db.clone()));
     }
     if args.scheduler {
         let a = alarms.clone();
         supervise("alarms", move || a.clone().run());
         let (db, forecasts, measurements) = (db.clone(), forecasts.clone(), measurements.clone());
         let sources = args.data.station_sources();
+        let scheduler_settings = settings.clone();
         supervise("scheduler", move || {
             Scheduler {
                 db: db.clone(),
@@ -431,7 +422,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
                 forecasts: forecasts.clone(),
                 measurements: measurements.clone(),
                 sources: sources.clone(),
-                tracked: tracked.clone(),
+                settings: scheduler_settings.clone(),
             }
             .run()
         });
@@ -453,7 +444,8 @@ async fn serve(args: ServeArgs) -> Result<()> {
     state = state.with_alarms(alarms);
     state = state
         .with_climate(climate)
-        .with_data_dir(args.data.data_dir.clone());
+        .with_data_dir(args.data.data_dir.clone())
+        .with_settings(settings);
     state = state.with_client_ip_header(match args.client_ip_header.trim() {
         "" | "none" => None,
         h => Some(

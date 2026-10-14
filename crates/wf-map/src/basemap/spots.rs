@@ -120,7 +120,7 @@ pub async fn make(
     tokio::fs::create_dir_all(dir(root)).await?;
     let target = path(root, spot);
     let partial = target.with_extension("part");
-    let n = super::cut::copy(reader, &[spot.area(from_zoom)], &partial).await?;
+    let n = super::cut::copy(reader, &[spot.area(from_zoom)], &partial, "spot").await?;
     tokio::fs::rename(&partial, &target).await?;
     Ok(usize::try_from(n).unwrap_or(usize::MAX))
 }
