@@ -187,7 +187,8 @@ export function DayCard({ fc, day, unit, now, taf, gear = [] }: Props) {
               </th>
               {day.cells.map((c) => (
                 <td key={c.hour} className={td(c)}>
-                  <Weather cloud={c.cloud} rain={c.rain} />
+                  {/* An svg is a block: centred by its margins, not by the cell's text-align */}
+                  <Weather cloud={c.cloud} rain={c.rain} className="mx-auto" />
                 </td>
               ))}
             </tr>

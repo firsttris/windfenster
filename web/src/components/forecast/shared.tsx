@@ -76,9 +76,13 @@ const WEATHER_LABEL = {
   rain: m.weather_rain,
 } as const;
 
-export function Weather({ cloud, rain }: { cloud: number | null; rain: number | null }) {
+export function Weather({ cloud, rain, className }: { cloud: number | null; rain: number | null; className?: string }) {
   const w = weatherOf(cloud, rain);
-  return w ? <WeatherIcon weather={w} label={WEATHER_LABEL[w]()} /> : <span className="text-dim">–</span>;
+  return w ? (
+    <WeatherIcon weather={w} label={WEATHER_LABEL[w]()} className={className} />
+  ) : (
+    <span className="text-dim">–</span>
+  );
 }
 
 /** The colour scale with its edges in the chosen unit. */
