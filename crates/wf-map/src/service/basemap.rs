@@ -17,6 +17,8 @@ const REGION_EVERY_S: i64 = 86_400;
 const PER_ROUND: usize = 2;
 /// Places and taps count for this long
 const WANTED_S: i64 = 7 * 86_400;
+/// Taps remembered at most: anyone can tap, without signing in
+const MAX_TAPPED: usize = 200;
 
 impl MapData {
     /// A spot tapped on the map: its detail comes within a minute or two.
@@ -30,6 +32,10 @@ impl MapData {
         let mut tapped = self.tapped.lock().expect("tapped");
         tapped.retain(|(s, at)| *s != spot && now - at < WANTED_S);
         tapped.push((spot, now));
+        if tapped.len() > MAX_TAPPED {
+            let over = tapped.len() - MAX_TAPPED;
+            tapped.drain(..over);
+        }
     }
 
     /// A detail tile, from the spot that holds it or the main archive.
@@ -102,7 +108,9 @@ impl MapData {
             .map_err(std::io::Error::other)?;
         let tapped: Vec<(f64, f64)> = {
             let t = self.tapped.lock().expect("tapped");
+            // newest first: when more are wanted than kept, the latest taps count
             t.iter()
+                .rev()
                 .filter(|(_, at)| now - at < WANTED_S)
                 .map(|(s, _)| (s.lat, s.lon))
                 .collect()
@@ -167,5 +175,31 @@ impl MapData {
             self.readers.forget_spots();
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remembers_a_bounded_number_of_taps() {
+        let dir = tempfile::tempdir().unwrap();
+        let map = MapData::new(
+            dir.path().to_path_buf(),
+            reqwest::Client::new(),
+            Default::default(),
+        );
+        for i in 0..(MAX_TAPPED + 50) {
+            map.want(-60.0 + i as f64 * 0.4, 10.0);
+        }
+        // the same spot again replaces its tap
+        map.want(-60.0 + (MAX_TAPPED + 49) as f64 * 0.4, 10.0);
+        let t = map.tapped.lock().unwrap();
+        assert_eq!(t.len(), MAX_TAPPED);
+        assert_eq!(
+            t.last().unwrap().0,
+            Spot::of(-60.0 + (MAX_TAPPED + 49) as f64 * 0.4, 10.0)
+        );
     }
 }

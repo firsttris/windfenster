@@ -51,7 +51,9 @@ spot tapped on the map, the server cuts 20 km from the newest build into a file 
 `{WF_DATA_DIR}/map/basemap-spots/{lat}_{lon}.pmtiles` (2 to 17 MB; spots are snapped to a 0.2°
 grid, so places close together share one). It checks every minute and makes two at a time, so a
 tapped spot has its detail within a minute or two, and the open map shows it without reloading.
-At most 60 spots are kept (about 600 MB); beyond that the longest unwanted go.
+At most 60 spots are kept (about 600 MB), a hard limit: when more are wanted, tracked stations come
+first, then the places opened most recently, then the latest taps (the server remembers 200
+taps); spots nobody wants any more go first.
 
 The map gets every tile from the server, at `/api/map/basemap/{z}/{x}/{y}`: from the spot that
 holds it, else from the main file, and where neither goes that deep, cut out of the deepest tile
