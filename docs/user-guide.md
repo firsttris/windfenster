@@ -27,9 +27,12 @@ From the top:
    forecast (TAF) in plain words and the raw METAR translated group by group. Beside it **Do the
    models agree?**: the spread between the models at the windiest daytime hour of the next two
    days.
-2. **Model chips**, right above the forecast, in two rows: **Fine · hourly** for the regional
-   high-resolution models (ICON-D2, AROME, HARMONIE), **Global · every 3 hours** for the global
-   ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. The model chosen
+2. **Model chips**, right above the forecast, in two groups side by side: **Fine · hourly** for
+   the regional high-resolution models (ICON-D2, AROME, HARMONIE), **Global · every 3 hours** for
+   the global ones (ECMWF, GFS) and the **Windfenster mix**, a weighted mean of all of them. Ticks
+   before each group's title show its step, dense or sparse. On narrower screens the chips show
+   their names only, a line beneath says the resolution and reach of the one chosen, and on a
+   phone the row swipes. The model chosen
    sets the step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking); the note beside the chips says why.
 3. **The ten-day forecast.**
