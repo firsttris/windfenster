@@ -212,7 +212,6 @@
   "water_temperature": "Water temperature",
   "water_source": "PEGELONLINE (WSV) · {time}",
   "water_currentNote": "Current estimated from the flow and a blanket cross-section",
-  "footer_gauges": "Gauges:",
   "mix_name": "Mix",
   "mix_sub": "weighted · {days} days",
   "models_rowSuper": "Fine · hourly",

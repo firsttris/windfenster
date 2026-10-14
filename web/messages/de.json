@@ -212,7 +212,6 @@
   "water_temperature": "Wassertemperatur",
   "water_source": "PEGELONLINE (WSV) · {time}",
   "water_currentNote": "Strömung aus Abfluss und pauschalem Querschnitt geschätzt",
-  "footer_gauges": "Pegel:",
   "mix_name": "Mix",
   "mix_sub": "gewichtet · {days} Tage",
   "models_rowSuper": "Fein · stündlich",

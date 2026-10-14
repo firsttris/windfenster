@@ -58,10 +58,6 @@ function Footer() {
           <a href="https://opendata.dwd.de/" className="text-subtle hover:text-foreground">
             DWD
           </a>{' '}
-          · {m.footer_gauges()}{' '}
-          <a href="https://www.pegelonline.wsv.de/" className="text-subtle hover:text-foreground">
-            PEGELONLINE (WSV)
-          </a>{' '}
           ·{' '}
           <Link to="/sources" className="text-subtle hover:text-foreground">
             {m.footer_sources()}
