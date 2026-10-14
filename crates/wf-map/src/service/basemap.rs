@@ -47,6 +47,12 @@ impl MapData {
     /// minute.
     pub async fn keep_basemap(self: std::sync::Arc<Self>, db: wf_core::db::Db) {
         tokio::time::sleep(Duration::from_secs(60)).await;
+        // Cuts a restart broke off; none runs before this loop makes one
+        match spots::clear_leftovers(&self.root).await {
+            Ok(0) => {}
+            Ok(n) => tracing::info!("basemap: removed {n} unfinished spot cuts"),
+            Err(e) => tracing::warn!("basemap: unfinished spot cuts: {e}"),
+        }
         // When the region is next to be checked: at once, then daily
         let mut region_next = 0;
         let mut tick = tokio::time::interval(ROUND);

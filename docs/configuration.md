@@ -26,8 +26,8 @@ to start; set `WF_PUBLIC_URL` before people sign up.
 | `WF_SCHEDULER` | `true` | Background jobs: station lists weekly, model runs every 5 minutes, METARs and water gauges every 10, TAFs and DWD measurements every 30, verification hourly |
 | `WF_SOURCES` | – | For tests: every outside source (Open-Meteo, aviationweather.gov, the DWD, PEGELONLINE, OurAirports, Protomaps, Mapterhorn) under this one address, as the browser tests' stand-in serves them |
 | `WF_MAP` | `true` | The wind map: ICON-D2 and ICON global from the DWD and ECMWF's IFS, checked every 10 minutes, see below; `false` turns it off |
-| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF |
-| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you |
+| `WF_ICON_GLOBAL` | `true` | ICON global on the map (13 km, hourly to +78 h, to +120 h): about 1.1 GB to fetch per run (00 and 12 UTC) and 1.5 GB on disk; `false` leaves the world to ECMWF and removes ICON global's runs on disk at the start |
+| `WF_BASEMAP` | `auto` | The map's detailed basemap and relief: `auto` makes them from Protomaps' daily build and Mapterhorn's elevation, unless you put a basemap in place; `off` leaves it to you and also stops the relief and the detail spots |
 | `WF_BASEMAP_WORLD_ZOOM` | `7` | How deep the basemap covers the whole world (4 to 12): 6 is 45 MB, 7 about 150 MB, every level roughly three to four times more |
 | `WF_BASEMAP_REGION` | `-25,27,45,72` | The region covered deeper, `west,south,east,north` in degrees (Europe), or `none` |
 | `WF_BASEMAP_ZOOM` | `8` | How deep the basemap covers the region (6 to 15): 8 is about 190 MB for Europe, every level roughly four times more (12 about 7 GB); from 14 on every place there has full detail and no spots are made there |

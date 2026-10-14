@@ -392,6 +392,12 @@ async fn serve(args: ServeArgs) -> Result<()> {
         if args.icon_global {
             let m = map.clone();
             supervise("map icon_global", move || m.clone().keep_icon_global());
+        } else {
+            match map.drop_icon_global().await {
+                Ok(0) => {}
+                Ok(n) => tracing::info!("map: removed {n} ICON global runs (WF_ICON_GLOBAL=false)"),
+                Err(e) => tracing::warn!("map: removing ICON global runs: {e}"),
+            }
         }
         if args.basemap == "auto" {
             let (m, db) = (map.clone(), db.clone());

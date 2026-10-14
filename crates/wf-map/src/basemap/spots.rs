@@ -91,6 +91,22 @@ pub async fn on_disk(root: &Path) -> Vec<(Spot, SystemTime)> {
     out
 }
 
+/// Removes cuts of spots that never finished (a restart in the middle); only while no spot is
+/// being made. Returns how many went.
+pub async fn clear_leftovers(root: &Path) -> std::io::Result<usize> {
+    let mut removed = 0;
+    let Ok(mut entries) = tokio::fs::read_dir(dir(root)).await else {
+        return Ok(0);
+    };
+    while let Some(e) = entries.next_entry().await? {
+        if e.path().extension().is_some_and(|x| x == "part") {
+            tokio::fs::remove_file(e.path()).await?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 /// Makes the spot's archive from the newest build; returns how many tiles it holds.
 pub async fn make(
     root: &Path,
@@ -184,6 +200,18 @@ mod tests {
         let s = Spot::of(-12.31, -0.05);
         assert_eq!(Spot::from_file_name(&s.file_name()), Some(s));
         assert_eq!(s.file_name(), "-12.4_-0.0.pmtiles");
+    }
+
+    #[tokio::test]
+    async fn clears_unfinished_cuts() {
+        let root = tempfile::tempdir().unwrap();
+        assert_eq!(clear_leftovers(root.path()).await.unwrap(), 0);
+        let spot = Spot::of(48.78, 8.08);
+        std::fs::create_dir_all(dir(root.path())).unwrap();
+        std::fs::write(path(root.path(), spot), b"x").unwrap();
+        std::fs::write(path(root.path(), spot).with_extension("part"), b"x").unwrap();
+        assert_eq!(clear_leftovers(root.path()).await.unwrap(), 1);
+        assert_eq!(on_disk(root.path()).await.len(), 1);
     }
 
     #[test]
