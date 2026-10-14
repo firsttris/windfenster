@@ -97,7 +97,8 @@ test.describe('@screenshots', () => {
     await page.setViewportSize(phone);
     await theme(page, 'dark');
     await page.goto('/station/edsb');
-    await expect(page.getByRole('region', { name: 'At a glance' })).toBeVisible();
+    // On a phone the ten days are a strip, not the quick view
+    await expect(page.getByRole('navigation', { name: 'The ten days' })).toBeVisible();
     await page.waitForTimeout(800);
     await page.screenshot({ path: shot('screenshot-phone-station') });
     await openMap(page, '/map?spot=48.7794%2C8.0805&station=edsb#4/53/-6');
