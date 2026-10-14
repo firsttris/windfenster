@@ -180,10 +180,11 @@ export function DayCard({ fc, day, unit, now, taf, gear = [] }: Props) {
               </tr>
             )}
 
-            <GroupRow span={day.cells.length} title={m.table_weather()} />
-            <tr>
-              <th scope="row" className={label('h-8')}>
-                <span className="sr-only">{m.table_weather()}</span>
+            {/* Weather, temperature and rain apart from the wind by a line, the weather row's label
+                its heading */}
+            <tr className="[&>*]:border-line [&>*]:border-t">
+              <th scope="row" className={label('h-10')}>
+                {m.table_weather()}
               </th>
               {day.cells.map((c) => (
                 <td key={c.hour} className={td(c)}>
@@ -305,16 +306,6 @@ function TafNotes({ fc, day, taf, unit, now }: { fc: Forecast; day: Day; taf: Ta
 }
 
 /** A heading row inside the table: "Zum Vergleich", "Wetter" */
-function GroupRow({ span, title }: { span: number; title: string }) {
-  return (
-    <tr>
-      <td colSpan={span + 1} className="border-line border-t px-2 pt-2 pb-0.5">
-        <span className="sticky left-2 font-mono text-[10px] text-dim uppercase tracking-[0.08em]">{title}</span>
-      </td>
-    </tr>
-  );
-}
-
 /** A question mark that says in a sentence what a row is: on hover, and under the table when
  * tapped */
 function Help({ text, open, onToggle }: { text: string; open: boolean; onToggle: () => void }) {
