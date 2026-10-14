@@ -22,25 +22,28 @@ export function SystemTab() {
     <>
       <TabHead title={m.admin_tabSystem()} lead={m.admin_systemLead()} />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-5">
-        <Card className="gap-3">
-          <h2 className="m-0 font-semibold text-base">{m.admin_version()}</h2>
-          <div className="flex flex-wrap items-baseline gap-2.5">
-            <span className="font-bold text-[28px] tracking-[-0.04em]">{d.version}</span>
-            {d.release === null ? (
-              <Chip tone="off">{m.admin_versionUnknown()}</Chip>
-            ) : d.newer ? (
-              <Chip tone="warn">{m.admin_newVersion({ version: d.release.version })}</Chip>
-            ) : (
-              <Chip tone="ok">{m.admin_upToDate()}</Chip>
+        <div className="flex flex-col gap-5">
+          <Card className="gap-3">
+            <h2 className="m-0 font-semibold text-base">{m.admin_version()}</h2>
+            <div className="flex flex-wrap items-baseline gap-2.5">
+              <span className="font-bold text-[28px] tracking-[-0.04em]">{d.version}</span>
+              {d.release === null ? (
+                <Chip tone="off">{m.admin_versionUnknown()}</Chip>
+              ) : d.newer ? (
+                <Chip tone="warn">{m.admin_newVersion({ version: d.release.version })}</Chip>
+              ) : (
+                <Chip tone="ok">{m.admin_upToDate()}</Chip>
+              )}
+            </div>
+            <p className="m-0 text-[13px] text-subtle leading-relaxed">{m.admin_updateText()}</p>
+            {d.release && d.newer && (
+              <a href={d.release.url} target="_blank" rel="noreferrer" className="text-sm">
+                {m.admin_whatsNew({ version: d.release.version })}
+              </a>
             )}
-          </div>
-          <p className="m-0 text-[13px] text-subtle leading-relaxed">{m.admin_updateText()}</p>
-          {d.release && d.newer && (
-            <a href={d.release.url} target="_blank" rel="noreferrer" className="text-sm">
-              {m.admin_whatsNew({ version: d.release.version })}
-            </a>
-          )}
-        </Card>
+          </Card>
+          <Caches caches={d.caches} />
+        </div>
         <Card className="gap-2.5">
           <h2 className="m-0 font-semibold text-base">{m.admin_environment()}</h2>
           {d.env.map((e) => (
@@ -53,10 +56,7 @@ export function SystemTab() {
           ))}
         </Card>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-5">
-        <Caches caches={d.caches} />
-        <Visitors />
-      </div>
+      <Visitors />
       <Log />
     </>
   );
@@ -112,18 +112,20 @@ function Visitors() {
           onSave={(v) => settings.set('banner', v)}
         />
       </div>
-      <LegalText
-        label={m.admin_imprint()}
-        value={s.imprint}
-        disabled={settings.pending}
-        onSave={(v) => settings.set('imprint', v)}
-      />
-      <LegalText
-        label={m.admin_privacy()}
-        value={s.privacy}
-        disabled={settings.pending}
-        onSave={(v) => settings.set('privacy', v)}
-      />
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-5">
+        <LegalText
+          label={m.admin_imprint()}
+          value={s.imprint}
+          disabled={settings.pending}
+          onSave={(v) => settings.set('imprint', v)}
+        />
+        <LegalText
+          label={m.admin_privacy()}
+          value={s.privacy}
+          disabled={settings.pending}
+          onSave={(v) => settings.set('privacy', v)}
+        />
+      </div>
       <p className="m-0 text-muted-foreground text-xs leading-relaxed">{m.admin_legalHint()}</p>
       {settings.error && <p className="m-0 text-destructive text-sm">{settings.error}</p>}
     </Card>

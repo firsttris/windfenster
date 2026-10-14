@@ -69,7 +69,7 @@ function AdminPage() {
   return (
     <Page>
       <div className="flex flex-wrap items-start gap-7">
-        <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-1 max-sm:max-w-none">
+        <aside className="flex min-w-0 max-w-[260px] flex-[1_1_220px] flex-col gap-1 max-sm:max-w-none max-sm:basis-full">
           <div className="px-3 pb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.1em]">
             {m.nav_admin()}
           </div>

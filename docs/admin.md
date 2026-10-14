@@ -5,7 +5,8 @@ description: The admin page of Windfenster - who may open it, how the first admi
 # The admin page
 
 Under `/admin` an admin sees what the server is doing and changes it without a restart. The
-page is only for accounts with the admin role; everyone else gets "only for admins".
+page is only for accounts with the admin role; everyone else gets "only for admins". An admin
+reaches it by the gear in the header, on a phone by the link on the account page.
 
 ## The first admin
 

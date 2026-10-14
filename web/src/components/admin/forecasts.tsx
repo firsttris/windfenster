@@ -94,7 +94,7 @@ function BudgetCard({ data }: { data: AdminForecasts }) {
         <div
           role="img"
           aria-label={`${m.admin_budgetChart()}: ${formatNumber(peak)}`}
-          className="flex h-[90px] items-end gap-1.5"
+          className="flex h-[90px] items-end gap-1.5 border-line border-b"
         >
           {data.days.map((d) => (
             <div

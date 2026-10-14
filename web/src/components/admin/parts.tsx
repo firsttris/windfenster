@@ -43,8 +43,8 @@ export function Chip({ tone, children, className }: { tone: Tone; children: Reac
 export function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{children}</span>
+      <span className="shrink-0 whitespace-nowrap text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right">{children}</span>
     </div>
   );
 }

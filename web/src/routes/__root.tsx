@@ -176,7 +176,14 @@ function AccountButton() {
   return (
     <>
       {me.data.admin && (
-        <Button variant="outline" size="icon" aria-label={m.nav_admin()} title={m.nav_admin()} asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="max-sm:hidden"
+          aria-label={m.nav_admin()}
+          title={m.nav_admin()}
+          asChild
+        >
           <Link to="/admin">
             <Settings aria-hidden="true" />
           </Link>
