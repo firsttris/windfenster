@@ -1,11 +1,24 @@
 # The pictures of the README and the documentation (docs/*.png): the app against the stand-in,
 # as the browser tests run it (web/e2e/app/screenshots.spec.ts), committed when they changed.
-# Run by hand after a change to the look: Actions → Update screenshots → Run workflow.
+# Runs after every push to main that can change what they show (the app, the server, the
+# stand-in data, the screenshots themselves), and by hand: Actions → Update screenshots → Run
+# workflow. Its own commit is pushed with the GITHUB_TOKEN and so starts no run again.
 # Not the shared screenshots workflow: the app needs the server built with Rust first, which the
 # Playwright image does not have (e2e-server.yml, shared with ci.yml).
 name: Update screenshots
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - web/src/**
+      - web/messages/**
+      - web/public/**
+      - web/index.html
+      - web/e2e/app/**
+      - crates/**
+      - pnpm-lock.yaml
+      - .github/workflows/screenshots.yml
   workflow_dispatch:
 
 permissions:

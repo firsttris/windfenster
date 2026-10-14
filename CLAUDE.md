@@ -37,8 +37,9 @@ Update what the change affects, in the same commit, and only that:
 - the texts in `web/messages/de.json` and `en.json`, both languages, for every text the UI or the
   station pages show;
 - the docs in `docs/` that describe it, and the README when a feature a user sees changes;
-- the screenshots after a change to the look: **Actions → Update screenshots → Run workflow**
-  (`pnpm screenshots` locally);
+- the screenshots: the **Update screenshots** workflow takes and commits them after every push to
+  `main` that touches the app or the server (pull before the next push); `pnpm screenshots` locally
+  to look first, but commit no pictures taken outside the Playwright image;
 - the plan when a decision or a phase item changes.
 
 ## Checks

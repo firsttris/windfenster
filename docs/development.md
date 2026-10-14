@@ -71,8 +71,10 @@ The pictures in `docs/` come from the app against the same stand-in as the brows
 pnpm screenshots    # needs the server built: cargo build -p windfenster
 ```
 
-After a change to the look, run **Actions → Update screenshots → Run workflow**: it takes them in
-the official Playwright image and commits the ones that changed.
+The **Update screenshots** workflow takes them after every push to `main` that touches the app,
+the server or the stand-in data, in the official Playwright image, and commits the ones that
+changed (`github-actions[bot]`: pull before the next push). By hand: **Actions → Update
+screenshots → Run workflow**.
 
 The documentation is this site, built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
 from `docs/` and published to GitHub Pages on every push to `main` that touches it
