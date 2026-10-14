@@ -5,6 +5,7 @@
  */
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
+import { makeAdmin, signUp, someone } from './accounts';
 import { expect, test } from './fixtures';
 
 const DOCS = resolve(import.meta.dirname, '../../../docs');
@@ -101,5 +102,17 @@ test.describe('@screenshots', () => {
     await page.screenshot({ path: shot('screenshot-phone-station') });
     await openMap(page, '/map?spot=48.7794%2C8.0805&station=edsb#4/53/-6');
     await page.screenshot({ path: shot('screenshot-phone-map') });
+  });
+
+  test('the admin page: what the data folder holds, and its care', async ({ page }) => {
+    await page.setViewportSize(desktop);
+    await theme(page, 'dark');
+    const who = { ...someone('Ada'), name: 'Ada' };
+    await signUp(page, who, 'en');
+    makeAdmin(who.email);
+    await page.goto('/admin?tab=storage');
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: shot('screenshot-admin'), fullPage: true });
   });
 });

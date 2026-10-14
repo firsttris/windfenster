@@ -8,6 +8,8 @@ Under `/admin` an admin sees what the server is doing and changes it without a r
 page is only for accounts with the admin role; everyone else gets "only for admins". An admin
 reaches it by the gear in the header, on a phone by the link on the account page.
 
+![The admin page's storage section: the data folder split into the wind map's runs, relief, database, detail spots, basemap and leftovers, the rows of every table, and the care actions backup, compact, remove expired sessions and look at inactive accounts](screenshot-admin.png)
+
 ## The first admin
 
 Nobody can make themselves an admin over the web, not even the first account. On the server:

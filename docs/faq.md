@@ -40,6 +40,13 @@ Yes: the map and the global models cover the world, and every airport that sends
 a station. The regional models (ICON-D2, AROME, HARMONIE) and the DWD's wind stations are
 European; water gauges are German rivers.
 
+## How do I run my server without editing files?
+
+On the [admin page](admin.md): what the background tasks and data sources are doing, the
+Open-Meteo budget, when the map's basemap and relief are downloaded, the models and limits,
+accounts and sign-up, backups and the log. The first admin is made once on the server with
+`windfenster admin you@example.org`; settings the environment sets stay locked there.
+
 ## Can I get a wind alarm for my kite spot?
 
 Yes. Save the spot with the wind directions that work there, enter your kites or wings, and set

@@ -154,4 +154,5 @@ Signed in (passkey, or e-mail and password) you can
 - set an **alarm** per spot (the bell): from how much wind, optionally only when some of your gear
   fits, told ahead from the forecast and/or when the station measures it. By push and e-mail.
 
-Details: [Accounts, spots and alarms](accounts.md).
+Whoever runs the server decides who may sign up: everyone, only with an invitation link, or
+nobody new. Details: [Accounts, spots and alarms](accounts.md).

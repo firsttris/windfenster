@@ -15,7 +15,7 @@ about 250 KB) and keeps the reports of its stations: every airfield in the world
 METARs, from OurAirports' list and aviationweather.gov's station list, refreshed weekly.
 
 DWD stations deliver **10-minute values**. They are fetched every 30 minutes for the tracked
-stations (`WF_TRACKED_STATIONS`) and those opened within the last seven days, and right away when
+stations (`WF_TRACKED_STATIONS`, or set on the [admin page](admin.md)) and those opened within the last seven days, and right away when
 someone opens a station whose values are stale.
 
 The live tile shows the newest report, and for an airport the raw METAR translated group by group
