@@ -221,9 +221,25 @@ async fn half(src: &Arc<Source>, url: &str, part: &Part) {
     src.down_after
         .store(true, std::sync::atomic::Ordering::SeqCst);
     assert!(get(url, part, ONE).await.is_err());
+    // The round gives up with a retry of piece 1 maybe still on its way to the source:
+    // wait until the source has seen it, so it does not count as a request of the next round.
+    settle(src).await;
     src.down_after
         .store(false, std::sync::atomic::Ordering::SeqCst);
     assert_eq!(src.asked()[..2], [(0, 0), (0, 65_535)]);
+}
+
+/// Waits until the source has taken no request for a while
+async fn settle(src: &Source) {
+    let mut seen = src.asked().len();
+    loop {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let now = src.asked().len();
+        if now == seen {
+            return;
+        }
+        seen = now;
+    }
 }
 
 #[tokio::test]
