@@ -127,10 +127,48 @@ async fn passkeys_are_listed_and_removed_but_not_the_last_way_in() -> Result<()>
     assert_eq!(
         list,
         json!([
-            {"id": "cred", "createdAt": 0, "lastUsedAt": null},
-            {"id": "cred-2", "createdAt": 50, "lastUsedAt": null},
+            {"id": "cred", "name": null, "browser": null, "os": null, "createdAt": 0, "lastUsedAt": null},
+            {"id": "cred-2", "name": null, "browser": null, "os": null, "createdAt": 50, "lastUsedAt": null},
         ])
     );
+
+    // A name of the user's own, too long, and back to the device
+    let (status, k) = call(
+        &app,
+        "PATCH",
+        "/api/me/passkeys/cred-2",
+        Some(json!({"name": "  Pixel  8 "})),
+        true,
+    )
+    .await?;
+    assert_eq!(
+        (status, k["name"].clone()),
+        (StatusCode::OK, json!("Pixel 8"))
+    );
+    let long = json!({"name": "x".repeat(61)});
+    let (status, body) = call(&app, "PATCH", "/api/me/passkeys/cred-2", Some(long), true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::BAD_REQUEST, json!({"code": "invalid_name"}))
+    );
+    let (_, k) = call(
+        &app,
+        "PATCH",
+        "/api/me/passkeys/cred-2",
+        Some(json!({"name": " "})),
+        true,
+    )
+    .await?;
+    assert_eq!(k["name"], Value::Null);
+    let (status, _) = call(
+        &app,
+        "PATCH",
+        "/api/me/passkeys/nope",
+        Some(json!({"name": "x"})),
+        true,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 
     let (status, me) = call(&app, "DELETE", "/api/me/passkeys/cred", None, true).await?;
     assert_eq!((status, me["passkeys"].clone()), (StatusCode::OK, json!(1)));
@@ -149,6 +187,31 @@ async fn passkeys_are_listed_and_removed_but_not_the_last_way_in() -> Result<()>
     let (status, _) = call(&app, "GET", "/api/me/passkeys", None, false).await?;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     let (status, _) = call(&app, "DELETE", "/api/me/passkeys/cred-2", None, false).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[tokio::test]
+async fn signing_out_on_every_other_device() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    let id = signed_in(&dir).await?;
+    let db = wf_core::db::connect(&dir.path().join("test.db")).await?;
+    let now = wf_core::time::now();
+    wf_core::account::start_session(&db, b"phone", id, now).await?;
+    wf_core::account::start_session(&db, b"laptop", id, now).await?;
+    let (status, body) = call(&app, "DELETE", "/api/me/sessions", None, true).await?;
+    assert_eq!((status, body), (StatusCode::OK, json!({"ended": 2})));
+    // This one stays signed in, the others are out.
+    let (_, me) = call(&app, "GET", "/api/me", None, true).await?;
+    assert_eq!(me["id"], json!(id));
+    assert!(
+        wf_core::account::of_session(&db, b"phone", now)
+            .await?
+            .is_none()
+    );
+    let (_, body) = call(&app, "DELETE", "/api/me/sessions", None, true).await?;
+    assert_eq!(body, json!({"ended": 0}));
+    let (status, _) = call(&app, "DELETE", "/api/me/sessions", None, false).await?;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     Ok(())
 }

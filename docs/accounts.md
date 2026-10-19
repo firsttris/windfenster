@@ -16,11 +16,13 @@ Alarm e-mails go only to an address confirmed by the link the server sends to it
 a page that confirms with a button, so a mail scanner opening links confirms nothing. Sign-up (open by default; an admin can make it by invitation or close it, see
 [the admin page](admin.md#users)) asks for a name and then either a
 passkey or an address and a password (at least 10 characters); either can be added later on the
-account page. The account page lists the passkeys with when each was added and last used;
-one no longer wanted (a lost phone, a password manager given up) can be removed there, except
-the last way in: the last passkey of an account without a password stays. A removed passkey
-stays on its device until deleted there, but no longer signs in; sessions already open stay
-until signed out. Passkeys are made discoverable, so the browser offers them in the sign-in field
+account page. The account page lists the passkeys, each named after the browser and system it
+was added with (read from the User-Agent then; passkeys added before show as "Passkey") or by
+the user, with when it was added and last used. One no longer wanted (a lost phone, a password
+manager given up) can be removed there, except the last way in: the last passkey of an account
+without a password stays. A removed passkey stays on its device until deleted there, but no
+longer signs in. Sessions already open are not tied to a passkey; *Sign out on other devices*
+ends every session of the account but the current one. Passkeys are made discoverable, so the browser offers them in the sign-in field
 by itself. They belong to the domain of `WF_PUBLIC_URL`; changing the domain later makes them
 useless, so set it before the first sign-up. A session is a random token in an HTTP-only cookie
 (half a year, renewed while used; only its SHA-256 is stored); sessions and confirmation links that ran

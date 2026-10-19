@@ -1,8 +1,9 @@
 //! The ceremonies and the account: sign up (a name, then a passkey), sign in (offered in the
-//! name field or by button), more passkeys and removing them, sign out, rename, delete.
+//! name field or by button), more passkeys, sign out, rename, delete. Managing the passkeys and
+//! sessions is in `devices`.
 
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,6 @@ use ts_rs::TS;
 use webauthn_rs::prelude::{
     DiscoverableKey, Passkey, PublicKeyCredential, RegisterPublicKeyCredential, Uuid,
 };
-use wf_core::account::passkeys::{self as keys, PasskeySummary, Removal};
 use wf_core::account::{self, Account};
 
 use super::{Passkeys, Pending, SignedIn, clear_cookie, hash, start_session, token};
@@ -108,6 +108,7 @@ pub async fn sign_up(
 /// `POST /api/auth/signup/finish`: the new passkey; the account, signed in.
 pub async fn finish_sign_up(
     State(s): State<AppState>,
+    request: HeaderMap,
     Json(a): Json<PasskeyAnswer>,
 ) -> Result<(HeaderMap, Json<Account>), ApiError> {
     let p = passkeys(&s)?;
@@ -130,6 +131,7 @@ pub async fn finish_sign_up(
     let now = wf_core::time::now();
     super::signup::allowed(&s, invite.as_deref()).await?;
     let id = account::create(&s.db, &handle.to_string(), name, &key_id, &json, now).await?;
+    super::devices::note_device(&s, &key_id, &request).await?;
     super::signup::made(&s, invite.as_deref(), id).await?;
     let headers = start_session(&s, id).await?;
     Ok((
@@ -239,6 +241,7 @@ pub async fn add_passkey(
 pub async fn finish_add_passkey(
     State(s): State<AppState>,
     SignedIn(me): SignedIn,
+    request: HeaderMap,
     Json(a): Json<PasskeyAnswer>,
 ) -> Result<Json<Account>, ApiError> {
     let p = passkeys(&s)?;
@@ -256,36 +259,11 @@ pub async fn finish_add_passkey(
         .map_err(|_| ApiError::PasskeyRejected)?;
     let (key_id, json) = stored(&passkey)?;
     account::add_passkey(&s.db, me.id, &key_id, &json, wf_core::time::now()).await?;
+    super::devices::note_device(&s, &key_id, &request).await?;
     Ok(Json(Account {
         passkeys: me.passkeys + 1,
         ..me
     }))
-}
-
-/// `GET /api/me/passkeys`: the signed-in account's passkeys, oldest first.
-pub async fn list_passkeys(
-    State(s): State<AppState>,
-    SignedIn(me): SignedIn,
-) -> Result<Json<Vec<PasskeySummary>>, ApiError> {
-    Ok(Json(keys::list(&s.db, me.id).await?))
-}
-
-/// `DELETE /api/me/passkeys/{id}`: one passkey less; the account. The last way to sign in stays
-/// (`last_sign_in`). The passkey stays in its device, it no longer signs in here; sessions it
-/// started stay too (signing out is per device).
-pub async fn remove_passkey(
-    State(s): State<AppState>,
-    SignedIn(me): SignedIn,
-    Path(id): Path<String>,
-) -> Result<Json<Account>, ApiError> {
-    match keys::remove(&s.db, me.id, &id).await? {
-        Removal::Removed => Ok(Json(Account {
-            passkeys: me.passkeys - 1,
-            ..me
-        })),
-        Removal::NotFound => Err(ApiError::NotFound),
-        Removal::LastSignIn => Err(ApiError::LastSignIn),
-    }
 }
 
 /// `GET /api/me`: the signed-in account, or null.

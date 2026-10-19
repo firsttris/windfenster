@@ -388,6 +388,23 @@ pub async fn end_session(db: &SqlitePool, token_hash: &[u8]) -> sqlx::Result<()>
     Ok(())
 }
 
+/// Ends the account's sessions but the one with `keep` (signing out on every other device);
+/// returns how many went.
+pub async fn end_other_sessions(
+    db: &SqlitePool,
+    account_id: i64,
+    keep: &[u8],
+) -> sqlx::Result<u64> {
+    Ok(
+        sqlx::query("DELETE FROM session WHERE account_id = ? AND token_hash != ?")
+            .bind(account_id)
+            .bind(keep)
+            .execute(db)
+            .await?
+            .rows_affected(),
+    )
+}
+
 /// Links to confirm an address that ran out; returns how many went.
 pub async fn prune_email_confirmations(db: &SqlitePool, now: i64) -> sqlx::Result<u64> {
     Ok(
@@ -571,6 +588,17 @@ mod tests {
         start_session(&db, b"two", id, 1_000).await?;
         end_session(&db, b"two").await?;
         assert!(of_session(&db, b"two", 1_000).await?.is_none());
+
+        // Signing out everywhere else keeps this session and other accounts' ones.
+        let other = create(&db, "uuid-2", "B", "cred-b", "{}", 100).await?;
+        for (t, a) in [(b"a1", id), (b"a2", id), (b"b1", other)] {
+            start_session(&db, t, a, 1_000).await?;
+        }
+        assert_eq!(end_other_sessions(&db, id, b"a1").await?, 1);
+        assert!(of_session(&db, b"a1", 1_000).await?.is_some());
+        assert!(of_session(&db, b"a2", 1_000).await?.is_none());
+        assert!(of_session(&db, b"b1", 1_000).await?.is_some());
+        end_session(&db, b"a1").await?;
 
         assert_eq!(get(&db, id).await?.map(|a| a.passkeys), Some(2));
         rename(&db, id, "T.").await?;

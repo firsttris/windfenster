@@ -4,6 +4,7 @@
 //! minutes. Passkeys are made discoverable, so the browser can offer them in the name field
 //! (conditional UI, as in firsttris/haben's login) without the user typing anything.
 
+mod devices;
 pub mod email;
 pub mod password;
 mod routes;
@@ -23,10 +24,12 @@ use wf_core::account::{self, Account};
 
 use crate::{ApiError, AppState};
 
+pub use devices::{
+    PasskeyName, SessionsEnded, end_other_sessions, list_passkeys, remove_passkey, rename_passkey,
+};
 pub use routes::{
     PasskeyAnswer, PasskeyOptions, SignIn, SignUp, add_passkey, delete_me, finish_add_passkey,
-    finish_sign_in, finish_sign_up, list_passkeys, me, remove_passkey, rename_me, sign_in,
-    sign_out, sign_up,
+    finish_sign_in, finish_sign_up, me, rename_me, sign_in, sign_out, sign_up,
 };
 
 const COOKIE_NAME: &str = "wf_session";

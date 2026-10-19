@@ -347,10 +347,28 @@
   "account_passkeyAdded": "Angelegt am {date} um {time}",
   "account_passkeyUsed": "zuletzt benutzt {ago}",
   "account_passkeyUnused": "noch nie benutzt",
-  "account_removePasskey": "Passkey vom {date}, {time} entfernen",
+  "account_removePasskey": "{name} entfernen",
   "account_removePasskeyConfirm": "Entfernen",
-  "account_removePasskeyHint": "Der Passkey meldet dich hier danach nicht mehr an. Auf dem Gerät oder im Passwortmanager bleibt er gespeichert, bis du ihn dort löschst.",
+  "account_removePasskeyHint": "Der Passkey meldet dich hier danach nicht mehr an. Auf dem Gerät oder im Passwortmanager bleibt er gespeichert, bis du ihn dort löschst. Ist das Gerät weg, melde es unten mit „Auf anderen Geräten abmelden“ ab.",
   "account_lastPasskey": "Das ist dein einziger Weg ins Konto. Leg zuerst einen weiteren Passkey oder E-Mail und Passwort an, dann kannst du ihn entfernen.",
+  "account_passkeyDevice": "{browser} auf {os}",
+  "account_passkeyUnknown": "Passkey",
+  "account_renamePasskey": "{name} umbenennen",
+  "account_passkeyName": "Name des Passkeys",
+  "account_passkeyNameHint": "Leer lassen für Browser und System",
+  "account_cancel": "Abbrechen",
+  "account_signOutOthers": "Auf anderen Geräten abmelden",
+  "account_signedOutOthers": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Auf {count} anderen Gerät abgemeldet.",
+        "countPlural=other": "Auf {count} anderen Geräten abgemeldet."
+      }
+    }
+  ],
+  "account_signedOutNone": "Auf keinem anderen Gerät warst du angemeldet.",
   "account_signOut": "Abmelden",
   "account_delete": "Konto löschen",
   "account_deleteConfirm": "Wirklich löschen",
