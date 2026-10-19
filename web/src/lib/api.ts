@@ -10,6 +10,7 @@ import type { MapIndex } from '@/bindings/MapIndex';
 import type { MapSeries } from '@/bindings/MapSeries';
 import type { Model } from '@/bindings/Model';
 import type { NearGauge } from '@/bindings/NearGauge';
+import type { PasskeySummary } from '@/bindings/PasskeySummary';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { PushInfo } from '@/bindings/PushInfo';
 import type { SearchResults } from '@/bindings/SearchResults';
@@ -67,6 +68,12 @@ export const meQuery = queryOptions({
   queryKey: ['me'],
   queryFn: () => api<Account | null>('/me'),
   staleTime: 5 * 60_000,
+});
+
+/** The signed-in account's passkeys, oldest first */
+export const passkeysQuery = queryOptions({
+  queryKey: ['passkeys'],
+  queryFn: () => api<PasskeySummary[]>('/me/passkeys'),
 });
 
 /** Whether accounts can be made, the notice above every page, the legal pages */

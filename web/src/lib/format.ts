@@ -28,6 +28,13 @@ export function dayMonthOf(unix: number, timeZone: string): string {
   );
 }
 
+/** Day, month and year of a Unix time in a time zone, e.g. "11. Okt. 2026" / "11 Oct 2026". */
+export function dateOf(unix: number, timeZone: string): string {
+  return new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(
+    new Date(unix * 1000),
+  );
+}
+
 /** Hours and minutes of a Unix time in a time zone, e.g. "14:50". */
 export function clock(unix: number, timeZone: string): string {
   return new Intl.DateTimeFormat(intlLocale(), {

@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router';
-import { KeyRound, LogOut, Sailboat, Settings, Trash2 } from 'lucide-react';
+import { LogOut, Sailboat, Settings, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Account } from '@/bindings/Account';
 import { NotificationsCard } from '@/components/notifications-card';
 import { Loading, Page } from '@/components/page';
+import { PasskeysCard } from '@/components/passkeys-card';
 import { meQuery, send } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
-import { addPasskey, cancelled } from '@/lib/passkeys';
+import { cancelled } from '@/lib/passkeys';
 import { useTitle } from '@/lib/use-title';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
@@ -84,26 +85,7 @@ function Signed({ account }: { account: Account }) {
           </form>
           {saved && <p className="m-0 text-muted-foreground text-sm">{m.account_saved()}</p>}
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{m.account_passkeys()}</CardTitle>
-          </CardHeader>
-          <p className="m-0 text-sm text-subtle">{m.account_passkeysCount({ count: account.passkeys })}</p>
-          <p className="m-0 text-muted-foreground text-sm leading-relaxed">{m.account_passkeysHint()}</p>
-          <Button
-            variant="outline"
-            className="w-fit"
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                queryClient.setQueryData(['me'], await addPasskey());
-              })
-            }
-          >
-            <KeyRound aria-hidden="true" />
-            {m.account_addPasskey()}
-          </Button>
-        </Card>
+        <PasskeysCard account={account} />
         <PasswordCard account={account} />
         <NotificationsCard account={account} />
         <Card>

@@ -77,6 +77,10 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await page.getByRole('link', { name: `Konto von ${name}` }).click();
   await expect(page.getByRole('heading', { name: 'Dein Konto' })).toBeVisible();
   await expect(page.getByText('1 Passkey für dieses Konto')).toBeVisible();
+  // Its only way in: listed, but it cannot be removed
+  await expect(page.getByText(/^Angelegt am /)).toHaveCount(1);
+  await expect(page.getByText(/einziger Weg ins Konto/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Passkey vom .* entfernen$/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Abmelden' }).click();
   await expect(page.getByRole('link', { name: 'Anmelden' })).toBeVisible();
   // Signed out, the start page shows the examples again
@@ -116,6 +120,18 @@ test('an account with e-mail and password', async ({ page }) => {
   await page.getByLabel('Passwort').fill('lang genug 123');
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await expect(page.getByRole('link', { name: /^Konto von Alex/ })).toBeVisible();
+
+  // A passkey on this device, and away again: the password stays the way in
+  const { cdp, authenticatorId } = await authenticator(page);
+  await page.getByRole('link', { name: /^Konto von Alex/ }).click();
+  await page.getByRole('button', { name: 'Passkey auf diesem Gerät hinzufügen' }).click();
+  await expect(page.getByText('1 Passkey für dieses Konto')).toBeVisible();
+  expect((await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials).toHaveLength(1);
+  await expect(page.getByText('noch nie benutzt')).toBeVisible();
+  await page.getByRole('button', { name: /^Passkey vom .* entfernen$/ }).click();
+  await page.getByRole('button', { name: 'Entfernen', exact: true }).click();
+  await expect(page.getByText('0 Passkeys für dieses Konto')).toBeVisible();
+  await expect(page.getByText(/^Angelegt am /)).toHaveCount(0);
 });
 
 test('a confirmation link confirms only by its button, and only a valid one', async ({ page }) => {

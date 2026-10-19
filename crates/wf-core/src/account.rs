@@ -2,6 +2,8 @@
 //! keeps what it needs: an account per WebAuthn user handle, each passkey as webauthn-rs
 //! serialises it, and sessions by the SHA-256 of their token.
 
+pub mod passkeys;
+
 use serde::Serialize;
 use sqlx::SqlitePool;
 use ts_rs::TS;

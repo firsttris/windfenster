@@ -56,6 +56,8 @@ pub enum ErrorCode {
     Forbidden,
     /// The last admin cannot lose the role
     LastAdmin,
+    /// The account's only way to sign in (its last passkey, no password) cannot be removed
+    LastSignIn,
     /// A setting's value is out of bounds, or the setting is fixed by the environment
     InvalidSetting,
     Internal,
@@ -95,6 +97,7 @@ pub enum ApiError {
     SignupClosed,
     Forbidden,
     LastAdmin,
+    LastSignIn,
     InvalidSetting,
     /// Logged with its cause; the client only learns that something went wrong.
     Internal(String),
@@ -152,6 +155,7 @@ impl IntoResponse for ApiError {
             ApiError::SignupClosed => (StatusCode::FORBIDDEN, ErrorCode::SignupClosed),
             ApiError::Forbidden => (StatusCode::FORBIDDEN, ErrorCode::Forbidden),
             ApiError::LastAdmin => (StatusCode::CONFLICT, ErrorCode::LastAdmin),
+            ApiError::LastSignIn => (StatusCode::CONFLICT, ErrorCode::LastSignIn),
             ApiError::InvalidSetting => (StatusCode::BAD_REQUEST, ErrorCode::InvalidSetting),
             ApiError::Internal(cause) => {
                 tracing::error!("request failed: {cause}");

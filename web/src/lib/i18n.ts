@@ -48,6 +48,7 @@ export const errorText: Record<ErrorCode, () => string> = {
   signup_closed: m.error_signupClosed,
   forbidden: m.error_forbidden,
   last_admin: m.error_lastAdmin,
+  last_sign_in: m.error_lastSignIn,
   invalid_setting: m.error_invalidSetting,
   internal: m.error_internal,
 };

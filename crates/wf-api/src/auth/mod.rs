@@ -25,7 +25,8 @@ use crate::{ApiError, AppState};
 
 pub use routes::{
     PasskeyAnswer, PasskeyOptions, SignIn, SignUp, add_passkey, delete_me, finish_add_passkey,
-    finish_sign_in, finish_sign_up, me, rename_me, sign_in, sign_out, sign_up,
+    finish_sign_in, finish_sign_up, list_passkeys, me, remove_passkey, rename_me, sign_in,
+    sign_out, sign_up,
 };
 
 const COOKIE_NAME: &str = "wf_session";

@@ -117,6 +117,43 @@ async fn the_signed_in_user_and_signing_out() -> Result<()> {
 }
 
 #[tokio::test]
+async fn passkeys_are_listed_and_removed_but_not_the_last_way_in() -> Result<()> {
+    let (dir, app, _) = common::app().await?;
+    let id = signed_in(&dir).await?;
+    let db = wf_core::db::connect(&dir.path().join("test.db")).await?;
+    wf_core::account::add_passkey(&db, id, "cred-2", "{}", 50).await?;
+    let (status, list) = call(&app, "GET", "/api/me/passkeys", None, true).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        list,
+        json!([
+            {"id": "cred", "createdAt": 0, "lastUsedAt": null},
+            {"id": "cred-2", "createdAt": 50, "lastUsedAt": null},
+        ])
+    );
+
+    let (status, me) = call(&app, "DELETE", "/api/me/passkeys/cred", None, true).await?;
+    assert_eq!((status, me["passkeys"].clone()), (StatusCode::OK, json!(1)));
+    // Gone already, and the last one stays while the account has no password.
+    let (status, body) = call(&app, "DELETE", "/api/me/passkeys/cred", None, true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::NOT_FOUND, json!({"code": "not_found"}))
+    );
+    let (status, body) = call(&app, "DELETE", "/api/me/passkeys/cred-2", None, true).await?;
+    assert_eq!(
+        (status, body),
+        (StatusCode::CONFLICT, json!({"code": "last_sign_in"}))
+    );
+    // Signed out, nothing is listed or removed.
+    let (status, _) = call(&app, "GET", "/api/me/passkeys", None, false).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = call(&app, "DELETE", "/api/me/passkeys/cred-2", None, false).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[tokio::test]
 async fn favourites_of_stations_and_points() -> Result<()> {
     let (dir, app, _) = common::app().await?;
     signed_in(&dir).await?;
