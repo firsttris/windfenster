@@ -123,6 +123,28 @@ that domain, and changing it later makes them useless.
               - TUNNEL_TOKEN=<the token>
         ```
 
+        or as a Quadlet, `~/.config/containers/systemd/cloudflared.container`; with the host's
+        network it reaches Windfenster at `localhost:8080`:
+
+        ```ini
+        [Unit]
+        After=windfenster.service
+
+        [Container]
+        Image=docker.io/cloudflare/cloudflared:latest
+        ContainerName=cloudflared
+        AutoUpdate=registry
+        Exec=tunnel --no-autoupdate run
+        Environment=TUNNEL_TOKEN=<the token>
+        Network=host
+
+        [Service]
+        Restart=always
+
+        [Install]
+        WantedBy=default.target
+        ```
+
     Push messages need HTTPS, which the tunnel brings; a `.app` domain works only over HTTPS
     anyway.
 
@@ -146,6 +168,24 @@ that domain, and changing it later makes them useless.
     Requests through Caddy carry no `CF-Connecting-IP`; the limits then count Caddy's address,
     so everyone at home shares one count (30 new places an hour), plenty for a household.
     If Caddy itself is open to the internet, set `WF_CLIENT_IP_HEADER=X-Forwarded-For`.
+
+### Only for people you let in: Cloudflare Access
+
+For a private instance, [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-public-app/)
+puts a sign-in in front of the tunnel (free for up to 50 users). Cloudflare answers everyone who
+is not signed in with its own login page; their requests never reach Windfenster.
+
+1. *Zero Trust → Access → Applications → Add an application → Self-hosted*, with the tunnel's
+   domain.
+2. A policy with the action *Allow* and who may enter, e.g. *Emails* with a list of addresses.
+3. A login method: *One-time PIN* sends a code by e-mail and needs no further setup; Google,
+   GitHub and others can be added.
+4. A *session duration* of a week or a month, so phones are not asked to sign in every day.
+
+Windfenster needs no setting for it; it keeps its own accounts behind Access. Only the tunnel
+must lead in: port 8080 published on `127.0.0.1` only, as above. The web app sends Cloudflare's
+cookie with every request, the manifest included (`crossorigin="use-credentials"`), so it can be
+installed on a phone behind Access too. Search engines no longer see the station pages.
 
 ## Without root
 

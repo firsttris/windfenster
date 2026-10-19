@@ -8,7 +8,8 @@
     <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- With credentials: behind a login proxy (Cloudflare Access) the manifest needs its cookie. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <!-- The theme before the first paint: the viewer's choice, else the system's (src/lib/prefs.ts). -->
     <script>
       (() => {
