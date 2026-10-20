@@ -19,10 +19,10 @@ closest to the measurements there. This page explains where the numbers come fro
 | ICON-EU | DWD | 7 km | 5 days | 8 | Forecast (Europe, the Mediterranean, North Africa) |
 | GFS | NOAA | 13 km | 16 days | 4 | Forecast (world) |
 
-A regional model shows only where its domain covers the place. ICON-EU is regional too, but at
-7 km no Superforecast model (those are 3 km or finer): it counts with the global ones and is
-the finest model where the others stop, around the whole Mediterranean (Rhodes, Greece, Spain's
-south). Since it ends after five days, Forecast never picks it to fill the ten. `WF_MODELS` limits the list, or
+A regional model shows only where its domain covers the place. ICON-EU is regional too, but at 7 km
+no Superforecast model (those are 3 km or finer): it counts with the global ones and is the finest
+model where the others stop, around the whole Mediterranean (Rhodes, Greece, Spain's south). Since
+it ends after five days, Forecast never picks it to fill the ten. `WF_MODELS` limits the list, or
 the switches on the [admin page](admin.md#forecasts) when the variable is not set.
 
 ## How forecasts are fetched

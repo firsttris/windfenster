@@ -76,8 +76,8 @@ Cloudflare Tunnel, settings, disk space and backups are in the
   wind and the models' agreement per day.
 - **Day cards**: wind as a growing bar with the gust under it, direction, your gear, measured and
   TAF to compare, weather; hourly for today and tomorrow.
-- **Six models** (ICON-D2, AROME, HARMONIE, ICON-EU, ECMWF, GFS) and the **Windfenster mix**, weighted by
-  how well each model hit at the station.
+- **Six models** (ICON-D2, AROME, HARMONIE, ICON-EU, ECMWF, GFS) and the **Windfenster mix**,
+  weighted by how well each model hit at the station.
 - **Knots, m/s or km/h**, German and English, light and dark.
 
 ### 📈 Measured and verified
