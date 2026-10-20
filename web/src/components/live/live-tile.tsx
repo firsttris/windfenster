@@ -2,9 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Code, Plane } from 'lucide-react';
 import { type ReactNode, useId, useMemo, useState } from 'react';
 import type { Observation } from '@/bindings/Observation';
+import type { Sector } from '@/bindings/Sector';
 import type { Station } from '@/bindings/Station';
 import type { Taf } from '@/bindings/Taf';
-import { liveQuery } from '@/lib/api';
+import { favoritesQuery, liveQuery, meQuery } from '@/lib/api';
+import { variation } from '@/lib/compass-rose';
+import { findFavorite, inSector } from '@/lib/favorites';
 import { ago, clock, compass } from '@/lib/format';
 import { decodeMetar } from '@/lib/metar';
 import { type Context, describe, summary } from '@/lib/metar-text';
@@ -17,10 +20,15 @@ import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { Card, CardHeader, CardMeta, CardTitle } from '@/ui/card';
 import { WindArrow } from '@/ui/wind-arrow';
+import { WindCompass } from '@/ui/wind-compass';
 
 /** What the station measures now: wind, direction, gusts, and for METARs the report in words. */
 export function LiveTile({ station, timeZone }: { station: Station; timeZone: string }) {
   const q = useQuery(liveQuery(station.slug));
+  const me = useQuery(meQuery);
+  const favorites = useQuery({ ...favoritesQuery, enabled: Boolean(me.data) });
+  // The directions that work, where the station is a saved spot
+  const sector = (favorites.data && findFavorite(favorites.data, { slug: station.slug })?.sector) ?? null;
   const now = useNow();
   const obs = q.data ? latest(q.data.observations) : null;
   const taf = q.data?.taf ? <TafBlock taf={q.data.taf} timeZone={timeZone} now={now} /> : null;
@@ -47,7 +55,7 @@ export function LiveTile({ station, timeZone }: { station: Station; timeZone: st
       {q.isPending ? (
         <div className="h-[76px] animate-pulse rounded-lg bg-muted" />
       ) : obs ? (
-        <Measured obs={obs} station={station} timeZone={timeZone} taf={taf} />
+        <Measured obs={obs} station={station} timeZone={timeZone} taf={taf} sector={sector} />
       ) : (
         <>
           <p className="m-0 text-muted-foreground text-sm">{m.live_none()}</p>
@@ -112,43 +120,66 @@ function Measured({
   station,
   timeZone,
   taf,
+  sector,
 }: {
   obs: Observation;
   station: Station;
   timeZone: string;
   /** The folded TAF, before the raw METAR */
   taf?: ReactNode;
+  sector: Sector | null;
 }) {
   const [unit] = useUnit();
   const wind = obs.wind ?? 0;
+  const fits = sector && obs.dir !== null ? inSector(sector, obs.dir) : null;
   return (
     <>
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono font-semibold text-[56px] leading-[0.9] tracking-[-0.06em] sm:text-[76px]">
-            {formatWind(wind, unit)}
-          </span>
-          <span className="text-muted-foreground">{UNIT_LABEL[unit]}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 pb-1.5 text-sm">
-          <span className="flex items-center gap-1.5 font-medium">
-            {obs.dir !== null ? (
-              <>
-                <WindArrow deg={obs.dir} />
-                {compass(obs.dir)} · {Math.round(obs.dir)}°
-              </>
-            ) : wind === 0 ? (
-              m.live_calm()
-            ) : (
-              m.live_variable()
-            )}
-          </span>
-          {obs.gust !== null && (
-            <span className="text-muted-foreground">
-              {m.live_gusts()} <strong className="font-mono text-foreground">{formatWind(obs.gust, unit)}</strong>
+      <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-5 gap-y-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono font-semibold text-[56px] leading-[0.9] tracking-[-0.06em] sm:text-[76px]">
+              {formatWind(wind, unit)}
             </span>
-          )}
+            <span className="text-muted-foreground">{UNIT_LABEL[unit]}</span>
+          </div>
+          <div className="flex flex-col gap-1.5 pb-1.5 text-sm">
+            <span className="flex items-center gap-1.5 font-medium">
+              {obs.dir !== null ? (
+                <>
+                  <WindArrow deg={obs.dir} />
+                  {compass(obs.dir)} · {Math.round(obs.dir)}°
+                </>
+              ) : wind === 0 ? (
+                m.live_calm()
+              ) : (
+                m.live_variable()
+              )}
+            </span>
+            {obs.gust !== null && (
+              <span className="text-muted-foreground">
+                {m.live_gusts()} <strong className="font-mono text-foreground">{formatWind(obs.gust, unit)}</strong>
+              </span>
+            )}
+            {fits !== null && (
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 text-xs',
+                  fits ? 'text-success-foreground' : 'text-muted-foreground',
+                )}
+              >
+                <span aria-hidden="true" className={cn('size-1.5 rounded-full', fits ? 'bg-success' : 'bg-dim')} />
+                {fits ? m.live_fits() : m.live_fitsNot()}
+              </span>
+            )}
+          </div>
         </div>
+        <WindCompass
+          dir={obs.dir}
+          calm={wind === 0}
+          range={station.source === 'metar' ? variation(obs.raw) : null}
+          sector={sector}
+          className="size-[88px] sm:size-[116px]"
+        />
       </div>
       {obs.raw && station.source === 'metar' ? (
         <Metar raw={obs.raw} ctx={{ unit, at: obs.at, timeZone }} before={taf} />
