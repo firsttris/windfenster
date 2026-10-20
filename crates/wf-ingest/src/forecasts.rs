@@ -316,12 +316,14 @@ impl Forecasts {
 }
 
 /// About how long after its start a run is out on Open-Meteo (meta.json, October 2026:
-/// ICON-D2 1.5 h, AROME and HARMONIE 3 h, GFS 5.5 h, ECMWF 8.5 h).
+/// ICON-D2 1.5 h, AROME and HARMONIE 3 h, GFS 5.5 h, ECMWF 8.5 h). By model where its class
+/// would be wrong: ICON-EU counts as global but is out after about 2:40 h (Open-Meteo
+/// Sources/App/Icon/IconDownloadDomains.swift, `lastRun`).
 fn availability_delay(m: &Model) -> i64 {
-    match m.class {
-        ModelClass::Super => 3 * 3_600,
+    match (m.id.as_str(), m.class) {
+        ("icon_eu", _) | (_, ModelClass::Super) => 3 * 3_600,
         // The mix is no model of the table; global's delay is the safe answer.
-        ModelClass::Global | ModelClass::Mix => 9 * 3_600,
+        (_, ModelClass::Global | ModelClass::Mix) => 9 * 3_600,
     }
 }
 
@@ -371,5 +373,26 @@ mod tests {
         assert!(needs(&state, "ecmwf", &run(1_000_000 + 6 * 3_600)));
         // Never asked: asked
         assert!(needs(&state, "gfs", &run(1_000_000)));
+    }
+
+    /// ICON-EU is out on Open-Meteo about 2:40 h after its start (open-meteo
+    /// Sources/App/Icon/IconDownloadDomains.swift, `lastRun`, case .iconEu), every 3 hours.
+    #[tokio::test]
+    async fn icon_eu_estimated_run_without_meta_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = wf_core::db::connect(&dir.path().join("t.db"))
+            .await
+            .unwrap();
+        wf_core::db::migrate(&db).await.unwrap();
+        let eu = wf_core::model::list(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|m| m.id == "icon_eu")
+            .unwrap();
+        // 12:00 UTC: the 09 UTC run has been out since about 11:40
+        let now = 12 * 3_600;
+        let at = openmeteo::scheduled_run(now, eu.runs_per_day, availability_delay(&eu));
+        assert_eq!((at - now) / 3_600, -3, "estimated run {} h UTC", at / 3_600);
     }
 }
