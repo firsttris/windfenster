@@ -4,7 +4,7 @@ description: Which weather models Windfenster uses, how it fetches their forecas
 
 # Forecasts and models
 
-A station or point page shows up to seven weather models side by side and opens with the one that
+A station or point page shows up to eight weather models side by side and opens with the one that
 was closest to the measurements there. This page explains where the numbers come from and how
 "closest" is decided.
 
@@ -17,14 +17,16 @@ was closest to the measurements there. This page explains where the numbers come
 | HARMONIE | DMI | 2 km | 60 h | 8 | Superforecast (Europe) |
 | ICON-2I | ItaliaMeteo | 2.2 km | 72 h | 2 | Superforecast (Italy and around: Lake Garda, Sardinia, Sicily, the Adriatic) |
 | ECMWF IFS | ECMWF | 25 km | 15 days | 4 | Forecast (world) |
+| UKMO Global | Met Office | 10 km | 7 days | 4 | Forecast (world) |
 | ICON-EU | DWD | 7 km | 5 days | 8 | Forecast (Europe, the Mediterranean, North Africa) |
 | GFS | NOAA | 13 km | 16 days | 4 | Forecast (world) |
 
 A regional model shows only where its domain covers the place. ICON-EU is regional too, but at 7 km
 no Superforecast model (those are 3 km or finer): it counts with the global ones and is the finest
 model where the others stop, around the whole Mediterranean (Rhodes, Greece, Spain's south). Since
-it ends after five days, Forecast never picks it to fill the ten. `WF_MODELS` limits the list, or
-the switches on the [admin page](admin.md#forecasts) when the variable is not set.
+it ends after five days, Forecast never picks it to fill the ten; nor UKMO Global, which ends after
+seven. `WF_MODELS` limits the list, or the switches on the [admin page](admin.md#forecasts) when the
+variable is not set.
 
 ## How forecasts are fetched
 
@@ -85,11 +87,11 @@ flowchart LR
 - **Who hits here?**: the mean absolute error of the first day ahead over the last 30 days. A
   point takes the ranking of a station at most 5 km away.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
-  for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those
-  that reach the ten days. Before that a fixed order decides (ICON-D2, ICON-2I, AROME, HARMONIE,
-  then ECMWF IFS, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name its
-  own starting model instead (the spot's dialog, *Starting model*); where that model has no values,
-  the auto choice holds.
+  for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those that
+  reach the ten days. Before that a fixed order decides (ICON-D2, ICON-2I, AROME, HARMONIE, then
+  ECMWF IFS, UKMO Global, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name
+  its own starting model instead (the spot's dialog, *Starting model*); where that model has no
+  values, the auto choice holds.
 
 ## The Windfenster mix
 

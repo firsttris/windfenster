@@ -78,6 +78,14 @@ export const DATA_SOURCES: readonly Source[] = [
     licence: CC_BY,
   },
   {
+    id: 'metoffice',
+    name: 'Met Office (UKMO Global)',
+    url: 'https://www.metoffice.gov.uk/',
+    use: m.sources_metOffice,
+    // open-meteo.com/en/licence: the Met Office's data under CC BY-SA 4.0
+    licence: { name: 'CC BY-SA 4.0', url: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+  },
+  {
     id: 'noaa-gfs',
     name: 'NOAA NCEP (GFS)',
     url: 'https://www.weather.gov/ncep/',
