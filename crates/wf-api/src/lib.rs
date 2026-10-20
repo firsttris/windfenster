@@ -25,7 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::State;
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use serde::Serialize;
 use sqlx::SqlitePool;
@@ -286,6 +286,12 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/signup/password", post(auth::password::sign_up))
         .route("/auth/signin/password", post(auth::password::sign_in))
         .route("/me/password", put(auth::password::change))
+        .route("/me/passkeys", get(auth::list_passkeys))
+        .route(
+            "/me/passkeys/{id}",
+            patch(auth::rename_passkey).delete(auth::remove_passkey),
+        )
+        .route("/me/sessions", delete(auth::end_other_sessions))
         .route("/me/email/confirm", post(auth::email::request))
         .route("/auth/email/confirm", post(auth::email::confirm))
         .route("/auth/signin", post(auth::sign_in))

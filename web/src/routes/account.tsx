@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router';
-import { KeyRound, LogOut, Sailboat, Settings, Trash2 } from 'lucide-react';
+import { LogOut, MonitorSmartphone, Sailboat, Settings, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import type { Account } from '@/bindings/Account';
+import type { SessionsEnded } from '@/bindings/SessionsEnded';
 import { NotificationsCard } from '@/components/notifications-card';
 import { Loading, Page } from '@/components/page';
-import { meQuery, send } from '@/lib/api';
+import { PasskeysCard } from '@/components/passkeys-card';
+import { forgetAccount, meQuery, send } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
-import { addPasskey, cancelled } from '@/lib/passkeys';
+import { cancelled } from '@/lib/passkeys';
 import { useTitle } from '@/lib/use-title';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
@@ -33,11 +35,13 @@ function Signed({ account }: { account: Account }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError(null);
     setSaved(false);
+    setNotice(null);
     try {
       await action();
     } catch (e) {
@@ -49,7 +53,7 @@ function Signed({ account }: { account: Account }) {
 
   const leave = async () => {
     queryClient.setQueryData(['me'], null);
-    queryClient.removeQueries({ queryKey: ['favorites'] });
+    forgetAccount(queryClient);
     await navigate({ to: '/' });
   };
 
@@ -84,26 +88,7 @@ function Signed({ account }: { account: Account }) {
           </form>
           {saved && <p className="m-0 text-muted-foreground text-sm">{m.account_saved()}</p>}
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{m.account_passkeys()}</CardTitle>
-          </CardHeader>
-          <p className="m-0 text-sm text-subtle">{m.account_passkeysCount({ count: account.passkeys })}</p>
-          <p className="m-0 text-muted-foreground text-sm leading-relaxed">{m.account_passkeysHint()}</p>
-          <Button
-            variant="outline"
-            className="w-fit"
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                queryClient.setQueryData(['me'], await addPasskey());
-              })
-            }
-          >
-            <KeyRound aria-hidden="true" />
-            {m.account_addPasskey()}
-          </Button>
-        </Card>
+        <PasskeysCard account={account} />
         <PasswordCard account={account} />
         <NotificationsCard account={account} />
         <Card>
@@ -140,6 +125,19 @@ function Signed({ account }: { account: Account }) {
             <LogOut aria-hidden="true" />
             {m.account_signOut()}
           </Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                const { ended } = await send<SessionsEnded>('DELETE', '/me/sessions');
+                setNotice(ended === 0 ? m.account_signedOutNone() : m.account_signedOutOthers({ count: ended }));
+              })
+            }
+          >
+            <MonitorSmartphone aria-hidden="true" />
+            {m.account_signOutOthers()}
+          </Button>
           {confirming ? (
             <Button
               variant="outline"
@@ -162,6 +160,11 @@ function Signed({ account }: { account: Account }) {
             </Button>
           )}
         </div>
+        {notice && (
+          <p role="status" className="m-0 text-muted-foreground text-sm">
+            {notice}
+          </p>
+        )}
         {confirming && <p className="m-0 text-muted-foreground text-sm">{m.account_deleteHint()}</p>}
         {error && (
           <p role="alert" className="m-0 text-destructive text-sm">

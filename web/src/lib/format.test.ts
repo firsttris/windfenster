@@ -5,6 +5,7 @@ import {
   compass,
   coordinates,
   countryName,
+  dateOf,
   dayMonth,
   dayMonthOf,
   formatNumber,
@@ -35,6 +36,7 @@ describe('numbers, dates and places in German', () => {
     expect(clock(AT, 'Europe/Athens')).toBe('11:50');
     // Late in the UTC day it is already tomorrow in Athens
     expect(dayMonthOf(AT + 13 * 3_600, 'Europe/Athens')).toBe('12. Okt.');
+    expect(dateOf(AT, 'Europe/Berlin')).toBe('11. Okt. 2026');
     expect(runHour(AT)).toBe('08 UTC');
   });
 

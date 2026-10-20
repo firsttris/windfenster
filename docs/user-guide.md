@@ -157,5 +157,9 @@ Signed in (passkey, or e-mail and password) you can
 - set an **alarm** per spot (the bell): from how much wind, optionally only when some of your gear
   fits, told ahead from the forecast and/or when the station measures it. By push and e-mail.
 
+On the account page you add a passkey on each device you sign in with, name it, and remove one
+you no longer use (a lost phone, a password manager given up); the last way into the account
+stays. *Sign out on other devices* signs out everywhere but where you are.
+
 Whoever runs the server decides who may sign up: everyone, only with an invitation link, or
 nobody new. Details: [Accounts, spots and alarms](accounts.md).

@@ -88,7 +88,7 @@ start; a pushed migration is never changed, sqlx checks their checksums).
 | `gauge` | water levels, the newest per gauge |
 | `verification_daily` | each model's errors per station, UTC day and lead time |
 | `wind_stats` | the ten-year summary per station |
-| `account`, `passkey`, `session` | accounts, WebAuthn credentials, sessions (only the token's hash) |
+| `account`, `passkey`, `session` | accounts, WebAuthn credentials (with the browser and system they were added with, and the user's name for them), sessions (only the token's hash) |
 | `favorite`, `gear`, `alarm`, `push_subscription`, `alarm_sent` | spots, gear, alarms and what was sent |
 | `setting`, `admin_log`, `invite`, `alarm_delivery`, `usage_daily` | the admin page: settings changed there, what admins did, invitations, every alarm message handed to a channel, counters per day (Open-Meteo calls, e-mails) |
 

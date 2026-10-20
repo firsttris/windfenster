@@ -48,16 +48,25 @@ test('an admin goes through every section', async ({ page }) => {
   // A setting changed and stored, then back
   await menu.getByRole('link', { name: 'Vorhersagen' }).click();
   const hot = page.getByLabel('Orte aktuell halten, geöffnet innerhalb (Tage)');
+  // A save ends with the page reloading the settings; typing before that is overwritten by the
+  // saved value, so the next change waits for it
+  const reloaded = () =>
+    page.waitForResponse((r) => r.request().method() === 'GET' && r.url().endsWith('/api/admin/settings'));
+  let settled = reloaded();
   await hot.fill('6');
   await hot.press('Enter');
   await expect
     .poll(async () => (await (await page.request.get('/api/admin/settings')).json()).settings.hotDays)
     .toBe(6);
+  await settled;
+  await expect(hot).toBeEnabled();
+  settled = reloaded();
   await hot.fill('7');
   await hot.press('Enter');
   await expect
     .poll(async () => (await (await page.request.get('/api/admin/settings')).json()).settings.hotDays)
     .toBe(7);
+  await settled;
 
   // The basemap is off on this server (WF_BASEMAP=off): set by the environment, locked
   await menu.getByRole('link', { name: 'Karte und Basemap' }).click();

@@ -77,7 +77,11 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await page.getByRole('link', { name: `Konto von ${name}` }).click();
   await expect(page.getByRole('heading', { name: 'Dein Konto' })).toBeVisible();
   await expect(page.getByText('1 Passkey für dieses Konto')).toBeVisible();
-  await page.getByRole('button', { name: 'Abmelden' }).click();
+  // Its only way in: listed, but it cannot be removed
+  await expect(page.getByText(/^Angelegt am /)).toHaveCount(1);
+  await expect(page.getByText(/einziger Weg ins Konto/)).toBeVisible();
+  await expect(page.getByRole('button', { name: / entfernen$/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Abmelden', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Anmelden' })).toBeVisible();
   // Signed out, the start page shows the examples again
   await page.goto('/');
@@ -89,7 +93,7 @@ test('a passkey account: sign up, save a spot with its alarm, sign out and in ag
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('an account with e-mail and password', async ({ page }) => {
+test('an account with e-mail and password', async ({ page, browser }) => {
   const email = `${Date.now().toString(36)}@example.org`;
   await page.goto('/login');
   await page.getByRole('button', { name: 'Ich bin neu hier' }).click();
@@ -107,7 +111,7 @@ test('an account with e-mail and password', async ({ page }) => {
 
   // Out, then a wrong password, then the right one
   await page.getByRole('link', { name: /^Konto von Alex/ }).click();
-  await page.getByRole('button', { name: 'Abmelden' }).click();
+  await page.getByRole('button', { name: 'Abmelden', exact: true }).click();
   await page.goto('/login');
   await page.getByLabel('E-Mail').fill(email);
   await page.getByLabel('Passwort').fill('falsches passwort');
@@ -116,6 +120,42 @@ test('an account with e-mail and password', async ({ page }) => {
   await page.getByLabel('Passwort').fill('lang genug 123');
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await expect(page.getByRole('link', { name: /^Konto von Alex/ })).toBeVisible();
+
+  // A passkey on this device, named after the browser and system, then by the user, and away
+  // again: the password stays the way in
+  const { cdp, authenticatorId } = await authenticator(page);
+  await page.getByRole('link', { name: /^Konto von Alex/ }).click();
+  await page.getByRole('button', { name: 'Passkey auf diesem Gerät hinzufügen' }).click();
+  await expect(page.getByText('1 Passkey für dieses Konto')).toBeVisible();
+  expect((await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials).toHaveLength(1);
+  // Playwright's "Desktop Chrome" sends a User-Agent of Chrome on Windows
+  await expect(page.getByText('Chrome auf Windows')).toBeVisible();
+  await expect(page.getByText(/noch nie benutzt/)).toBeVisible();
+  await page.getByRole('button', { name: 'Chrome auf Windows umbenennen' }).click();
+  await page.getByLabel('Name des Passkeys').fill('Büro-Laptop');
+  await page.getByLabel('Name des Passkeys').press('Enter');
+  await expect(page.getByText('Büro-Laptop')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Büro-Laptop entfernen' }).click();
+  await page.getByRole('button', { name: 'Entfernen', exact: true }).click();
+  await expect(page.getByText('0 Passkeys für dieses Konto')).toBeVisible();
+  await expect(page.getByText(/^Angelegt am /)).toHaveCount(0);
+
+  // Signed in on a second device too; signing out the others ends that one, not this one
+  const { baseURL, locale } = test.info().project.use;
+  const other = await browser.newPage({ baseURL, locale });
+  await other.goto('/login');
+  await other.getByLabel('E-Mail').fill(email);
+  await other.getByLabel('Passwort').fill('lang genug 123');
+  await other.getByRole('button', { name: 'Anmelden', exact: true }).click();
+  await expect(other.getByRole('link', { name: /^Konto von Alex/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Auf anderen Geräten abmelden' }).click();
+  await expect(page.getByText('Auf 1 anderen Gerät abgemeldet.')).toBeVisible();
+  await other.reload();
+  await expect(other.getByRole('link', { name: 'Anmelden' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Dein Konto' })).toBeVisible();
+  await other.close();
 });
 
 test('a confirmation link confirms only by its button, and only a valid one', async ({ page }) => {

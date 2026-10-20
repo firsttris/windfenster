@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { Account } from '@/bindings/Account';
 import type { Alarm } from '@/bindings/Alarm';
 import type { ErrorBody } from '@/bindings/ErrorBody';
@@ -10,6 +10,7 @@ import type { MapIndex } from '@/bindings/MapIndex';
 import type { MapSeries } from '@/bindings/MapSeries';
 import type { Model } from '@/bindings/Model';
 import type { NearGauge } from '@/bindings/NearGauge';
+import type { PasskeySummary } from '@/bindings/PasskeySummary';
 import type { PointForecast } from '@/bindings/PointForecast';
 import type { PushInfo } from '@/bindings/PushInfo';
 import type { SearchResults } from '@/bindings/SearchResults';
@@ -62,11 +63,25 @@ export function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: strin
   });
 }
 
+/** What belongs to one account: dropped when it signs out or another signs in, so the next one
+ * in the same tab never sees it (the app keeps answers for 30 s without asking again) */
+const ACCOUNT_QUERIES = ['favorites', 'passkeys', 'alarms', 'gear', 'admin'];
+
+export function forgetAccount(queryClient: QueryClient) {
+  for (const key of ACCOUNT_QUERIES) queryClient.removeQueries({ queryKey: [key] });
+}
+
 /** The signed-in account, or null */
 export const meQuery = queryOptions({
   queryKey: ['me'],
   queryFn: () => api<Account | null>('/me'),
   staleTime: 5 * 60_000,
+});
+
+/** The signed-in account's passkeys, oldest first */
+export const passkeysQuery = queryOptions({
+  queryKey: ['passkeys'],
+  queryFn: () => api<PasskeySummary[]>('/me/passkeys'),
 });
 
 /** Whether accounts can be made, the notice above every page, the legal pages */

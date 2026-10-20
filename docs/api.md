@@ -62,6 +62,10 @@ Signed-in requests carry the session cookie the sign-in sets (HTTP-only, half a 
 | `POST /api/auth/signin`, `/signin/finish` | sign in with a passkey |
 | `POST /api/auth/signin/password` | sign in with e-mail and password |
 | `POST /api/auth/passkeys`, `/passkeys/finish` | add another passkey |
+| `GET /api/me/passkeys` | the account's passkeys: id, own name, browser and system, added, last used |
+| `PATCH /api/me/passkeys/{id}` | name a passkey (`{"name": …}`; empty or null goes back to the browser and system) |
+| `DELETE /api/me/passkeys/{id}` | remove a passkey; refused (`last_sign_in`) for the last one of an account without a password |
+| `DELETE /api/me/sessions` | sign out on every other device; how many sessions ended |
 | `POST /api/auth/signout` | sign out |
 | `GET`, `PATCH`, `DELETE /api/me` | the account: read, rename, delete |
 | `PUT /api/me/password` | set or change the password |

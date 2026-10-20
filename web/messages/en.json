@@ -344,6 +344,31 @@
   ],
   "account_passkeysHint": "Create a passkey on every device you want to sign in with.",
   "account_addPasskey": "Add a passkey on this device",
+  "account_passkeyAdded": "Added {date} at {time}",
+  "account_passkeyUsed": "last used {ago}",
+  "account_passkeyUnused": "never used",
+  "account_removePasskey": "Remove {name}",
+  "account_removePasskeyConfirm": "Remove",
+  "account_removePasskeyHint": "The passkey then no longer signs you in here. It stays on the device or in the password manager until you delete it there. If the device is gone, sign it out below with “Sign out on other devices”.",
+  "account_lastPasskey": "This is your only way into the account. Add another passkey or an e-mail and password first, then you can remove it.",
+  "account_passkeyDevice": "{browser} on {os}",
+  "account_passkeyUnknown": "Passkey",
+  "account_renamePasskey": "Rename {name}",
+  "account_passkeyName": "Name of the passkey",
+  "account_passkeyNameHint": "Leave empty for the browser and system",
+  "account_cancel": "Cancel",
+  "account_signOutOthers": "Sign out on other devices",
+  "account_signedOutOthers": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Signed out on {count} other device.",
+        "countPlural=other": "Signed out on {count} other devices."
+      }
+    }
+  ],
+  "account_signedOutNone": "You were not signed in on any other device.",
   "account_signOut": "Sign out",
   "account_delete": "Delete account",
   "account_deleteConfirm": "Really delete",
@@ -537,6 +562,7 @@
   "error_signupClosed": "New accounts are not open here right now, or only with a valid invitation.",
   "error_forbidden": "Only admins may do this.",
   "error_lastAdmin": "This is the last admin. Make another account an admin first.",
+  "error_lastSignIn": "This is the last way into your account. Add another passkey or a password first.",
   "error_invalidSetting": "This value does not work here.",
   "nav_admin": "Admin",
   "title_admin": "Admin",

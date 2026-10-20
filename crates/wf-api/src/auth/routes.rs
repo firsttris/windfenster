@@ -1,5 +1,6 @@
 //! The ceremonies and the account: sign up (a name, then a passkey), sign in (offered in the
-//! name field or by button), more passkeys, sign out, rename, delete.
+//! name field or by button), more passkeys, sign out, rename, delete. Managing the passkeys and
+//! sessions is in `devices`.
 
 use axum::Json;
 use axum::extract::State;
@@ -107,6 +108,7 @@ pub async fn sign_up(
 /// `POST /api/auth/signup/finish`: the new passkey; the account, signed in.
 pub async fn finish_sign_up(
     State(s): State<AppState>,
+    request: HeaderMap,
     Json(a): Json<PasskeyAnswer>,
 ) -> Result<(HeaderMap, Json<Account>), ApiError> {
     let p = passkeys(&s)?;
@@ -129,6 +131,7 @@ pub async fn finish_sign_up(
     let now = wf_core::time::now();
     super::signup::allowed(&s, invite.as_deref()).await?;
     let id = account::create(&s.db, &handle.to_string(), name, &key_id, &json, now).await?;
+    super::devices::note_device(&s, &key_id, &request).await?;
     super::signup::made(&s, invite.as_deref(), id).await?;
     let headers = start_session(&s, id).await?;
     Ok((
@@ -238,6 +241,7 @@ pub async fn add_passkey(
 pub async fn finish_add_passkey(
     State(s): State<AppState>,
     SignedIn(me): SignedIn,
+    request: HeaderMap,
     Json(a): Json<PasskeyAnswer>,
 ) -> Result<Json<Account>, ApiError> {
     let p = passkeys(&s)?;
@@ -255,6 +259,7 @@ pub async fn finish_add_passkey(
         .map_err(|_| ApiError::PasskeyRejected)?;
     let (key_id, json) = stored(&passkey)?;
     account::add_passkey(&s.db, me.id, &key_id, &json, wf_core::time::now()).await?;
+    super::devices::note_device(&s, &key_id, &request).await?;
     Ok(Json(Account {
         passkeys: me.passkeys + 1,
         ..me
