@@ -1,4 +1,5 @@
-import { Check, Info } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Check, CircleHelp, Info } from 'lucide-react';
 import { Fragment } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
 import type { Model } from '@/bindings/Model';
@@ -46,6 +47,7 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
             {hint && <HintMark hint={hint} auto={auto} />}
           </span>
           {run && <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">{run}</span>}
+          <GuideLink model={selected} />
         </div>
         {groups.map((g, i) => (
           <Fragment key={g.key}>
@@ -75,9 +77,27 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
           </span>
           {/* The count and its mark stand left from lg on */}
           {hint && <HintMark hint={hint} auto={auto} className="lg:hidden" />}
+          <GuideLink model={selected} className="ml-auto shrink-0 lg:hidden" />
         </p>
       )}
     </section>
+  );
+}
+
+/** To the models page, at the chosen model's card */
+function GuideLink({ model, className }: { model: string | null; className?: string }) {
+  return (
+    <Link
+      to="/models"
+      hash={model && model !== MIX ? model : undefined}
+      className={cn(
+        'inline-flex w-fit items-center gap-1 whitespace-nowrap text-[11px] text-muted-foreground underline decoration-line underline-offset-2 hover:text-foreground',
+        className,
+      )}
+    >
+      <CircleHelp aria-hidden="true" className="size-3" />
+      {m.guide_link()}
+    </Link>
   );
 }
 

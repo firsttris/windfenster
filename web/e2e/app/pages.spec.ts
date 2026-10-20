@@ -193,3 +193,24 @@ test('on a phone each day lists its hours under one another, the strip jumps', a
   await strip.getByRole('button').nth(4).click();
   await expect(page.locator('section[id^="day-"]').nth(4)).toBeInViewport();
 });
+
+test('the models explained: from the chosen model to its card, and from an area to its models', async ({ page }) => {
+  await page.goto('/station/edsb');
+  const chosen = page.getByRole('region', { name: 'Modell wählen' }).getByRole('button', { pressed: true });
+  const name = (await chosen.locator('span.font-semibold').first().textContent()) ?? '';
+  await page.getByRole('link', { name: 'Modelle erklärt' }).first().click();
+  await expect(page).toHaveURL(/\/models#/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Die Wettermodelle' })).toBeVisible();
+  // The chosen model's card is the one in view
+  await expect(page.getByRole('article', { name, exact: true })).toBeInViewport();
+  // Every model of the server has its card, the fine ones first
+  const models = await (await page.request.get('/api/models')).json();
+  await expect(page.getByRole('heading', { level: 3 }).filter({ hasNotText: /Automatisch|Mix/ })).toHaveCount(
+    models.length,
+  );
+  // An area leads to its models
+  const alps = page.getByRole('row', { name: /Seen in den Alpen/ });
+  await alps.getByRole('link', { name: 'ICON-D2' }).click();
+  await expect(page).toHaveURL(/\/models#icon_d2$/);
+  await expect(page.getByRole('article', { name: 'ICON-D2', exact: true })).toBeInViewport();
+});

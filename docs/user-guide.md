@@ -36,7 +36,8 @@ From the top:
    step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking), or a saved spot's own starting model; the mark
    beside the count (a tick when the ranking chose) says why; the chosen model's run stands under
-   the count.
+   the count. *Models explained* under it opens a page on what each model is good for, at the
+   chosen model, with the models to look at first per area (North Sea, the Alps, Lake Garda, …).
 3. **The ten-day forecast.**
 4. **Measurements over the day** (stations): the last 24 hours and the ten days before, mean
    wind, gusts and direction, as a chart with the value under the pointer.
