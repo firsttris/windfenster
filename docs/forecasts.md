@@ -4,7 +4,7 @@ description: Which weather models Windfenster uses, how it fetches their forecas
 
 # Forecasts and models
 
-A station or point page shows five weather models side by side and opens with the one that was
+A station or point page shows up to six weather models side by side and opens with the one that was
 closest to the measurements there. This page explains where the numbers come from and how
 "closest" is decided.
 
@@ -16,9 +16,13 @@ closest to the measurements there. This page explains where the numbers come fro
 | AROME | Météo-France | 1.5 km | 42 h | 8 | Superforecast (France and around) |
 | HARMONIE | DMI | 2 km | 60 h | 8 | Superforecast (Europe) |
 | ECMWF IFS | ECMWF | 25 km | 15 days | 4 | Forecast (world) |
+| ICON-EU | DWD | 7 km | 5 days | 8 | Forecast (Europe, the Mediterranean, North Africa) |
 | GFS | NOAA | 13 km | 16 days | 4 | Forecast (world) |
 
-A regional model shows only where its domain covers the place. `WF_MODELS` limits the list, or
+A regional model shows only where its domain covers the place. ICON-EU is regional too, but at
+7 km no Superforecast model (those are 3 km or finer): it counts with the global ones and is
+the finest model where the others stop, around the whole Mediterranean (Rhodes, Greece, Spain's
+south). Since it ends after five days, Forecast never picks it to fill the ten. `WF_MODELS` limits the list, or
 the switches on the [admin page](admin.md#forecasts) when the variable is not set.
 
 ## How forecasts are fetched
@@ -80,8 +84,9 @@ flowchart LR
 - **Who hits here?**: the mean absolute error of the first day ahead over the last 30 days. A
   point takes the ranking of a station at most 5 km away.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
-  for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h. Before that a
-  fixed order decides (ICON-D2, AROME, HARMONIE, then ECMWF IFS, GFS). A saved spot can name its
+  for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those
+  that reach the ten days. Before that a fixed order decides (ICON-D2, AROME, HARMONIE, then
+  ECMWF IFS, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name its
   own starting model instead (the spot's dialog, *Starting model*); where that model has no values,
   the auto choice holds.
 

@@ -188,6 +188,21 @@ describe('model choice', () => {
     expect(modeOf(withMix, 'gfs')).toBe('global');
   });
 
+  it('fills the ten days with a global model that reaches them', () => {
+    // ICON-EU: global class, 5 days, ranked before GFS
+    const short = { ...model('icon_eu', 'global', 45), maxLeadH: 120 };
+    const eu: Forecast = {
+      ...fc,
+      models: [fc.models[0], short, fc.models[2]],
+      series: [fc.series[0], series('icon_eu', 120, 0), fc.series[2]],
+    };
+    expect(autoModel(eu, null, 'global')).toBe('gfs');
+    expect(buildDays(eu, 'icon_eu', MIDNIGHT + 10 * HOUR, autoModel(eu, null, 'global'))).toHaveLength(10);
+    // Alone it still opens
+    const only: Forecast = { ...fc, models: [short], series: [series('icon_eu', 120, 0)] };
+    expect(autoModel(only, null, 'global')).toBe('icon_eu');
+  });
+
   it('takes what the ranking picked', () => {
     expect(autoModel(withMix, ranking({ bestGlobal: 'gfs' }), 'global')).toBe('gfs');
     expect(initialModel(withMix, ranking({ mixFirst: true }))).toBe('mix');

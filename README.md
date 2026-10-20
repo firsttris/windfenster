@@ -4,7 +4,7 @@
 
 <h1>Windfenster: open-source wind forecast and live wind map for kitesurfing, windsurfing and wing foiling</h1>
 
-**Self-hosted wind forecast for water sports: measured wind, five weather models and an animated wind map, for every wind station and any spot on earth.**<br>
+**Self-hosted wind forecast for water sports: measured wind, six weather models and an animated wind map, for every wind station and any spot on earth.**<br>
 Each station shows what it measures now, what the models predict for ten days, and which model was closest to the measurements there.<br>
 An open-source alternative to Windfinder and Windy: one Docker container, no cloud, no tracking, no API key.
 
@@ -76,7 +76,7 @@ Cloudflare Tunnel, settings, disk space and backups are in the
   wind and the models' agreement per day.
 - **Day cards**: wind as a growing bar with the gust under it, direction, your gear, measured and
   TAF to compare, weather; hourly for today and tomorrow.
-- **Five models** (ICON-D2, AROME, HARMONIE, ECMWF, GFS) and the **Windfenster mix**, weighted by
+- **Six models** (ICON-D2, AROME, HARMONIE, ICON-EU, ECMWF, GFS) and the **Windfenster mix**, weighted by
   how well each model hit at the station.
 - **Knots, m/s or km/h**, German and English, light and dark.
 

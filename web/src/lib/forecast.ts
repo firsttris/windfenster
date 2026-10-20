@@ -6,6 +6,7 @@
  * place's local time.
  */
 import type { Forecast } from '@/bindings/Forecast';
+import type { Model } from '@/bindings/Model';
 import type { ModelSeries } from '@/bindings/ModelSeries';
 import type { Ranking } from '@/bindings/Ranking';
 
@@ -66,10 +67,14 @@ export interface Day {
 
 export const MIX = 'mix';
 
-/** The first model of a class (in the default order) that has values here. */
+/** The first model of a class (in the default order) that has values here. Forecast fills the
+ * ten days, so a global model that reaches them comes before one that stops sooner (ICON-EU). */
 export function defaultModel(fc: Forecast, mode: Mode): string | null {
-  const wanted = fc.models.filter((m) => m.class === mode).map((m) => m.id);
-  return fc.series.find((s) => wanted.includes(s.model))?.model ?? null;
+  const ofClass = fc.models.filter((m) => m.class === mode);
+  const reach = (m: Model) => mode !== 'global' || m.maxLeadH >= DAYS * 24;
+  const wanted = [...ofClass.filter(reach), ...ofClass.filter((m) => !reach(m))].map((m) => m.id);
+  const has = new Set(fc.series.map((s) => s.model));
+  return wanted.find((id) => has.has(id)) ?? null;
 }
 
 const has = (fc: Forecast, id: string | null | undefined): id is string =>

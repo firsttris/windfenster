@@ -17,7 +17,7 @@ async fn health_and_models() -> Result<()> {
     assert_eq!(body["version"], wf_api::VERSION);
     assert!(body["schemaVersion"].as_i64().unwrap() >= 2);
     assert_eq!(body["stations"], 1);
-    assert_eq!(body["models"], 5);
+    assert_eq!(body["models"], 6);
 
     let (_, models) = get_json(&app, "/api/models").await?;
     let ids: Vec<&str> = models
@@ -27,7 +27,7 @@ async fn health_and_models() -> Result<()> {
         .map(|m| m["id"].as_str().unwrap())
         .collect();
     assert_eq!(ids[0], "icon_d2");
-    assert_eq!(ids.len(), 5);
+    assert_eq!(ids.len(), 6);
     assert!(models[0].get("metaId").is_none());
     Ok(())
 }
@@ -61,7 +61,7 @@ async fn station_forecast_is_fetched_once_then_cached() -> Result<()> {
     assert_eq!(fc["timezone"], "Europe/Berlin");
     assert_eq!(fc["notice"], Value::Null);
     // The fake has values for every model it is asked for; the mix comes first.
-    assert_eq!(fc["series"].as_array().unwrap().len(), 6);
+    assert_eq!(fc["series"].as_array().unwrap().len(), 7);
     assert_eq!(fc["models"][0]["class"], "mix");
     assert_eq!(fc["series"][0]["model"], "mix");
     assert_eq!(fc["series"][0]["wind"], json!([10.0, 12.5, 15.0]));
@@ -90,7 +90,7 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
     assert!(body["nearest"]["distanceKm"].as_f64().unwrap() < 5.0);
     // Within 5 km the point takes the station's ranking.
     assert_eq!(body["ranking"]["days"], 0);
-    // Rhodes: only the global models, no station nearby.
+    // Rhodes: the global models and ICON-EU, no station nearby.
     let (_, body) = get_json(&app, "/api/point?lat=36.4&lon=28.1").await?;
     assert_eq!(body["nearest"], Value::Null);
     assert_eq!(body["ranking"], Value::Null);
@@ -100,7 +100,7 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
         .iter()
         .map(|m| m["id"].as_str().unwrap())
         .collect();
-    assert_eq!(ids, ["mix", "ecmwf_ifs025", "gfs_global"]);
+    assert_eq!(ids, ["mix", "ecmwf_ifs025", "icon_eu", "gfs_global"]);
 
     for bad in [
         "/api/point?lat=95&lon=8",
