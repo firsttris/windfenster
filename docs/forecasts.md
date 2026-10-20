@@ -51,7 +51,10 @@ changes the seven and two days, the budget and the limits without a restart.
 ## The ten days
 
 The page builds the ten days from the selected model and fills what it does not reach from the
-global one:
+global one. A day the selected model has only in part comes whole from another: today and
+tomorrow, with a fine model selected, first from the next fine one that has the whole day (ICON-CH1
+reaches 33 hours, so tomorrow evening often comes from ICON-CH2 or ICON-D2), else from the global
+one.
 
 - **Today and tomorrow**: hourly from 7 to 19 when a fine regional model is selected (ICON-D2,
   ICON-CH1, ICON-CH2, ICON-2I, AROME, HARMONIE), every 3 hours with a global one or the mix.

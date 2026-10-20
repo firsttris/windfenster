@@ -166,6 +166,45 @@ describe('helpers', () => {
   });
 });
 
+describe('a fine model that ends within a day', () => {
+  // ICON-CH1 reaches 33 hours: at 11:00 in Zurich its 06 UTC run stops at 17:00 tomorrow
+  const run06 = MIDNIGHT + 8 * HOUR;
+  const ch1Hours = (run06 + 33 * HOUR - MIDNIGHT) / HOUR + 1;
+  const flat = (id: string, hours: number, wind: number): ModelSeries => ({
+    ...series(id, hours, 0),
+    wind: Array.from({ length: hours }, () => wind),
+  });
+  const zurich: Forecast = {
+    ...fc,
+    timezone: 'Europe/Zurich',
+    models: [
+      { ...model('meteoswiss_icon_ch1', 'super', 12), maxLeadH: 33 },
+      { ...model('meteoswiss_icon_ch2', 'super', 25), maxLeadH: 120 },
+      model('ecmwf_ifs025', 'global', 40),
+    ],
+    series: [
+      flat('meteoswiss_icon_ch1', ch1Hours, 18),
+      flat('meteoswiss_icon_ch2', 24 * 6, 17),
+      flat('ecmwf_ifs025', 24 * 10, 9),
+    ],
+  };
+
+  it('hands tomorrow to the next fine model that has it, not the global one', () => {
+    const days = buildDays(zurich, 'meteoswiss_icon_ch1', MIDNIGHT + 11 * HOUR, 'ecmwf_ifs025');
+    expect(days[0].source).toBe('meteoswiss_icon_ch1');
+    expect(days[1].stage).toBe('hourly');
+    expect(days[1].source).toBe('meteoswiss_icon_ch2');
+    expect(days[1].cells.every((c) => c.wind === 17)).toBe(true);
+    // From day 3 the global model, as before
+    expect(days[2].source).toBe('ecmwf_ifs025');
+  });
+
+  it('leaves a chosen global model to the global fallback', () => {
+    const days = buildDays(zurich, 'ecmwf_ifs025', MIDNIGHT + 11 * HOUR, 'ecmwf_ifs025', false);
+    expect(days.every((d) => d.source === 'ecmwf_ifs025')).toBe(true);
+  });
+});
+
 describe('model choice', () => {
   const ranking = (r: Partial<Ranking>): Ranking => ({
     days: 20,
