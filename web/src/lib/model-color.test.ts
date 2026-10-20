@@ -5,11 +5,13 @@ import { modelColor } from './model-color';
 const page = (ids: string[]): Forecast =>
   ({ models: [{ id: 'mix' }, ...ids.map((id) => ({ id }))] }) as unknown as Forecast;
 
-// The models /api/point returns at Lake Garda (45.65, 10.7), in rank order
+// The models /api/point returns at Lake Garda (45.65, 10.7), in rank order: all ten
 const garda = [
   'icon_d2',
+  'meteoswiss_icon_ch1',
   'italia_meteo_arpae_icon_2i',
   'meteofrance_arome_france_hd',
+  'meteoswiss_icon_ch2',
   'dmi_harmonie_arome_europe',
   'ecmwf_ifs025',
   'ukmo_global_deterministic_10km',
@@ -29,8 +31,9 @@ describe('model colours', () => {
   });
 
   it('gives a model without a slot a free one', () => {
-    const fc = page([...garda, 'new_a', 'new_b']);
-    const colours = [...garda, 'new_a', 'new_b'].map((id) => modelColor(fc, id));
+    const ids = ['ecmwf_ifs025', 'icon_eu', 'gfs_global', 'new_a', 'new_b'];
+    const fc = page(ids);
+    const colours = ids.map((id) => modelColor(fc, id));
     expect(new Set(colours).size).toBe(colours.length);
     expect(modelColor(fc, 'mix')).toBe('var(--chart-mix)');
   });

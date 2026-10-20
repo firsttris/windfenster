@@ -331,7 +331,7 @@ mod tests {
         let db = crate::db::connect(&dir.path().join("t.db")).await?;
         crate::db::migrate(&db).await?;
         let runs = model_runs(&db).await?;
-        assert_eq!(runs.len(), 8);
+        assert_eq!(runs.len(), 10);
         assert_eq!(runs[0].model, "icon_d2");
         assert_eq!(runs[0].run_at, None);
         let (n, places) = hot_places(&db, 0, 10).await?;

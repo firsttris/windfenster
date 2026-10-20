@@ -78,6 +78,13 @@ export const DATA_SOURCES: readonly Source[] = [
     licence: CC_BY,
   },
   {
+    id: 'meteoswiss',
+    name: 'MeteoSwiss (ICON-CH1, ICON-CH2)',
+    url: 'https://www.meteoswiss.admin.ch/',
+    use: m.sources_meteoSwiss,
+    licence: CC_BY,
+  },
+  {
     id: 'metoffice',
     name: 'Met Office (UKMO Global)',
     url: 'https://www.metoffice.gov.uk/',
