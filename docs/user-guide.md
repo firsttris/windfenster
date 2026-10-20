@@ -24,7 +24,9 @@ its point page. On the map, a result flies there and opens the spot instead.
 
 From the top:
 
-1. **Measured now** (stations): the newest METAR or DWD value, then two folds: the airport
+1. **Measured now** (stations): the newest METAR or DWD value with a compass (an arrow from where
+   the wind comes to where it blows, the range a METAR says it varied in, and for a saved spot its
+   good directions as a green arc and whether the wind now works there), then two folds: the airport
    forecast (TAF) in plain words and the raw METAR translated group by group. Beside it **Do the
    models agree?**: the spread between the models at the windiest daytime hour of the next two
    days.
