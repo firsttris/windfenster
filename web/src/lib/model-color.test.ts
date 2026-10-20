@@ -12,6 +12,7 @@ const garda = [
   'meteofrance_arome_france_hd',
   'dmi_harmonie_arome_europe',
   'ecmwf_ifs025',
+  'ukmo_global_deterministic_10km',
   'icon_eu',
   'gfs_global',
 ];

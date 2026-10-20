@@ -317,11 +317,13 @@ impl Forecasts {
 
 /// About how long after its start a run is out on Open-Meteo (meta.json, October 2026:
 /// ICON-D2 1.5 h, AROME and HARMONIE 3 h, GFS 5.5 h, ECMWF 8.5 h). By model where its class
-/// would be wrong: ICON-EU counts as global but is out after about 2:40 h (Open-Meteo
-/// Sources/App/Icon/IconDownloadDomains.swift, `lastRun`).
+/// would be wrong: ICON-EU counts as global but is out after about 2:40 h, UKMO Global after
+/// about 6:30 h (Open-Meteo Sources/App/Icon/IconDownloadDomains.swift and
+/// Sources/App/UKMO/UkmoDomain.swift, `lastRun`).
 fn availability_delay(m: &Model) -> i64 {
     match (m.id.as_str(), m.class) {
         ("icon_eu", _) | (_, ModelClass::Super) => 3 * 3_600,
+        ("ukmo_global_deterministic_10km", _) => 7 * 3_600,
         // The mix is no model of the table; global's delay is the safe answer.
         (_, ModelClass::Global | ModelClass::Mix) => 9 * 3_600,
     }
@@ -394,5 +396,29 @@ mod tests {
         let now = 12 * 3_600;
         let at = openmeteo::scheduled_run(now, eu.runs_per_day, availability_delay(&eu));
         assert_eq!((at - now) / 3_600, -3, "estimated run {} h UTC", at / 3_600);
+    }
+
+    /// UKMO Global is out about 6:30 h after its start, every 6 hours (Open-Meteo
+    /// Sources/App/UKMO/UkmoDomain.swift, `lastRun`).
+    #[tokio::test]
+    async fn ukmo_estimated_run_without_meta_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = wf_core::db::connect(&dir.path().join("t.db"))
+            .await
+            .unwrap();
+        wf_core::db::migrate(&db).await.unwrap();
+        let ukmo = wf_core::model::list(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|m| m.id == "ukmo_global_deterministic_10km")
+            .unwrap();
+        // 13:00 UTC: the 06 UTC run has been out since about 12:30
+        let now = 13 * 3_600;
+        let at = openmeteo::scheduled_run(now, ukmo.runs_per_day, availability_delay(&ukmo));
+        assert_eq!(at / 3_600, 6);
+        // 12:00 UTC: not yet, the 00 UTC run is the newest
+        let at = openmeteo::scheduled_run(12 * 3_600, ukmo.runs_per_day, availability_delay(&ukmo));
+        assert_eq!(at / 3_600, 0);
     }
 }
