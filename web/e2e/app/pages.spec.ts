@@ -32,6 +32,15 @@ test('a METAR station: measured now, the TAF, the forecast of every model', asyn
   const chooser = page.getByRole('region', { name: 'Wettermodell wählen' });
   for (const model of station.forecast.models)
     await expect(chooser.getByRole('button', { name: new RegExp(`^${model.name} `) })).toBeVisible();
+  // On a desktop they wrap inside the box instead of running out of it
+  for (const width of [1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const right = await chooser.evaluate((el) => el.getBoundingClientRect().right);
+    for (const button of await chooser.getByRole('button').all()) {
+      const end = await button.evaluate((el) => el.getBoundingClientRect().right);
+      expect(end, `${await button.textContent()} at ${width}px`).toBeLessThanOrEqual(right);
+    }
+  }
   // Ten days, each a table of its own
   await expect(page.getByRole('table', { name: /^Vorhersage für / })).toHaveCount(10);
   await expect(page.getByRole('heading', { name: 'Messwerte' })).toBeVisible();

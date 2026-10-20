@@ -32,7 +32,8 @@ From the top:
    (ICON-D2, ICON-CH1, ICON-CH2, ICON-2I, AROME, HARMONIE, hour by hour), after a line the global
    ones (ECMWF, UKMO, ICON-EU, GFS, every 3 hours) and the **Windfenster mix**, a weighted mean of
    all of them. On narrower screens the chips show their names only, a line beneath says the
-   resolution and reach of the one chosen, and on a phone the row swipes. The model chosen sets the
+   resolution and reach of the one chosen, and on a phone the row swipes; on a wide screen each
+   group wraps onto a second line where the row is too long. The model chosen sets the
    step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking), or a saved spot's own starting model; the mark
    beside the count (a tick when the ranking chose) says why; the chosen model's run stands under

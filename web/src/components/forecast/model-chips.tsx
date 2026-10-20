@@ -26,7 +26,7 @@ interface Props {
 /** The models that cover the place in one row: the fine regional ones (hour by hour), a line,
  * the global ones with the mix (every 3 hours). How the first one was chosen is behind the info
  * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
- * tells the one chosen; on phones and tablets the row swipes. */
+ * tells the one chosen; on phones and tablets the row swipes, from lg on each group wraps in its own column. */
 export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Props) {
   const groups = [
     { key: 'super', models: fc.models.filter((x) => x.class === 'super') },
@@ -50,7 +50,8 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
         {groups.map((g, i) => (
           <Fragment key={g.key}>
             {i > 0 && <span aria-hidden="true" className="w-px shrink-0 self-stretch bg-border sm:my-0.5" />}
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* From lg on the groups share the width and wrap: eleven models no longer fit one line */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:min-w-0 lg:shrink lg:flex-wrap lg:content-center">
               {g.models.map((model) => (
                 <Chip
                   key={model.id}
