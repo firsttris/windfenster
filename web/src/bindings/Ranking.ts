@@ -16,7 +16,8 @@ scores: Array<ModelScore>,
  */
 bestSuper: string | null, 
 /**
- * The global model with the lowest error 48–72 h (else 0–24 h), once 14 days are verified
+ * The global model with the lowest error 48–72 h (else 0–24 h), once 14 days are verified;
+ * only one that reaches the ten days, since the page fills them with it
  */
 bestGlobal: string | null, 
 /**

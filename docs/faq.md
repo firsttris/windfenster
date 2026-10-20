@@ -30,15 +30,15 @@ Open-Meteo subscription or your own Open-Meteo.
 
 ## Which weather models does it use?
 
-ICON-D2, AROME and HARMONIE (1.5–2.2 km, Europe) and ECMWF IFS and GFS (worldwide) for the
-forecast pages; ICON-D2, ICON global and ECMWF IFS on the map. Plus the Windfenster mix, weighted by
-how well each model hit at the station.
+ICON-D2, AROME and HARMONIE (1.5–2.2 km, Europe), ICON-EU (7 km, Europe and the Mediterranean) and
+ECMWF IFS and GFS (worldwide) for the forecast pages; ICON-D2, ICON global and ECMWF IFS on the map.
+Plus the Windfenster mix, weighted by how well each model hit at the station.
 
 ## Does it work outside Germany?
 
 Yes: the map and the global models cover the world, and every airport that sends METAR reports is
-a station. The regional models (ICON-D2, AROME, HARMONIE) and the DWD's wind stations are
-European; water gauges are German rivers.
+a station. The regional models (ICON-D2, AROME, HARMONIE, ICON-EU) and the DWD's wind stations
+are European; water gauges are German rivers.
 
 ## How do I run my server without editing files?
 

@@ -11,6 +11,7 @@ use wf_core::forecast::{Forecast, ModelSeries, SeriesData};
 use wf_core::mix;
 use wf_core::model::{Model, ModelClass};
 use wf_core::verification::{self, MIN_DAYS, MIX, ModelScore, Score, TAF, Weights};
+use wf_ingest::openmeteo::FORECAST_DAYS;
 
 use crate::AppState;
 
@@ -29,7 +30,8 @@ pub struct Ranking {
     pub scores: Vec<ModelScore>,
     /// The regional model with the lowest error 0–24 h, once 14 days are verified
     pub best_super: Option<String>,
-    /// The global model with the lowest error 48–72 h (else 0–24 h), once 14 days are verified
+    /// The global model with the lowest error 48–72 h (else 0–24 h), once 14 days are verified;
+    /// only one that reaches the ten days, since the page fills them with it
     pub best_global: Option<String>,
     /// The mix beat the best single model 0–24 h over 14 days or more; it is then the default
     pub mix_first: bool,
@@ -50,13 +52,19 @@ pub fn new_cache() -> RankingCache {
         .build()
 }
 
+/// Hours of the page's ten days: Forecast fills them, so a global model that stops sooner
+/// (ICON-EU, 5 days) is never its pick.
+const TABLE_H: u32 = FORECAST_DAYS * 24;
+
 fn best(scores: &[Score], bucket: u8, class: ModelClass, models: &[Model]) -> Option<String> {
+    let fits =
+        |m: &Model| m.class == class && (class != ModelClass::Global || m.max_lead_h >= TABLE_H);
     scores
         .iter()
         .filter(|s| {
             s.bucket == bucket
                 && s.days >= MIN_DAYS
-                && models.iter().any(|m| m.id == s.model && m.class == class)
+                && models.iter().any(|m| m.id == s.model && fits(m))
         })
         .filter_map(|s| Some((s.errors.mae()?, &s.model)))
         .min_by(|a, b| a.0.total_cmp(&b.0))
@@ -199,7 +207,7 @@ mod tests {
             resolution_km: 2.0,
             class,
             domain: None,
-            max_lead_h: 48,
+            max_lead_h: if class == ModelClass::Global { 360 } else { 48 },
             runs_per_day: 8,
             rank: 1,
             meta_id: None,
@@ -250,6 +258,24 @@ mod tests {
         let r = ranking(&young, &models);
         assert_eq!((r.days, r.best_super, r.mix_first), (5, None, false));
         assert_eq!(r.scores.len(), 2);
+    }
+
+    #[test]
+    fn the_global_pick_reaches_the_ten_days() {
+        let short = Model {
+            max_lead_h: 120,
+            ..model("icon_eu", ModelClass::Global)
+        };
+        let models = [short, model("ecmwf", ModelClass::Global)];
+        let scores = [
+            score("icon_eu", 2, 20, 2.0),
+            score("ecmwf", 2, 20, 3.0),
+            score("icon_eu", 0, 20, 1.5),
+        ];
+        let r = ranking(&scores, &models);
+        assert_eq!(r.best_global.as_deref(), Some("ecmwf"));
+        // still ranked with the others
+        assert_eq!(r.scores[0].model, "icon_eu");
     }
 
     #[test]
