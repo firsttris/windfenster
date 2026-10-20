@@ -99,13 +99,14 @@ pub struct Device {
 
 /// Reads the browser and system off a User-Agent. Order matters: Edge, Opera and Samsung
 /// Internet name Chrome too, Chrome names Safari, and iOS browsers all are Safari underneath
-/// (they name themselves by their own token: CriOS, FxiOS, EdgiOS).
+/// (they name themselves by their own token: CriOS, FxiOS, EdgiOS, OPT for Opera; OPiOS was
+/// Opera Mini's).
 pub fn device_of(user_agent: &str) -> Device {
     let ua = user_agent;
     let has = |t: &str| ua.contains(t);
     let browser = if has("Edg/") || has("EdgA/") || has("EdgiOS/") {
         Some("Edge")
-    } else if has("OPR/") || has("OPiOS/") {
+    } else if has("OPR/") || has("OPT/") || has("OPiOS/") {
         Some("Opera")
     } else if has("SamsungBrowser/") {
         Some("Samsung Internet")
@@ -225,6 +226,12 @@ mod tests {
                  SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36",
                 Some("Samsung Internet"),
                 Some("Android"),
+            ),
+            (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 \
+                 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 OPT/5.0.2",
+                Some("Opera"),
+                Some("iOS"),
             ),
             ("curl/8.5.0", None, None),
             ("", None, None),

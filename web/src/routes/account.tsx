@@ -7,7 +7,7 @@ import type { SessionsEnded } from '@/bindings/SessionsEnded';
 import { NotificationsCard } from '@/components/notifications-card';
 import { Loading, Page } from '@/components/page';
 import { PasskeysCard } from '@/components/passkeys-card';
-import { meQuery, send } from '@/lib/api';
+import { forgetAccount, meQuery, send } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
 import { cancelled } from '@/lib/passkeys';
 import { useTitle } from '@/lib/use-title';
@@ -53,7 +53,7 @@ function Signed({ account }: { account: Account }) {
 
   const leave = async () => {
     queryClient.setQueryData(['me'], null);
-    queryClient.removeQueries({ queryKey: ['favorites'] });
+    forgetAccount(queryClient);
     await navigate({ to: '/' });
   };
 

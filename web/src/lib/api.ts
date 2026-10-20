@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { Account } from '@/bindings/Account';
 import type { Alarm } from '@/bindings/Alarm';
 import type { ErrorBody } from '@/bindings/ErrorBody';
@@ -61,6 +61,14 @@ export function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: strin
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+}
+
+/** What belongs to one account: dropped when it signs out or another signs in, so the next one
+ * in the same tab never sees it (the app keeps answers for 30 s without asking again) */
+const ACCOUNT_QUERIES = ['favorites', 'passkeys', 'alarms', 'gear', 'admin'];
+
+export function forgetAccount(queryClient: QueryClient) {
+  for (const key of ACCOUNT_QUERIES) queryClient.removeQueries({ queryKey: [key] });
 }
 
 /** The signed-in account, or null */

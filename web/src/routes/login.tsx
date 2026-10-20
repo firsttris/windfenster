@@ -4,7 +4,7 @@ import { Fingerprint, KeyRound, Mail } from 'lucide-react';
 import { type ComponentProps, type FormEvent, useEffect, useState } from 'react';
 import type { Account } from '@/bindings/Account';
 import { Page } from '@/components/page';
-import { isApiError, send, siteQuery } from '@/lib/api';
+import { forgetAccount, isApiError, send, siteQuery } from '@/lib/api';
 import { describeError } from '@/lib/i18n';
 import { canAutofill, cancelled, canUsePasskeys, signIn, signUp, stopAutofill } from '@/lib/passkeys';
 import { useTitle } from '@/lib/use-title';
@@ -62,7 +62,7 @@ function LoginPage() {
 
   const done = async (account: Account) => {
     queryClient.setQueryData(['me'], account);
-    await queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    forgetAccount(queryClient);
     await navigate({ to: redirect ?? '/' });
   };
 
