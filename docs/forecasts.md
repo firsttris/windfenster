@@ -4,8 +4,8 @@ description: Which weather models Windfenster uses, how it fetches their forecas
 
 # Forecasts and models
 
-A station or point page shows up to six weather models side by side and opens with the one that was
-closest to the measurements there. This page explains where the numbers come from and how
+A station or point page shows up to seven weather models side by side and opens with the one that
+was closest to the measurements there. This page explains where the numbers come from and how
 "closest" is decided.
 
 ## The models
@@ -15,6 +15,7 @@ closest to the measurements there. This page explains where the numbers come fro
 | ICON-D2 | DWD | 2.2 km | 48 h | 8 | Superforecast (Germany and the Alps) |
 | AROME | Météo-France | 1.5 km | 42 h | 8 | Superforecast (France and around) |
 | HARMONIE | DMI | 2 km | 60 h | 8 | Superforecast (Europe) |
+| ICON-2I | ItaliaMeteo | 2.2 km | 72 h | 2 | Superforecast (Italy and around: Lake Garda, Sardinia, Sicily, the Adriatic) |
 | ECMWF IFS | ECMWF | 25 km | 15 days | 4 | Forecast (world) |
 | ICON-EU | DWD | 7 km | 5 days | 8 | Forecast (Europe, the Mediterranean, North Africa) |
 | GFS | NOAA | 13 km | 16 days | 4 | Forecast (world) |
@@ -49,7 +50,7 @@ The page builds the ten days from the selected model and fills what it does not 
 global one:
 
 - **Today and tomorrow**: hourly from 7 to 19 when a fine regional model is selected (ICON-D2,
-  AROME, HARMONIE), every 3 hours with a global one or the mix.
+  ICON-2I, AROME, HARMONIE), every 3 hours with a global one or the mix.
 - **Days 3 to 7**: every 3 hours around the clock, 8 columns.
 - **Days 8 to 10**: the same columns, marked *Trend*.
 
@@ -85,8 +86,8 @@ flowchart LR
   point takes the ranking of a station at most 5 km away.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
   for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those
-  that reach the ten days. Before that a fixed order decides (ICON-D2, AROME, HARMONIE, then
-  ECMWF IFS, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name its
+  that reach the ten days. Before that a fixed order decides (ICON-D2, ICON-2I, AROME, HARMONIE,
+  then ECMWF IFS, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name its
   own starting model instead (the spot's dialog, *Starting model*); where that model has no values,
   the auto choice holds.
 

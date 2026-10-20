@@ -71,6 +71,13 @@ export const DATA_SOURCES: readonly Source[] = [
     licence: CC_BY,
   },
   {
+    id: 'italiameteo',
+    name: 'ItaliaMeteo-ARPAE (ICON-2I)',
+    url: 'https://www.agenziaitaliameteo.it/',
+    use: m.sources_italiaMeteo,
+    licence: CC_BY,
+  },
+  {
     id: 'noaa-gfs',
     name: 'NOAA NCEP (GFS)',
     url: 'https://www.weather.gov/ncep/',
