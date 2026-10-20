@@ -86,6 +86,10 @@ function Footer() {
           ·{' '}
           <Link to="/sources" className="text-subtle hover:text-foreground">
             {m.footer_sources()}
+          </Link>{' '}
+          ·{' '}
+          <Link to="/models" className="text-subtle hover:text-foreground">
+            {m.footer_guide()}
           </Link>
         </span>
         <span className="flex flex-wrap items-center gap-3">

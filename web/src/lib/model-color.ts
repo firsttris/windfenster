@@ -11,7 +11,7 @@ import { MIX } from './forecast';
 const SLOTS = 10;
 
 /** Open-Meteo's model id and its slot */
-const SLOT: Record<string, number> = {
+export const SLOT: Record<string, number> = {
   icon_d2: 1,
   meteofrance_arome_france_hd: 2,
   dmi_harmonie_arome_europe: 3,
@@ -24,7 +24,7 @@ const SLOT: Record<string, number> = {
   meteoswiss_icon_ch2: 10,
 };
 
-export function modelColor(fc: Forecast, id: string): string {
+export function modelColor(fc: Pick<Forecast, 'models'>, id: string): string {
   if (id === MIX) return 'var(--chart-mix)';
   if (id === 'taf') return 'var(--success-foreground)';
   // A model without a slot of its own takes the first slot no model on the page holds.

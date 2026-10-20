@@ -30,6 +30,10 @@ it ends after five days, Forecast never picks it to fill the ten; nor UKMO Globa
 seven. `WF_MODELS` limits the list, or the switches on the [admin page](admin.md#forecasts) when the
 variable is not set.
 
+The app explains the models for riders on its page *Models explained* (`/models`, linked from the
+model chips and the footer): which to look at first per area, what each is good for and what to
+mind. Its numbers come from `GET /api/models`, its texts from `web/src/lib/model-guide.ts`.
+
 ## How forecasts are fetched
 
 Requests go to [Open-Meteo](https://open-meteo.com/) only from the server, never from the
