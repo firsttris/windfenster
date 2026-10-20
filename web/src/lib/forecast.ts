@@ -159,7 +159,8 @@ export function hoursOn(date: string, clock: ReturnType<typeof localClock>): Set
 }
 
 /** Builds the table for the chosen model at `now` (Unix seconds); where it ends, `globalId`
- * (by default the first global model) takes over. `hourly`: today and tomorrow hour by hour. */
+ * (by default the first global model) takes over, today and tomorrow first another fine model
+ * that has the whole day when a fine one is chosen. `hourly`: today and tomorrow hour by hour. */
 export function buildDays(
   fc: Forecast,
   selected: string,
@@ -175,6 +176,17 @@ export function buildDays(
   if (!base) return [];
   const indexed = new Map<string, Indexed>();
   for (const s of [chosen, fallback]) if (s) indexed.set(s.model, indexSeries(s, clock));
+  // Where a fine model ends within today or tomorrow (ICON-CH1 after 33 hours), the next fine
+  // model in the default order that has the whole day comes before the global one
+  const fine =
+    modeOf(fc, selected) === 'super'
+      ? fc.models
+          .filter((m) => m.class === 'super' && m.id !== selected)
+          .flatMap((m) => {
+            const s = bySource.get(m.id);
+            return s ? [indexSeries(s, clock)] : [];
+          })
+      : [];
 
   const today = clock(now).date;
   const dates: string[] = [];
@@ -197,7 +209,7 @@ export function buildDays(
     const first = chosen ? indexed.get(chosen.model) : undefined;
     const second = fallback ? indexed.get(fallback.model) : undefined;
     // base exists, so at least one of them does
-    const src = [first, second].find(covers) ?? first ?? (second as Indexed);
+    const src = [first, ...(d < 2 ? fine : []), second].find(covers) ?? first ?? (second as Indexed);
     const cells = hours.map((hour): Cell => {
       const i = src.at.get(`${date}|${hour}`);
       const s = src.series;

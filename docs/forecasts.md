@@ -4,7 +4,7 @@ description: Which weather models Windfenster uses, how it fetches their forecas
 
 # Forecasts and models
 
-A station or point page shows up to eight weather models side by side and opens with the one that
+A station or point page shows up to ten weather models side by side and opens with the one that
 was closest to the measurements there. This page explains where the numbers come from and how
 "closest" is decided.
 
@@ -13,6 +13,8 @@ was closest to the measurements there. This page explains where the numbers come
 | Model | By | Resolution | Ahead | Runs a day | Class |
 |---|---|---|---|---|---|
 | ICON-D2 | DWD | 2.2 km | 48 h | 8 | Superforecast (Germany and the Alps) |
+| ICON-CH1 | MeteoSwiss | 1 km | 33 h | 8 | Superforecast (the Alps and around) |
+| ICON-CH2 | MeteoSwiss | 2 km | 5 days | 4 | Superforecast (the Alps and around) |
 | AROME | Météo-France | 1.5 km | 42 h | 8 | Superforecast (France and around) |
 | HARMONIE | DMI | 2 km | 60 h | 8 | Superforecast (Europe) |
 | ICON-2I | ItaliaMeteo | 2.2 km | 72 h | 2 | Superforecast (Italy and around: Lake Garda, Sardinia, Sicily, the Adriatic) |
@@ -49,10 +51,13 @@ changes the seven and two days, the budget and the limits without a restart.
 ## The ten days
 
 The page builds the ten days from the selected model and fills what it does not reach from the
-global one:
+global one. A day the selected model has only in part comes whole from another: today and
+tomorrow, with a fine model selected, first from the next fine one that has the whole day (ICON-CH1
+reaches 33 hours, so tomorrow evening often comes from ICON-CH2 or ICON-D2), else from the global
+one.
 
 - **Today and tomorrow**: hourly from 7 to 19 when a fine regional model is selected (ICON-D2,
-  ICON-2I, AROME, HARMONIE), every 3 hours with a global one or the mix.
+  ICON-CH1, ICON-CH2, ICON-2I, AROME, HARMONIE), every 3 hours with a global one or the mix.
 - **Days 3 to 7**: every 3 hours around the clock, 8 columns.
 - **Days 8 to 10**: the same columns, marked *Trend*.
 
@@ -88,10 +93,10 @@ flowchart LR
   point takes the ranking of a station at most 5 km away.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
   for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those that
-  reach the ten days. Before that a fixed order decides (ICON-D2, ICON-2I, AROME, HARMONIE, then
-  ECMWF IFS, UKMO Global, ICON-EU, GFS; for the ten days ECMWF IFS, then GFS). A saved spot can name
-  its own starting model instead (the spot's dialog, *Starting model*); where that model has no
-  values, the auto choice holds.
+  reach the ten days. Before that a fixed order decides (ICON-D2, ICON-CH1, ICON-2I, AROME,
+  ICON-CH2, HARMONIE, then ECMWF IFS, UKMO Global, ICON-EU, GFS; for the ten days ECMWF IFS, then
+  GFS). A saved spot can name its own starting model instead (the spot's dialog, *Starting model*);
+  where that model has no values, the auto choice holds.
 
 ## The Windfenster mix
 

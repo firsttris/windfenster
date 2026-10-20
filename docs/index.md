@@ -1,5 +1,5 @@
 ---
-description: Windfenster is an open-source, self-hosted wind forecast and live wind map for kitesurfing, windsurfing and wing foiling, with measured wind, eight weather models and a model ranking per station.
+description: Windfenster is an open-source, self-hosted wind forecast and live wind map for kitesurfing, windsurfing and wing foiling, with measured wind, ten weather models and a model ranking per station.
 ---
 
 # Windfenster: open-source wind forecast and wind map for water sports

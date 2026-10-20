@@ -20,6 +20,8 @@ const SLOT: Record<string, number> = {
   icon_eu: 6,
   italia_meteo_arpae_icon_2i: 7,
   ukmo_global_deterministic_10km: 8,
+  meteoswiss_icon_ch1: 9,
+  meteoswiss_icon_ch2: 10,
 };
 
 export function modelColor(fc: Forecast, id: string): string {

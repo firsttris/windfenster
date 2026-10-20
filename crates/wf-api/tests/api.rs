@@ -17,7 +17,7 @@ async fn health_and_models() -> Result<()> {
     assert_eq!(body["version"], wf_api::VERSION);
     assert!(body["schemaVersion"].as_i64().unwrap() >= 2);
     assert_eq!(body["stations"], 1);
-    assert_eq!(body["models"], 8);
+    assert_eq!(body["models"], 10);
 
     let (_, models) = get_json(&app, "/api/models").await?;
     let ids: Vec<&str> = models
@@ -27,7 +27,7 @@ async fn health_and_models() -> Result<()> {
         .map(|m| m["id"].as_str().unwrap())
         .collect();
     assert_eq!(ids[0], "icon_d2");
-    assert_eq!(ids.len(), 8);
+    assert_eq!(ids.len(), 10);
     assert!(models[0].get("metaId").is_none());
     Ok(())
 }
@@ -61,7 +61,7 @@ async fn station_forecast_is_fetched_once_then_cached() -> Result<()> {
     assert_eq!(fc["timezone"], "Europe/Berlin");
     assert_eq!(fc["notice"], Value::Null);
     // The fake has values for every model it is asked for; the mix comes first.
-    assert_eq!(fc["series"].as_array().unwrap().len(), 9);
+    assert_eq!(fc["series"].as_array().unwrap().len(), 11);
     assert_eq!(fc["models"][0]["class"], "mix");
     assert_eq!(fc["series"][0]["model"], "mix");
     assert_eq!(fc["series"][0]["wind"], json!([10.0, 12.5, 15.0]));
@@ -110,7 +110,7 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
             "gfs_global"
         ]
     );
-    // Lake Garda: ICON-2I among the regional models, after ICON-D2.
+    // Lake Garda: ICON-CH1 and ICON-2I among the regional models, after ICON-D2.
     let (_, body) = get_json(&app, "/api/point?lat=45.65&lon=10.7").await?;
     let ids: Vec<&str> = body["forecast"]["models"]
         .as_array()
@@ -118,7 +118,14 @@ async fn point_forecast_names_the_nearest_station() -> Result<()> {
         .iter()
         .map(|m| m["id"].as_str().unwrap())
         .collect();
-    assert_eq!(ids[1..3], ["icon_d2", "italia_meteo_arpae_icon_2i"]);
+    assert_eq!(
+        ids[1..4],
+        [
+            "icon_d2",
+            "meteoswiss_icon_ch1",
+            "italia_meteo_arpae_icon_2i"
+        ]
+    );
 
     for bad in [
         "/api/point?lat=95&lon=8",
