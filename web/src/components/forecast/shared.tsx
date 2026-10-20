@@ -15,18 +15,6 @@ export function modelName(fc: Forecast, id: string): string {
   return fc.models.find((x) => x.id === id)?.name ?? id;
 }
 
-/** Colour of a model's dot and line: its place among the models; the mix and the TAF have
- * their own. */
-export function modelColor(fc: Forecast, id: string): string {
-  if (id === MIX) return 'var(--chart-mix)';
-  if (id === 'taf') return 'var(--success-foreground)';
-  const i = Math.max(
-    0,
-    fc.models.filter((x) => x.id !== MIX).findIndex((x) => x.id === id),
-  );
-  return `var(--chart-${(i % 5) + 1})`;
-}
-
 export function stageLabel(fc: Forecast, day: Day): string {
   const cls = fc.models.find((x) => x.id === day.source)?.class;
   const stages: Record<Stage, () => string> = {

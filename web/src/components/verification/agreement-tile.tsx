@@ -1,8 +1,9 @@
 import type { Forecast } from '@/bindings/Forecast';
-import { AGREE_LABEL, modelColor, modelName } from '@/components/forecast/shared';
+import { AGREE_LABEL, modelName } from '@/components/forecast/shared';
 import { bestTime, spreadAt, stripTop } from '@/lib/agreement';
 import { localClock } from '@/lib/forecast';
 import { intlLocale } from '@/lib/i18n';
+import { modelColor } from '@/lib/model-color';
 import { useUnit } from '@/lib/prefs';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { useNow } from '@/lib/use-now';

@@ -1,8 +1,9 @@
 import type { Forecast } from '@/bindings/Forecast';
 import type { Ranking } from '@/bindings/Ranking';
-import { modelColor, modelName } from '@/components/forecast/shared';
+import { modelName } from '@/components/forecast/shared';
 import { MIX } from '@/lib/forecast';
 import { formatNumber } from '@/lib/format';
+import { modelColor } from '@/lib/model-color';
 import { useUnit } from '@/lib/prefs';
 import { KMH_PER_KN, MS_PER_KN, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';

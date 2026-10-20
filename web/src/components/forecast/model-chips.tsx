@@ -4,9 +4,10 @@ import type { Forecast } from '@/bindings/Forecast';
 import type { Model } from '@/bindings/Model';
 import { MIX } from '@/lib/forecast';
 import { formatNumber } from '@/lib/format';
+import { modelColor } from '@/lib/model-color';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
-import { modelColor, modelName } from './shared';
+import { modelName } from './shared';
 
 interface Props {
   fc: Forecast;
