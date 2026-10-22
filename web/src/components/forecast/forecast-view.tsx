@@ -107,6 +107,7 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
           run={series && m.forecast_run({ run: runHour(series.runAt), age: ago(series.fetchedAt, now) })}
           ranking={ranking}
           unit={unit}
+          rankingCode={ranking && rankingStation ? rankingStation.code : undefined}
         />
       )}
 

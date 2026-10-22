@@ -8,7 +8,7 @@ import type { WindUnit } from '@/bindings/WindUnit';
 import { MIX } from '@/lib/forecast';
 import { formatNumber } from '@/lib/format';
 import { modelColor } from '@/lib/model-color';
-import { byRank, type ChipRank, chipRanks } from '@/lib/ranking';
+import { byRank, type ChipRank, chipRanks, MIN_DAYS } from '@/lib/ranking';
 import { PER_KN, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
@@ -29,15 +29,17 @@ interface Props {
   /** "Who hits here?": each chip's place and error, and the order within its group */
   ranking?: Ranking | null;
   unit: WindUnit;
+  /** The ranking card's station code: the legend of the places links to the card */
+  rankingCode?: string;
 }
 
 /** The models that cover the place in one row: the fine regional ones (hour by hour), a line,
  * the global ones with the mix (every 3 hours). Each chip shows its place in the station's
  * ranking and its mean error; within a group the chips follow the ranking once it has 14 days,
  * else the fixed order. How the first one was chosen is behind the info
- * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
- * tells the one chosen; on phones and tablets the row swipes, from lg on each group is a grid of equal columns. */
-export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranking, unit }: Props) {
+ * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and lines beneath
+ * tell the one chosen, its run and what the places are; on phones and tablets the row swipes, from lg on each group is a grid of equal columns. */
+export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranking, unit, rankingCode }: Props) {
   const ranks = chipRanks(ranking);
   const groups = [
     {
@@ -56,19 +58,27 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranki
     },
   ].filter((g) => g.models.length > 0);
   const chosen = fc.models.find((x) => x.id === selected);
+  // What the "#" and the error on the chips are, once a chip carries them
+  const legend =
+    ranking && fc.models.some((x) => ranks.has(x.id))
+      ? ranking.days < MIN_DAYS
+        ? m.models_legendYoung({ days: ranking.days })
+        : m.models_legend()
+      : null;
   return (
     <section
       aria-label={m.models_choose()}
       className="flex flex-col gap-3 sm:rounded-xl sm:border sm:bg-card sm:px-[18px] sm:py-4"
     >
       <div className="relative -mx-4 flex items-stretch gap-3.5 overflow-x-auto px-4 [scrollbar-width:none] sm:gap-[22px] lg:mx-0 lg:overflow-visible lg:px-0">
-        <div className="hidden min-w-24 shrink-0 flex-col justify-center gap-0.5 lg:flex">
+        <div className="hidden min-w-24 shrink-0 flex-col justify-center gap-0.5 xl:flex">
           <span className="flex items-center gap-1.5 font-semibold text-sm">
             {/* Every chip counts, the mix too */}
             {m.models_count({ count: fc.models.length })}
             {hint && <HintMark hint={hint} auto={auto} />}
           </span>
           {run && <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">{run}</span>}
+          {legend && <Legend legend={legend} code={rankingCode} />}
           <GuideLink model={selected} />
         </div>
         {groups.map((g, i) => (
@@ -77,7 +87,7 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranki
             {/* From lg on the groups share the width, each a grid of equal columns: eleven models
                 no longer fit one line, and chips as wide as their text would leave the places and
                 errors out of line */}
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:grid lg:min-w-0 lg:flex-1 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] lg:content-center lg:gap-y-3 xl:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:grid lg:min-w-0 lg:flex-1 lg:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] lg:content-center lg:gap-y-3 xl:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
               {g.models.map((model) => (
                 <Chip
                   key={model.id}
@@ -99,15 +109,39 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranki
           <span>
             <b className="font-semibold text-foreground">{modelName(fc, chosen.id)}</b> · {details(chosen)}
             {chosen.id === top && <> · {m.models_top()}</>}
-            {/* From lg on the run stands left, under the count */}
-            {run && <span className="lg:hidden"> · {run}</span>}
+            {/* From xl on the run stands left, under the count */}
+            {run && <span className="xl:hidden"> · {run}</span>}
           </span>
-          {/* The count and its mark stand left from lg on */}
-          {hint && <HintMark hint={hint} auto={auto} className="lg:hidden" />}
-          <GuideLink model={selected} className="ml-auto shrink-0 lg:hidden" />
+          {/* The count and its mark stand left from xl on */}
+          {hint && <HintMark hint={hint} auto={auto} className="xl:hidden" />}
+          <GuideLink model={selected} className="ml-auto shrink-0 xl:hidden" />
         </p>
       )}
+      {/* The left column with the legend shows from xl on, beside the chips: narrower it would leave the groups one column each */}
+      {legend && <Legend legend={legend} code={rankingCode} className="xl:hidden" />}
     </section>
+  );
+}
+
+/** What "#" and the error on the chips mean, and a jump to the ranking card they come from */
+function Legend({ legend, code, className }: { legend: string; code?: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'flex flex-wrap items-center gap-x-1.5 whitespace-nowrap text-[11px] text-muted-foreground leading-snug xl:flex-col xl:items-start',
+        className,
+      )}
+    >
+      <span>{legend}</span>
+      {code && (
+        <a
+          href="#ranking"
+          className="text-foreground underline decoration-line underline-offset-2 hover:decoration-foreground"
+        >
+          {m.ranking_title({ code })} ↓
+        </a>
+      )}
+    </span>
   );
 }
 
@@ -190,8 +224,10 @@ function Chip({
         className={cn('size-2 shrink-0 rounded-full', on && 'ring-1 ring-primary-foreground')}
         style={{ background: modelColor(fc, model.id) }}
       />
-      <span className="flex flex-col">
-        <span className="font-semibold text-sm leading-tight">{modelName(fc, model.id)}</span>
+      {/* The name gives way before the place and error: "UKMO Global" with "9,3 km/h" filled a
+          chip from lg at 1024 px and pushed them past its edge */}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-semibold text-sm leading-tight">{modelName(fc, model.id)}</span>
         <span className={cn('hidden font-mono text-[11px] xl:block', on ? 'opacity-70' : 'text-muted-foreground')}>
           {details(model)}
         </span>
@@ -199,7 +235,12 @@ function Chip({
       {/* Its place in "who hits here?" and the mean error at the right edge, so they stand in
           line chip under chip; paler while under 14 days */}
       {place && (
-        <span className={cn('ml-auto flex flex-col items-end font-mono leading-tight', !place.settled && 'opacity-55')}>
+        <span
+          className={cn(
+            'ml-auto flex shrink-0 flex-col items-end font-mono leading-tight',
+            !place.settled && 'opacity-55',
+          )}
+        >
           <span className={cn('text-[10px]', on ? 'opacity-70' : 'text-muted-foreground')}>#{place.rank}</span>
           <span className="font-semibold text-[11px]">{mae}</span>
         </span>

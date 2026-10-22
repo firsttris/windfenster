@@ -37,7 +37,8 @@ From the top:
    resolution and reach of the one chosen, and on a phone the row swipes; on a wide screen each
    group is a grid of chips of one width, the places and errors in line at their right edge. Each chip carries its place in
    [Who hits here?](#models-compared-and-who-hits-here) and its mean error (paler while under 14 days are
-   verified); from 14 days on, the chips of each group stand in that order. The model chosen sets the
+   verified); from 14 days on, the chips of each group stand in that order. A legend beside the
+   chips says what *#* and the number are and leads down to the ranking card. The model chosen sets the
    step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking), or a saved spot's own starting model; the mark
    beside the count (a tick when the ranking chose) says why; the chosen model's run stands under

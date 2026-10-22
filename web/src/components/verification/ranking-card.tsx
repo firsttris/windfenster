@@ -45,7 +45,7 @@ export function RankingCard({
     return model ? `${formatNumber(model.resolutionKm, Number.isInteger(model.resolutionKm) ? 0 : 1)} km` : '';
   };
   return (
-    <Card aria-labelledby="ranking-title" className="flex-[1_1_340px] gap-3">
+    <Card id="ranking" aria-labelledby="ranking-title" className="flex-[1_1_340px] scroll-mt-20 gap-3">
       <div>
         <h2 id="ranking-title" className="m-0 font-semibold text-lg tracking-[-0.02em]">
           {m.ranking_title({ code })}
