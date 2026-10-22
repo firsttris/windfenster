@@ -36,7 +36,7 @@ interface Props {
  * ranking and its mean error; within a group the chips follow the ranking once it has 14 days,
  * else the fixed order. How the first one was chosen is behind the info
  * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
- * tells the one chosen; on phones and tablets the row swipes, from lg on each group wraps in its own column. */
+ * tells the one chosen; on phones and tablets the row swipes, from lg on each group is a grid of equal columns. */
 export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranking, unit }: Props) {
   const ranks = chipRanks(ranking);
   const groups = [
@@ -74,8 +74,10 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranki
         {groups.map((g, i) => (
           <Fragment key={g.key}>
             {i > 0 && <span aria-hidden="true" className="w-px shrink-0 self-stretch bg-border sm:my-0.5" />}
-            {/* From lg on the groups share the width and wrap: eleven models no longer fit one line */}
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:min-w-0 lg:shrink lg:flex-wrap lg:content-center">
+            {/* From lg on the groups share the width, each a grid of equal columns: eleven models
+                no longer fit one line, and chips as wide as their text would leave the places and
+                errors out of line */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:grid lg:min-w-0 lg:flex-1 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] lg:content-center lg:gap-y-3 xl:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
               {g.models.map((model) => (
                 <Chip
                   key={model.id}
@@ -177,7 +179,8 @@ function Chip({
       title={has ? ranked || undefined : m.models_noData()}
       onClick={() => onSelect(model.id)}
       className={cn(
-        'flex h-11 shrink-0 cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-lg border px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-auto xl:min-h-12 xl:gap-2.5 xl:py-1.5',
+        // One width for all: below lg a floor the longest name fills, from lg the grid's column
+        'relative flex h-11 min-w-36 shrink-0 cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-lg border px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40 lg:w-full lg:min-w-0 xl:h-auto xl:min-h-12 xl:gap-2.5 xl:py-1.5',
         on ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-border-strong',
       )}
     >
@@ -193,20 +196,23 @@ function Chip({
           {details(model)}
         </span>
       </span>
-      {/* Its place in "who hits here?" and the mean error, paler while under 14 days */}
+      {/* Its place in "who hits here?" and the mean error at the right edge, so they stand in
+          line chip under chip; paler while under 14 days */}
       {place && (
-        <span className={cn('flex flex-col items-end font-mono leading-tight', !place.settled && 'opacity-55')}>
+        <span className={cn('ml-auto flex flex-col items-end font-mono leading-tight', !place.settled && 'opacity-55')}>
           <span className={cn('text-[10px]', on ? 'opacity-70' : 'text-muted-foreground')}>#{place.rank}</span>
           <span className="font-semibold text-[11px]">{mae}</span>
         </span>
       )}
+      {/* On the chip's top edge, so the best chip is no wider than the others; below lg the
+          row scrolls and would clip it, and the line under the chips says it */}
       {top && (
         <span
           className={cn(
-            'ml-0.5 hidden whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-[11px] xl:inline',
+            'absolute -top-2 left-3 hidden whitespace-nowrap rounded-full border px-1.5 font-semibold text-[10px] leading-[14px] lg:inline',
             on
-              ? 'bg-primary-foreground text-primary'
-              : 'border border-success-border bg-success-surface text-success-foreground',
+              ? 'border-primary bg-primary-foreground text-primary'
+              : 'border-success-border bg-success-surface text-success-foreground',
           )}
         >
           {m.models_top()}
