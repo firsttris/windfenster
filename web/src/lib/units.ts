@@ -10,6 +10,9 @@ export const WIND_UNITS: readonly WindUnit[] = ['kn', 'ms', 'kmh'];
 
 export const UNIT_LABEL: Record<WindUnit, string> = { kn: 'kn', ms: 'm/s', kmh: 'km/h' };
 
+/** One knot in each unit. */
+export const PER_KN: Record<WindUnit, number> = { kn: 1, ms: MS_PER_KN, kmh: KMH_PER_KN };
+
 const oneDecimal = new Intl.NumberFormat(intlLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const whole = new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 0 });
 

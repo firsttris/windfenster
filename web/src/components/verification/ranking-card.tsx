@@ -5,13 +5,13 @@ import { MIX } from '@/lib/forecast';
 import { formatNumber } from '@/lib/format';
 import { modelColor } from '@/lib/model-color';
 import { useUnit } from '@/lib/prefs';
-import { KMH_PER_KN, MS_PER_KN, UNIT_LABEL } from '@/lib/units';
+import { MIN_DAYS } from '@/lib/ranking';
+import { PER_KN, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { Card } from '@/ui/card';
 
 const REPO = 'https://github.com/firsttris/windfenster#how-models-are-verified';
-const MIN_DAYS = 14;
 
 /** "Who hits here?": the mean error of every model, the TAF and the mix over the last 30
  * days, first day ahead. A row picks its model. */
@@ -36,7 +36,7 @@ export function RankingCard({
   onSelect: (id: string) => void;
 }) {
   const [unit] = useUnit();
-  const factor = unit === 'kn' ? 1 : unit === 'ms' ? MS_PER_KN : KMH_PER_KN;
+  const factor = PER_KN[unit];
   const hours = Math.max(0, ...ranking.scores.map((s) => s.n));
   const sub = (id: string) => {
     if (id === 'taf') return m.ranking_tafSub();
@@ -45,7 +45,7 @@ export function RankingCard({
     return model ? `${formatNumber(model.resolutionKm, Number.isInteger(model.resolutionKm) ? 0 : 1)} km` : '';
   };
   return (
-    <Card aria-labelledby="ranking-title" className="flex-[1_1_340px] gap-3">
+    <Card id="ranking" aria-labelledby="ranking-title" className="flex-[1_1_340px] scroll-mt-20 gap-3">
       <div>
         <h2 id="ranking-title" className="m-0 font-semibold text-lg tracking-[-0.02em]">
           {m.ranking_title({ code })}
