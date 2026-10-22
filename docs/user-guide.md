@@ -35,7 +35,9 @@ From the top:
    ones (ECMWF, UKMO, ICON-EU, GFS, every 3 hours) and the **Windfenster mix**, a weighted mean of
    all of them. On narrower screens the chips show their names only, a line beneath says the
    resolution and reach of the one chosen, and on a phone the row swipes; on a wide screen each
-   group wraps onto a second line where the row is too long. The model chosen sets the
+   group wraps onto a second line where the row is too long. Each chip carries its place in
+   [Who hits here?](#models-compared-and-who-hits-here) and its mean error (paler while under 14 days are
+   verified); from 14 days on, the chips of each group stand in that order. The model chosen sets the
    step of the days below. Which one opens first follows the
    [ranking](forecasts.md#verification-and-ranking), or a saved spot's own starting model; the mark
    beside the count (a tick when the ranking chose) says why; the chosen model's run stands under
@@ -107,7 +109,8 @@ The map's colour field uses the same colours, 30 % darker so the particles and l
 
 The chart draws every model's wind for today from 7 to 19, the station's measurements as dots.
 **Who hits here?** lists the models by their mean error over the first day ahead, from the last
-30 days at this station; a point uses the ranking of a station within 5 km. How the ranking is
+30 days at this station; a point uses the ranking of a station within 5 km. The same places
+and errors stand on the model chips at the top of the page. How the ranking is
 made is in [Forecasts and models](forecasts.md#verification-and-ranking).
 
 ## The wind map

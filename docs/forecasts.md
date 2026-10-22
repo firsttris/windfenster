@@ -94,7 +94,9 @@ flowchart LR
 ```
 
 - **Who hits here?**: the mean absolute error of the first day ahead over the last 30 days. A
-  point takes the ranking of a station at most 5 km away.
+  point takes the ranking of a station at most 5 km away. The model chips at the top of the page
+  carry each model's place and error; once a model has 14 days, the chips of its group (regional,
+  global with the mix) follow the ranking instead of the fixed order.
 - **Auto choice**: from 14 days of data the page opens with the regional model of the lowest error
   for 0–24 h, and *Forecast* takes the global model of the lowest error for 48–72 h among those that
   reach the ten days. Before that a fixed order decides (ICON-D2, ICON-CH1, ICON-2I, AROME,

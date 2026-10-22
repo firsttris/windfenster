@@ -3,9 +3,13 @@ import { Check, CircleHelp, Info } from 'lucide-react';
 import { Fragment } from 'react';
 import type { Forecast } from '@/bindings/Forecast';
 import type { Model } from '@/bindings/Model';
+import type { Ranking } from '@/bindings/Ranking';
+import type { WindUnit } from '@/bindings/WindUnit';
 import { MIX } from '@/lib/forecast';
 import { formatNumber } from '@/lib/format';
 import { modelColor } from '@/lib/model-color';
+import { byRank, type ChipRank, chipRanks } from '@/lib/ranking';
+import { PER_KN, UNIT_LABEL } from '@/lib/units';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 import { modelName } from './shared';
@@ -22,16 +26,34 @@ interface Props {
   auto: boolean;
   /** The chosen model's run and how long ago it came ("Lauf 12 UTC · vor 6 Min.") */
   run?: string;
+  /** "Who hits here?": each chip's place and error, and the order within its group */
+  ranking?: Ranking | null;
+  unit: WindUnit;
 }
 
 /** The models that cover the place in one row: the fine regional ones (hour by hour), a line,
- * the global ones with the mix (every 3 hours). How the first one was chosen is behind the info
+ * the global ones with the mix (every 3 hours). Each chip shows its place in the station's
+ * ranking and its mean error; within a group the chips follow the ranking once it has 14 days,
+ * else the fixed order. How the first one was chosen is behind the info
  * mark beside the count, the chosen model's run under it. Narrower than xl the chips show their names only and a line beneath
  * tells the one chosen; on phones and tablets the row swipes, from lg on each group wraps in its own column. */
-export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Props) {
+export function ModelChips({ fc, selected, onSelect, top, hint, auto, run, ranking, unit }: Props) {
+  const ranks = chipRanks(ranking);
   const groups = [
-    { key: 'super', models: fc.models.filter((x) => x.class === 'super') },
-    { key: 'global', models: fc.models.filter((x) => x.class !== 'super') },
+    {
+      key: 'super',
+      models: byRank(
+        fc.models.filter((x) => x.class === 'super'),
+        ranks,
+      ),
+    },
+    {
+      key: 'global',
+      models: byRank(
+        fc.models.filter((x) => x.class !== 'super'),
+        ranks,
+      ),
+    },
   ].filter((g) => g.models.length > 0);
   const chosen = fc.models.find((x) => x.id === selected);
   return (
@@ -61,6 +83,8 @@ export function ModelChips({ fc, selected, onSelect, top, hint, auto, run }: Pro
                   model={model}
                   on={model.id === selected}
                   top={model.id === top}
+                  place={ranks.get(model.id)}
+                  unit={unit}
                   onSelect={onSelect}
                 />
               ))}
@@ -127,21 +151,30 @@ function Chip({
   model,
   on,
   top,
+  place,
+  unit,
   onSelect,
 }: {
   fc: Forecast;
   model: Model;
   on: boolean;
   top: boolean;
+  place?: ChipRank;
+  unit: WindUnit;
   onSelect: (id: string) => void;
 }) {
   const has = fc.series.some((s) => s.model === model.id);
+  const mae = place && `${formatNumber(place.mae * PER_KN[unit], 1)} ${UNIT_LABEL[unit]}`;
+  const ranked =
+    place &&
+    mae &&
+    (place.settled ? m.models_rank({ rank: place.rank, mae }) : m.models_rankYoung({ rank: place.rank, mae }));
   return (
     <button
       type="button"
       aria-pressed={on}
       disabled={!has}
-      title={has ? undefined : m.models_noData()}
+      title={has ? ranked || undefined : m.models_noData()}
       onClick={() => onSelect(model.id)}
       className={cn(
         'flex h-11 shrink-0 cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-lg border px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-auto xl:min-h-12 xl:gap-2.5 xl:py-1.5',
@@ -160,6 +193,13 @@ function Chip({
           {details(model)}
         </span>
       </span>
+      {/* Its place in "who hits here?" and the mean error, paler while under 14 days */}
+      {place && (
+        <span className={cn('flex flex-col items-end font-mono leading-tight', !place.settled && 'opacity-55')}>
+          <span className={cn('text-[10px]', on ? 'opacity-70' : 'text-muted-foreground')}>#{place.rank}</span>
+          <span className="font-semibold text-[11px]">{mae}</span>
+        </span>
+      )}
       {top && (
         <span
           className={cn(

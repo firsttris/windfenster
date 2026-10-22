@@ -220,6 +220,8 @@
   "mix_name": "Mix",
   "mix_sub": "weighted · {days} days",
   "models_top": "Best here",
+  "models_rank": "Place {rank} in “Who hits”: {mae} mean error on the first day, last 30 days",
+  "models_rankYoung": "Place {rank} in “Who hits”: {mae} mean error, but only a few days verified so far",
   "models_auto": "Auto choice: {model} came closest to the measurements here over the last 30 days.",
   "models_autoMix": "Auto choice: the mix came closer to the measurements here over the last 30 days than any single model.",
   "models_collecting": "The first model of a fixed order is preselected. From 14 days of measurements on, Windfenster picks the model that is closest here ({days} of 14 so far).",

@@ -105,6 +105,8 @@ export function ForecastView({ fc, tiles, measured, taf, ranking, rankingStation
           hint={spotModel ? undefined : hint}
           auto={!!top}
           run={series && m.forecast_run({ run: runHour(series.runAt), age: ago(series.fetchedAt, now) })}
+          ranking={ranking}
+          unit={unit}
         />
       )}
 
