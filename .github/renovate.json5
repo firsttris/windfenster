@@ -1,0 +1,103 @@
+// Renovate (GitHub App, https://github.com/apps/renovate): a pull request for each new release of
+// what Windfenster builds on, plus the "Dependency Dashboard" issue listing what is open.
+// Only those: MapLibre (the map, with the wind field and particles drawn as its custom layers),
+// the grib crate (every DWD and ECMWF model field is decoded with it), PMTiles (the basemap and
+// relief are cut, written and read in that format), Node (image and CI) and the cargo-chef of the
+// image. The data sources themselves (Open-Meteo, DWD, ECMWF, Protomaps builds, Mapterhorn) have no
+// pinned version: the server looks for the newest run or build at runtime. The other crates, npm
+// packages and the actions are not tracked here; Rust (rust:1-trixie, dtolnay stable) and Debian
+// float on purpose. Check with `npx --package renovate renovate-config-validator .github/renovate.json5`.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  enabledManagers: ["dockerfile", "cargo", "npm", "custom.regex"],
+  timezone: "Europe/Berlin",
+  labels: ["dependencies"],
+  automerge: false,
+  customManagers: [
+    {
+      // The Node of CI, the server E2E tests and the screenshots
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      matchStrings: ["node-version: (?<currentValue>\\d+)\\n"],
+      depNameTemplate: "node",
+      datasourceTemplate: "node-version",
+      versioningTemplate: "node",
+    },
+    {
+      // `cargo install cargo-chef --version x.y.z` in the Dockerfile
+      customType: "regex",
+      managerFilePatterns: ["/^Dockerfile$/"],
+      matchStrings: ["cargo install cargo-chef --version (?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      depNameTemplate: "cargo-chef",
+      datasourceTemplate: "crate",
+    },
+  ],
+  packageRules: [
+    {
+      // From the package managers only the libraries below and @types/node
+      matchManagers: ["cargo", "npm"],
+      enabled: false,
+    },
+    {
+      // Rust and Debian float on purpose (rust:1-trixie, debian:trixie-slim). Windfenster's own
+      // image moves with its releases.
+      matchPackageNames: ["rust", "debian", "docker.io/tristanteu/**", "tristanteu/**"],
+      enabled: false,
+    },
+    {
+      matchManagers: ["npm"],
+      matchPackageNames: ["maplibre-gl"],
+      enabled: true,
+      groupName: "MapLibre",
+      sourceUrl: "https://github.com/maplibre/maplibre-gl-js",
+      prBodyNotes: [
+        "The wind field and the particles are custom WebGL2 layers inside MapLibre (docs/wind-map.md), the basemap a style of Windfenster's own (docs/basemap.md). Before merging: read MapLibre's CHANGELOG for changes to custom layers, `addProtocol`, styles and glyphs; `pnpm typecheck`, `pnpm test` and `pnpm e2e` (the map shaders) must be green; look at the map in light and dark after the screenshots workflow ran on main.",
+      ],
+    },
+    {
+      matchManagers: ["cargo"],
+      matchPackageNames: ["grib"],
+      enabled: true,
+      groupName: "GRIB decoding",
+      sourceUrl: "https://github.com/noritada/grib-rs",
+      commitMessageTopic: "grib",
+      prBodyNotes: [
+        "Every model field from the DWD (ICON, ICON-D2, CCSDS and PNG packing) and ECMWF open data is decoded with it, pure Rust only (`ccsds-unpack-with-rust-aec`, no OpenJPEG or libaec). Before merging: read the CHANGELOG for changes to the template and unpacking APIs and to the features in Cargo.toml; `cargo test --workspace` runs the wf-map pipelines (tests/icon_d2.rs, icon_global.rs, ecmwf.rs) against stand-ins with generated GRIB2 messages, so also let a server with this branch decode one real run of each model.",
+      ],
+    },
+    {
+      // The format of basemap.pmtiles and terrain.pmtiles: written by the server (wf-map), read by
+      // the SPA through the pmtiles protocol of MapLibre
+      matchManagers: ["cargo", "npm"],
+      matchPackageNames: ["pmtiles"],
+      enabled: true,
+      groupName: "PMTiles",
+      sourceUrl: "https://github.com/protomaps/PMTiles",
+      prBodyNotes: [
+        "The server cuts and writes the basemap and relief with the crate (wf-map, `basemap/writer.rs` follows spec v3 itself), the SPA reads them with the npm package. Before merging: `cargo test --workspace` (the map API and the writer tests) and `pnpm e2e`; a new spec version means existing `basemap.pmtiles` files on servers must still be readable.",
+      ],
+    },
+    {
+      // Node of the image's web stage, CI and its types, in one PR so they stay on one major
+      matchPackageNames: ["node", "@types/node"],
+      enabled: true,
+      groupName: "Node",
+      sourceUrl: "https://github.com/nodejs/node",
+      prBodyNotes: [
+        "The image's `web` stage (`node:<major>-trixie-slim`), `node-version` in every workflow and `@types/node` of the SPA move together. The floor `engines.node` (>=22.12, Vite's) and the docs' \"Node.js 22.12 or newer\" stay. CI's docker job builds and starts the image.",
+      ],
+    },
+    {
+      // The types follow the image's major; their own patches are not worth a PR
+      matchPackageNames: ["@types/node"],
+      matchUpdateTypes: ["minor", "patch"],
+      enabled: false,
+    },
+    {
+      matchPackageNames: ["cargo-chef"],
+      sourceUrl: "https://github.com/LukeMathWalker/cargo-chef",
+      commitMessageTopic: "cargo-chef",
+    },
+  ],
+}
