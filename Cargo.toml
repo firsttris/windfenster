@@ -29,7 +29,7 @@ clap = { version = "4", features = ["derive", "env"] }
 csv = "1"
 governor = "0.10"
 # Pure Rust only: CCSDS (ECMWF) through rust-aec, no OpenJPEG or libaec to build
-grib = { version = "0.19", default-features = false, features = ["ccsds-unpack-with-rust-aec", "png-unpack-with-png-crate"] }
+grib = { version = "0.20", default-features = false, features = ["ccsds-unpack-with-rust-aec", "png-unpack-with-png-crate"] }
 dotenvy = "0.15"
 flate2 = "1"
 hex = "0.4"
