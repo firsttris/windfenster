@@ -213,7 +213,9 @@ impl Http {
 }
 
 impl AsyncBackend for Http {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
+        // An offset in the archive; the archives here are far below usize::MAX.
+        let offset = offset as usize;
         let mut wait = self.backoff;
         for attempt in 1.. {
             match self.range(offset, length).await {

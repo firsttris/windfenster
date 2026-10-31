@@ -27,12 +27,12 @@ impl File {
 }
 
 impl AsyncBackend for File {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
         use std::os::unix::fs::FileExt;
         let file = self.0.clone();
         let buf = tokio::task::spawn_blocking(move || {
             let mut buf = vec![0; length];
-            let n = file.read_at(&mut buf, offset as u64)?;
+            let n = file.read_at(&mut buf, offset)?;
             // The last range may run past the end of the file
             buf.truncate(n);
             Ok::<_, std::io::Error>(buf)
