@@ -89,10 +89,12 @@ impl Default for Bounded {
 impl DirectoryCache for Bounded {
     async fn get_dir_entry_or_insert(
         &self,
-        offset: usize,
+        offset: u64,
         tile_id: TileId,
         fetcher: impl Future<Output = PmtResult<Directory>> + Send,
     ) -> PmtResult<Option<DirEntry>> {
+        // An offset in the archive; the archives here are far below usize::MAX.
+        let offset = offset as usize;
         let dir = match self.get(offset) {
             Some(d) => d,
             None => {
