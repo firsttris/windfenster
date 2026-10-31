@@ -43,8 +43,7 @@ fn archive() -> Vec<u8> {
         (coord(12, 2139, 1410), 12),
         (coord(14, 8559, 5641), 14),
     ] {
-        w.add_raw_tile(c, &testing::vector_tile(&[(id, 0)]))
-            .unwrap();
+        w.add_tile(c, &testing::vector_tile(&[(id, 0)])).unwrap();
     }
     w.finalize().unwrap();
     out.into_inner()

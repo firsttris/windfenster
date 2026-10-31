@@ -230,10 +230,10 @@ mod tests {
         let mut out = std::io::Cursor::new(Vec::new());
         let mut w = pmtiles::PmTilesWriter::new(pmtiles::TileType::Mvt)
             .tile_compression(Compression::None)
-            .metadata(&format!(r#"{{"pad":"{}"}}"#, "x".repeat(extra)))
+            .metadata(format!(r#"{{"pad":"{}"}}"#, "x".repeat(extra)))
             .create(&mut out)
             .unwrap();
-        w.add_raw_tile(
+        w.add_tile(
             TileCoord::new(0, 0, 0).unwrap(),
             &testing::vector_tile(&[(x, 0)]),
         )
