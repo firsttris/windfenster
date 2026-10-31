@@ -34,7 +34,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -146,7 +146,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - uses: actions/download-artifact@v4
