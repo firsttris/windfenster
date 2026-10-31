@@ -13,7 +13,7 @@ pub fn archive(tiles: &[(u8, u32, u32, &[u8])]) -> Vec<u8> {
         pmtiles::TileId::from(pmtiles::TileCoord::new(z, x, y).expect("tile")).value()
     });
     for (z, x, y, data) in sorted {
-        w.add_raw_tile(pmtiles::TileCoord::new(z, x, y).expect("tile"), data)
+        w.add_tile(pmtiles::TileCoord::new(z, x, y).expect("tile"), data)
             .expect("tile");
     }
     w.finalize().expect("archive");
