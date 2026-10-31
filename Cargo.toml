@@ -60,7 +60,7 @@ unicode-normalization = "0.1"
 # Alarms as push messages (VAPID, aes128gcm); sent with reqwest, not its own client
 web-push = { version = "0.11", default-features = false }
 # Passkeys; conditional-ui for the sign-in offered by the browser's autofill
-webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
+webauthn-rs = { version = "0.6", features = ["conditional-ui"] }
 tempfile = "3"
 
 # Argon2 is slow without optimisation; tests and `pnpm dev` hash passwords too.
