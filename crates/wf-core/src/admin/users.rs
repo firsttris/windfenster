@@ -82,18 +82,18 @@ const USER_COLUMNS: &str = "a.id, a.name, a.email, a.email_confirmed, \
 
 /// Every account, the most recently seen first.
 pub async fn list(db: &SqlitePool) -> sqlx::Result<Vec<AdminUser>> {
-    sqlx::query_as(&format!(
+    sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {USER_COLUMNS} FROM account a \
          ORDER BY COALESCE(a.last_seen_at, a.created_at) DESC, a.id DESC"
-    ))
+    )))
     .fetch_all(db)
     .await
 }
 
 pub async fn get(db: &SqlitePool, id: i64) -> sqlx::Result<Option<AdminUser>> {
-    sqlx::query_as(&format!(
+    sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {USER_COLUMNS} FROM account a WHERE a.id = ?"
-    ))
+    )))
     .bind(id)
     .fetch_optional(db)
     .await
@@ -189,9 +189,9 @@ pub enum Found {
 
 /// The accounts with the admin role.
 pub async fn admins(db: &SqlitePool) -> sqlx::Result<Vec<AdminUser>> {
-    sqlx::query_as(&format!(
+    sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {USER_COLUMNS} FROM account a WHERE a.role = 'admin' ORDER BY a.id"
-    ))
+    )))
     .fetch_all(db)
     .await
 }

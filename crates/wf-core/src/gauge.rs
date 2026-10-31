@@ -57,7 +57,7 @@ const COLUMNS: &str = "uuid, number, name, water, km, lat, lon, level_cm, level_
 pub async fn upsert(db: &SqlitePool, gauges: &[Gauge], seen_at: i64) -> sqlx::Result<usize> {
     let mut tx = db.begin().await?;
     for g in gauges {
-        sqlx::query(&format!(
+        sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO gauge ({COLUMNS}, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
              ON CONFLICT (uuid) DO UPDATE SET number = excluded.number, name = excluded.name, \
              water = excluded.water, km = excluded.km, lat = excluded.lat, lon = excluded.lon, \
@@ -66,7 +66,7 @@ pub async fn upsert(db: &SqlitePool, gauges: &[Gauge], seen_at: i64) -> sqlx::Re
              flow_m3s = excluded.flow_m3s, flow_at = excluded.flow_at, \
              water_temp_c = excluded.water_temp_c, water_temp_at = excluded.water_temp_at, \
              seen_at = excluded.seen_at"
-        ))
+        )))
         .bind(&g.uuid)
         .bind(&g.number)
         .bind(&g.name)
@@ -108,9 +108,9 @@ pub async fn nearest(
 ) -> sqlx::Result<Option<(Gauge, f64)>> {
     let dlat = max_km / 111.0;
     let dlon = max_km / (111.0 * lat.to_radians().cos().max(0.05));
-    let candidates: Vec<Gauge> = sqlx::query_as(&format!(
+    let candidates: Vec<Gauge> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {COLUMNS} FROM gauge WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?"
-    ))
+    )))
     .bind(lat - dlat)
     .bind(lat + dlat)
     .bind(lon - dlon)

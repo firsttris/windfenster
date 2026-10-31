@@ -88,12 +88,12 @@ impl SeriesRow {
 }
 
 pub async fn latest_series(db: &SqlitePool, p: GridPoint) -> Result<Vec<StoredSeries>, LoadError> {
-    let rows: Vec<SeriesRow> = sqlx::query_as(&format!(
+    let rows: Vec<SeriesRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {SERIES_COLUMNS} FROM forecast_series s JOIN model_run r ON r.id = s.run_id \
          WHERE s.lat_e2 = ?1 AND s.lon_e2 = ?2 AND r.run_at = ( \
            SELECT MAX(r2.run_at) FROM forecast_series s2 JOIN model_run r2 ON r2.id = s2.run_id \
            WHERE s2.lat_e2 = ?1 AND s2.lon_e2 = ?2 AND s2.model_id = s.model_id)"
-    ))
+    )))
     .bind(p.lat_e2)
     .bind(p.lon_e2)
     .fetch_all(db)
@@ -109,11 +109,11 @@ pub async fn series_between(
     from: i64,
     to: i64,
 ) -> Result<Vec<StoredSeries>, LoadError> {
-    let rows: Vec<SeriesRow> = sqlx::query_as(&format!(
+    let rows: Vec<SeriesRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {SERIES_COLUMNS} FROM forecast_series s JOIN model_run r ON r.id = s.run_id \
          WHERE s.lat_e2 = ? AND s.lon_e2 = ? AND r.run_at >= ? AND r.run_at < ? \
          AND length(s.wind) > 0 ORDER BY r.run_at"
-    ))
+    )))
     .bind(p.lat_e2)
     .bind(p.lon_e2)
     .bind(from)

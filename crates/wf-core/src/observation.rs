@@ -194,10 +194,10 @@ const CLEAR_RAW: &str = "UPDATE observation SET raw = NULL WHERE station_id = ? 
 /// lock for seconds at some 15 million rows; this way each holds it a moment and the ingest goes
 /// on in between. Returns the measurements dropped.
 pub async fn purge(db: &SqlitePool, keep: Keep) -> sqlx::Result<u64> {
-    let stations: Vec<(i64, bool)> = sqlx::query_as(&format!(
+    let stations: Vec<(i64, bool)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT id, id IN ({}) FROM station ORDER BY id",
         crate::station::KEPT_IDS
-    ))
+    )))
     .bind(keep.opened_since)
     .fetch_all(db)
     .await?;
@@ -306,7 +306,7 @@ mod tests {
         crate::db::migrate(&db).await?;
         for sql in [PURGE_STATION, CLEAR_RAW] {
             let plan: Vec<(i64, i64, i64, String)> =
-                sqlx::query_as(&format!("EXPLAIN QUERY PLAN {sql}"))
+                sqlx::query_as(sqlx::AssertSqlSafe(format!("EXPLAIN QUERY PLAN {sql}")))
                     .bind(1)
                     .bind(100)
                     .fetch_all(&db)

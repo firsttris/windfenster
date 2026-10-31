@@ -156,12 +156,12 @@ pub async fn watched(
         #[sqlx(flatten)]
         station: Station,
     }
-    let rows: Vec<Watched> = sqlx::query_as(&format!(
+    let rows: Vec<Watched> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT id, {COLUMNS} FROM station s WHERE source = ? AND (tracked OR EXISTS ( \
            SELECT 1 FROM place p WHERE p.requested_at >= ? \
            AND p.lat_e2 = CAST(round(s.lat * 100) AS INTEGER) \
            AND p.lon_e2 = CAST(round(s.lon * 100) AS INTEGER)))"
-    ))
+    )))
     .bind(source)
     .bind(since)
     .fetch_all(db)
@@ -178,10 +178,12 @@ pub async fn id_of(db: &SqlitePool, slug: &str) -> sqlx::Result<Option<i64>> {
 }
 
 pub async fn by_slug(db: &SqlitePool, slug: &str) -> sqlx::Result<Option<Station>> {
-    sqlx::query_as(&format!("SELECT {COLUMNS} FROM station WHERE slug = ?"))
-        .bind(slug)
-        .fetch_optional(db)
-        .await
+    sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLUMNS} FROM station WHERE slug = ?"
+    )))
+    .bind(slug)
+    .fetch_optional(db)
+    .await
 }
 
 /// Time of the newest import of a source, 0 if it never ran.
@@ -231,9 +233,9 @@ pub async fn nearest(
 ) -> sqlx::Result<Option<(Station, f64)>> {
     let dlat = max_km / 111.0;
     let dlon = max_km / (111.0 * lat.to_radians().cos().max(0.05));
-    let candidates: Vec<Station> = sqlx::query_as(&format!(
+    let candidates: Vec<Station> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {COLUMNS} FROM station WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?"
-    ))
+    )))
     .bind(lat - dlat)
     .bind(lat + dlat)
     .bind(lon - dlon)

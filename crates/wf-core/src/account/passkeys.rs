@@ -30,9 +30,9 @@ pub struct PasskeySummary {
 
 /// The account's passkeys, oldest first.
 pub async fn list(db: &SqlitePool, account_id: i64) -> sqlx::Result<Vec<PasskeySummary>> {
-    let rows: Vec<Row> = sqlx::query_as(&format!(
+    let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {COLUMNS} FROM passkey WHERE account_id = ? ORDER BY created_at, id"
-    ))
+    )))
     .bind(account_id)
     .fetch_all(db)
     .await?;
@@ -79,9 +79,9 @@ pub async fn rename(
     passkey_id: &str,
     name: Option<&str>,
 ) -> sqlx::Result<Option<PasskeySummary>> {
-    let row: Option<Row> = sqlx::query_as(&format!(
+    let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "UPDATE passkey SET name = ? WHERE id = ? AND account_id = ? RETURNING {COLUMNS}"
-    ))
+    )))
     .bind(name)
     .bind(passkey_id)
     .bind(account_id)
