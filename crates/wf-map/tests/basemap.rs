@@ -88,7 +88,8 @@ async fn serve(
 struct Memory(Vec<u8>);
 
 impl AsyncBackend for Memory {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
+        let offset = offset as usize;
         let end = (offset + length).min(self.0.len());
         Ok(BackendResponse::new(self.0[offset..end].to_vec().into()))
     }
