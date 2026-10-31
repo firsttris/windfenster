@@ -43,7 +43,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 moka = { version = "0.12", features = ["future"] }
 png = "0.18"
 pmtiles = { version = "0.25", default-features = false, features = ["__async", "write"] }
-reqwest = { version = "0.13", default-features = false, features = ["rustls-tls-native-roots", "json", "gzip", "http2"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "gzip", "http2"] }
 rust-embed = "8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

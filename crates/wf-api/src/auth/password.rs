@@ -6,7 +6,8 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use argon2::Argon2;
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::phc::PasswordHash;
+use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use axum::Json;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -80,9 +81,8 @@ static HASHING: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 async fn hash(password: String) -> Result<String, ApiError> {
     let _turn = HASHING.acquire().await.map_err(ApiError::internal)?;
     tokio::task::spawn_blocking(move || {
-        let salt = SaltString::encode_b64(&random::<16>()).expect("16 bytes of salt");
         Argon2::default()
-            .hash_password(password.as_bytes(), &salt)
+            .hash_password_with_salt(password.as_bytes(), &random::<16>())
             .map(|h| h.to_string())
     })
     .await
@@ -93,9 +93,8 @@ async fn hash(password: String) -> Result<String, ApiError> {
 /// Checked against a stored hash, or against a stand-in when there is none (same work).
 async fn verify(password: String, stored: Option<String>) -> Result<bool, ApiError> {
     static STAND_IN: LazyLock<String> = LazyLock::new(|| {
-        let salt = SaltString::encode_b64(&random::<16>()).expect("16 bytes of salt");
         Argon2::default()
-            .hash_password(b"no account has this password", &salt)
+            .hash_password_with_salt(b"no account has this password", &random::<16>())
             .map(|h| h.to_string())
             .expect("hashing a constant")
     });

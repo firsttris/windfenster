@@ -210,10 +210,10 @@ pub async fn last_fetch(db: &SqlitePool, station_id: i64) -> sqlx::Result<Option
 
 /// Drops old TAFs, by the same rule as the measurements (`observation::purge`).
 pub async fn purge(db: &SqlitePool, keep: crate::observation::Keep) -> sqlx::Result<u64> {
-    Ok(sqlx::query(&format!(
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
         "DELETE FROM taf WHERE valid_to < ? OR (valid_to < ? AND station_id NOT IN ({}))",
         crate::station::KEPT_IDS
-    ))
+    )))
     .bind(keep.kept)
     .bind(keep.all)
     .bind(keep.opened_since)

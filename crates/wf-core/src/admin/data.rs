@@ -223,9 +223,10 @@ pub async fn table_rows(db: &SqlitePool) -> sqlx::Result<Vec<TableRows>> {
     let mut out = Vec::new();
     for t in TABLES {
         // The names are ours, not input
-        let rows: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {t}"))
-            .fetch_one(db)
-            .await?;
+        let rows: i64 =
+            sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT COUNT(*) FROM {t}")))
+                .fetch_one(db)
+                .await?;
         out.push(TableRows {
             table: t.to_owned(),
             rows,

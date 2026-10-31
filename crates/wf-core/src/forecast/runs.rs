@@ -16,9 +16,9 @@ const RUN_COLUMNS: &str = "id, run_at, status = 'complete' AS complete, estimate
 
 /// The newest run Windfenster knows of for a model.
 pub async fn latest_run(db: &SqlitePool, model_id: &str) -> sqlx::Result<Option<Run>> {
-    sqlx::query_as(&format!(
+    sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {RUN_COLUMNS} FROM model_run WHERE model_id = ? ORDER BY run_at DESC LIMIT 1"
-    ))
+    )))
     .bind(model_id)
     .fetch_optional(db)
     .await
@@ -42,9 +42,9 @@ pub async fn add_run(
     .await?
     .rows_affected()
         > 0;
-    let run = sqlx::query_as(&format!(
+    let run = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {RUN_COLUMNS} FROM model_run WHERE model_id = ? AND run_at = ?"
-    ))
+    )))
     .bind(model_id)
     .bind(run_at)
     .fetch_one(db)
@@ -61,9 +61,9 @@ pub async fn confirm_run(
     run_at: i64,
 ) -> sqlx::Result<Run> {
     let mut tx = db.begin().await?;
-    let existing: Option<Run> = sqlx::query_as(&format!(
+    let existing: Option<Run> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {RUN_COLUMNS} FROM model_run WHERE model_id = ? AND run_at = ? AND id <> ?"
-    ))
+    )))
     .bind(model_id)
     .bind(run_at)
     .bind(estimated.id)
