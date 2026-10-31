@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
 
 # ---- 1. SPA ------------------------------------------------------------------------------
-FROM node:22-trixie-slim AS web
+FROM node:26-trixie-slim AS web
 WORKDIR /src
-RUN corepack enable
+# Node 25+ no longer ships corepack, so it comes from npm.
+RUN npm install --global corepack@latest && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json web/
 RUN pnpm install --frozen-lockfile --filter @windfenster/web
