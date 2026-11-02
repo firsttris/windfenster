@@ -109,5 +109,14 @@
       schedule: ["* 0-5 1 * *"],
       automerge: true,
     },
+    {
+      // e2e-server.yml builds the binary on ubuntu-24.04 on purpose: it must start in the
+      // Playwright image (Ubuntu noble), whose glibc is older than a newer runner's (glibc 2.43).
+      // Move it only together with the Playwright image's Ubuntu.
+      // (A regex: the runners' docker versioning knows no ranges.)
+      matchDatasources: ["github-runners"],
+      matchPackageNames: ["ubuntu"],
+      allowedVersions: "/^2[0-4]\\.04$/",
+    },
   ],
 }

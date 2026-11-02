@@ -8,9 +8,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use webauthn_rs::prelude::{
-    DiscoverableKey, Passkey, PublicKeyCredential, RegisterPublicKeyCredential, Uuid,
-};
+use webauthn_rs::prelude::{Passkey, PublicKeyCredential, RegisterPublicKeyCredential, Uuid};
 use wf_core::account::{self, Account};
 
 use super::{Passkeys, Pending, SignedIn, clear_cookie, hash, start_session, token};
@@ -179,7 +177,7 @@ pub async fn finish_sign_in(
         return Err(ApiError::PasskeyRejected);
     };
     let cred: PublicKeyCredential = parse(a.credential)?;
-    let (handle, _) = p
+    let (handle, cred_id) = p
         .webauthn
         .identify_discoverable_authentication(&cred)
         .map_err(|_| ApiError::PasskeyRejected)?;
@@ -190,10 +188,14 @@ pub async fn finish_sign_in(
         .iter()
         .filter_map(|k| serde_json::from_str(k).ok())
         .collect();
-    let discoverable: Vec<DiscoverableKey> = keys.iter().map(DiscoverableKey::from).collect();
+    // The account's passkey the browser used
+    let key = keys
+        .iter()
+        .find(|k| k.cred_id()[..] == *cred_id)
+        .ok_or(ApiError::PasskeyRejected)?;
     let result = p
         .webauthn
-        .finish_discoverable_authentication(&cred, state.clone(), &discoverable)
+        .finish_discoverable_authentication_v2(&cred, state.clone(), key)
         .map_err(|_| ApiError::PasskeyRejected)?;
     let now = wf_core::time::now();
     for k in keys.iter_mut().filter(|k| k.cred_id() == result.cred_id()) {
