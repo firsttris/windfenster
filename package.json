@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "build": "bun run --filter @windfenster/web build",
-    "test": "bun run --filter @windfenster/web test",
+    "test": "bun test ./scripts && bun run --filter @windfenster/web test",
     "typecheck": "bun run --filter @windfenster/web typecheck",
     "bindings": "cargo test --workspace export_bindings",
     "lint": "biome check .",
