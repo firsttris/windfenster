@@ -37,8 +37,9 @@ Unit tests: `cargo test` (next to the code, API and pipeline tests in `crates/*/
 local stand-ins for the data sources), Vitest for the logic in `web/src/lib` and `bun test` for
 the scripts in `scripts/` (`bun run test` runs both).
 
-`bun run e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
-Playwright's Chromium (`cd web && bunx playwright install chromium`), or
+`bun run e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; the
+Playwright runner and the Vite server of the gpu tests run on Bun (`bun --bun playwright test`,
+`bun --bun vite`), not Node. It needs Playwright's Chromium (`cd web && bunx playwright install chromium`), or
 another one in `PW_CHROMIUM`. CI runs them in the official Playwright image of the version in
 the lockfile, in two halves at once (`--shard`), each in about two minutes. CI builds the Docker
 image only when its own files change (`Dockerfile`, `docker/`, `Cargo.lock`, the package

@@ -55,7 +55,7 @@ bun run typecheck
 bun run test
 bun run build
 cargo build -p windfenster
-bun run e2e     # browser tests: map shaders and the whole app; PW_CHROMIUM=… for another Chromium
+bun run e2e     # browser tests on Bun (bun --bun playwright test): map shaders and the whole app; PW_CHROMIUM=… for another Chromium
 mkdocs build --strict    # when docs/ or mkdocs.yml changed
 ```
 

@@ -10,8 +10,8 @@
     "build": "bun run i18n && tsc -p . && vite build && bun scripts/precompress.mjs",
     "typecheck": "bun run i18n && tsc -p .",
     "test": "bun run i18n && vitest run",
-    "e2e": "bun run i18n && playwright test --grep-invert @screenshots",
-    "screenshots": "bun run i18n && playwright test --project=app --grep @screenshots"
+    "e2e": "bun run i18n && bun --bun playwright test --grep-invert @screenshots",
+    "screenshots": "bun run i18n && bun --bun playwright test --project=app --grep @screenshots"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
