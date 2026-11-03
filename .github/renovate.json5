@@ -2,26 +2,27 @@
 // what Windfenster builds on, plus the "Dependency Dashboard" issue listing what is open. Their own
 // pull requests: MapLibre (the map, with the wind field and particles drawn as its custom layers),
 // the grib crate (every DWD and ECMWF model field is decoded with it), PMTiles (the basemap and
-// relief are cut, written and read in that format), Node (image and CI) and the cargo-chef of the
-// image. The data sources themselves (Open-Meteo, DWD, ECMWF, Protomaps builds, Mapterhorn) have no
-// pinned version: the server looks for the newest run or build at runtime. Rust (rust:1-trixie,
-// dtolnay stable) and Debian float on purpose.
+// relief are cut, written and read in that format), Bun (image and package.json) and the cargo-chef
+// of the image. The data sources themselves (Open-Meteo, DWD, ECMWF, Protomaps builds, Mapterhorn)
+// have no pinned version: the server looks for the newest run or build at runtime. Rust
+// (rust:1-trixie, dtolnay stable) and Debian float on purpose.
 // Everything else (the other packages, the actions, the images) comes with the shared settings of
 // firsttris/workflows (renovate/default.json5): minor and patch updates once a month in one pull
 // request that merges itself when CI is green, majors on request in the dashboard.
-// Check with `npx --package renovate renovate-config-validator .github/renovate.json5`.
+// Check with `bunx --package renovate renovate-config-validator .github/renovate.json5`.
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>firsttris/workflows//renovate/default.json5"],
   customManagers: [
     {
-      // The Node of CI, the server E2E tests and the screenshots
+      // The Bun of package.json (`packageManager`; CI takes its version from there, setup-bun with
+      // bun-version-file and npm in the Playwright image), as in firsttris/haben; the image's
+      // oven/bun comes with the dockerfile manager
       customType: "regex",
-      managerFilePatterns: ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
-      matchStrings: ["node-version: (?<currentValue>\\d+)\\n"],
-      depNameTemplate: "node",
-      datasourceTemplate: "node-version",
-      versioningTemplate: "node",
+      managerFilePatterns: ["/^package\\.json$/"],
+      matchStrings: ['"packageManager": "bun@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'],
+      depNameTemplate: "bun",
+      datasourceTemplate: "npm",
     },
     {
       // `cargo install cargo-chef --version x.y.z` in the Dockerfile
@@ -46,7 +47,7 @@
       groupName: "MapLibre",
       sourceUrl: "https://github.com/maplibre/maplibre-gl-js",
       prBodyNotes: [
-        "The wind field and the particles are custom WebGL2 layers inside MapLibre (docs/wind-map.md), the basemap a style of Windfenster's own (docs/basemap.md). Before merging: read MapLibre's CHANGELOG for changes to custom layers, `addProtocol`, styles and glyphs; `pnpm typecheck`, `pnpm test` and `pnpm e2e` (the map shaders) must be green; look at the map in light and dark after the screenshots workflow ran on main.",
+        "The wind field and the particles are custom WebGL2 layers inside MapLibre (docs/wind-map.md), the basemap a style of Windfenster's own (docs/basemap.md). Before merging: read MapLibre's CHANGELOG for changes to custom layers, `addProtocol`, styles and glyphs; `bun run typecheck`, `bun run test` and `bun run e2e` (the map shaders) must be green; look at the map in light and dark after the screenshots workflow ran on main.",
       ],
       schedule: ["at any time"],
       automerge: false,
@@ -75,20 +76,19 @@
       groupName: "PMTiles",
       sourceUrl: "https://github.com/protomaps/PMTiles",
       prBodyNotes: [
-        "The server cuts and writes the basemap and relief with the crate (wf-map, `basemap/writer.rs` follows spec v3 itself), the SPA reads them with the npm package. Before merging: `cargo test --workspace` (the map API and the writer tests) and `pnpm e2e`; a new spec version means existing `basemap.pmtiles` files on servers must still be readable.",
+        "The server cuts and writes the basemap and relief with the crate (wf-map, `basemap/writer.rs` follows spec v3 itself), the SPA reads them with the npm package. Before merging: `cargo test --workspace` (the map API and the writer tests) and `bun run e2e`; a new spec version means existing `basemap.pmtiles` files on servers must still be readable.",
       ],
       schedule: ["at any time"],
       automerge: false,
       dependencyDashboardApproval: false,
     },
     {
-      // Node of the image's web stage, CI and its types, in one PR so they stay on one major
-      matchPackageNames: ["node", "@types/node"],
-      enabled: true,
-      groupName: "Node",
-      sourceUrl: "https://github.com/nodejs/node",
+      // Bun of the image's web stage and of package.json, in one PR, majors too
+      matchPackageNames: ["docker.io/oven/bun", "oven/bun", "bun"],
+      groupName: "Bun",
+      sourceUrl: "https://github.com/oven-sh/bun",
       prBodyNotes: [
-        "The image's `web` stage (`node:<major>-trixie-slim`), `node-version` in every workflow and `@types/node` of the SPA move together. The floor `engines.node` (>=22.12, Vite's) and the docs' \"Node.js 22.12 or newer\" stay. CI's docker job builds and starts the image.",
+        "The image's `web` stage (`oven/bun:<version>-slim`) and `packageManager` in `package.json` (CI takes its version from there: setup-bun, and npm in the Playwright image) move together. Bun installs the packages and runs the scripts; Vite runs on Node where that is installed (CI, development) and on Bun in the image's web stage. Run `bun install` in case `bun.lock` changes. CI's docker job builds and starts the image.",
       ],
       schedule: ["at any time"],
       automerge: false,
@@ -98,16 +98,6 @@
       matchPackageNames: ["cargo-chef"],
       sourceUrl: "https://github.com/LukeMathWalker/cargo-chef",
       commitMessageTopic: "cargo-chef",
-    },
-    {
-      // The types' own minor and patch releases go with the monthly update of the other packages;
-      // a new major comes with Node above
-      matchPackageNames: ["@types/node"],
-      matchUpdateTypes: ["minor", "patch"],
-      groupName: "dependencies (minor and patch)",
-      groupSlug: "minor-patch",
-      schedule: ["* 0-5 1 * *"],
-      automerge: true,
     },
     {
       // e2e-server.yml builds the binary on ubuntu-24.04 on purpose: it must start in the
