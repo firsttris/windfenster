@@ -2,8 +2,8 @@
  * Puts a Brotli (`.br`) and a gzip (`.gz`) copy beside every compressible file of the build, at
  * the highest levels, so the server sends them as they are instead of compressing the bundle
  * for every new visitor (crates/wf-api/src/spa.rs picks the copy the browser accepts). Brotli
- * for HTTPS, gzip for plain http, where browsers do not offer Brotli. Node's own zlib: no
- * dependency. Run after `vite build`.
+ * for HTTPS, gzip for plain http, where browsers do not offer Brotli. `node:zlib`, which Bun
+ * implements too: no dependency. Run after `vite build`.
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

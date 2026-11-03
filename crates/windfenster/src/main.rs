@@ -237,7 +237,7 @@ struct ServeArgs {
     /// times more, 12 at most; 0 turns it off.
     #[arg(long, env = "WF_TERRAIN_ZOOM", default_value_t = 7, value_parser = clap::value_parser!(u8).range(0..=12))]
     terrain_zoom: u8,
-    /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
+    /// Vite dev server to redirect to while no SPA is built in (`bun run dev`).
     #[arg(long, env = "WF_DEV_UI")]
     dev_ui: Option<String>,
     #[command(flatten)]

@@ -31,22 +31,20 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 26
-          cache: pnpm
+          bun-version-file: package.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
 
       - name: Lint
         run: |
           cargo fmt --all --check
           cargo clippy --workspace --all-targets --locked -- -D warnings
-          pnpm lint
+          bun run lint
 
       # The tests also write the ts-rs bindings. Starting from an empty folder catches
       # bindings of types that no longer exist, too.
@@ -64,9 +62,9 @@ jobs:
             exit 1
           fi
 
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
       # The router plugin writes the route tree during the build; the committed one must match.
       - name: Route tree is up to date
         run: git diff --exit-code -- web/src/routeTree.gen.ts
@@ -101,7 +99,7 @@ jobs:
           esac
           if [ -z "$from" ] || ! git cat-file -e "$from^{commit}" 2>/dev/null; then
             docker=true
-          elif git diff --name-only "$from" HEAD | grep -qE '^(Dockerfile|\.dockerignore|docker/|\.cargo/|Cargo\.lock|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|web/package\.json)'; then
+          elif git diff --name-only "$from" HEAD | grep -qE '^(Dockerfile|\.dockerignore|docker/|\.cargo/|Cargo\.lock|package\.json|bun\.lock|bunfig\.toml|web/package\.json)'; then
             docker=true
           else
             docker=false
@@ -124,7 +122,7 @@ jobs:
       - id: playwright
         uses: firsttris/workflows/actions/playwright-image@v1
         with:
-          lockfile: pnpm-lock.yaml
+          lockfile: bun.lock
 
   browser:
     # The browser tests (web/e2e): the wind map's shaders on SwiftShader, and the whole app
@@ -143,12 +141,10 @@ jobs:
       image: ${{ needs.playwright-image.outputs.image }}
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # The npm package brings the binary without curl or unzip, which the image lacks; the
+      # version is `packageManager` in package.json, as setup-bun takes it elsewhere
+      - run: npm install --global "bun@$(node -p "require('./package.json').packageManager.split('@')[1]")"
+      - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:
           name: e2e-server
@@ -156,7 +152,7 @@ jobs:
       - run: chmod +x e2e-server/windfenster
       # $GITHUB_WORKSPACE is the checkout's path inside the container (github.workspace is the
       # runner's)
-      - run: WF_BIN="$GITHUB_WORKSPACE/e2e-server/windfenster" pnpm e2e --shard=${{ matrix.shard }}/2
+      - run: WF_BIN="$GITHUB_WORKSPACE/e2e-server/windfenster" bun run e2e --shard=${{ matrix.shard }}/2
       # The pictures that differed, with their diffs, to look at or to take as the new ones
       - uses: actions/upload-artifact@v7
         if: failure()

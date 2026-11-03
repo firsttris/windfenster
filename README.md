@@ -187,12 +187,12 @@ The full documentation, with search, is at **[firsttris.github.io/windfenster](h
 
 ## 🛠️ Development
 
-Requires Rust (stable), Node.js 22.12 or newer and pnpm.
+Requires Rust (stable) and [Bun](https://bun.com) 1.4 or newer.
 
 ```bash
 git clone https://github.com/firsttris/windfenster && cd windfenster
-pnpm install
-pnpm dev     # server on :8080, web app with hot reload on :5173
+bun install
+bun run dev  # server on :8080, web app with hot reload on :5173
 ```
 
 Rust (axum, SQLite, sqlx) with the React app (Vite, TanStack Router and Query, Tailwind, MapLibre,

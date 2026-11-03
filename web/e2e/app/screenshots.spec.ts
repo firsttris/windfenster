@@ -1,6 +1,6 @@
 /**
  * The pictures of the README and the documentation (docs/*.png), from the app against the
- * stand-in, so every run shows the same data. Not part of `pnpm e2e`: `pnpm screenshots` takes
+ * stand-in, so every run shows the same data. Not part of `bun run e2e`: `bun run screenshots` takes
  * them, the "Update screenshots" workflow commits them. In English, as the README and the docs.
  */
 import { resolve } from 'node:path';

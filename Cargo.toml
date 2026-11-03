@@ -63,7 +63,7 @@ web-push = { version = "0.11", default-features = false }
 webauthn-rs = { version = "0.6", features = ["conditional-ui"] }
 tempfile = "3"
 
-# Argon2 is slow without optimisation; tests and `pnpm dev` hash passwords too.
+# Argon2 is slow without optimisation; tests and `bun run dev` hash passwords too.
 [profile.dev.package.argon2]
 opt-level = 3
 

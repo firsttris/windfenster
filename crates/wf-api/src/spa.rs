@@ -43,12 +43,12 @@ pub async fn serve(State(state): State<AppState>, uri: Uri, headers: HeaderMap) 
             "no-cache",
         ),
         None => match &state.dev_ui {
-            // `pnpm dev`: the SPA comes from Vite; send the browser there.
+            // `bun run dev`: the SPA comes from Vite; send the browser there.
             Some(dev) => Redirect::temporary(&format!("{}{}", dev.trim_end_matches('/'), uri))
                 .into_response(),
             None => (
                 StatusCode::NOT_FOUND,
-                "SPA not built. Run `pnpm build`, or `pnpm dev` and open http://localhost:5173.",
+                "SPA not built. Run `bun run build`, or `bun run dev` and open http://localhost:5173.",
             )
                 .into_response(),
         },

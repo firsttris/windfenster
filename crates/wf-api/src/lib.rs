@@ -67,7 +67,7 @@ pub struct AppState {
     pub data_dir: Option<std::path::PathBuf>,
     /// The data folder's disk usage, measured at most every five minutes
     disk: moka::future::Cache<(), wf_map::disk::DiskUsage>,
-    /// Vite dev server to redirect to while no SPA is built in (`pnpm dev`).
+    /// Vite dev server to redirect to while no SPA is built in (`bun run dev`).
     pub dev_ui: Option<String>,
     /// Signing in with passkeys; off without an address they could belong to.
     passkeys: Option<Arc<auth::Passkeys>>,

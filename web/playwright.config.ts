@@ -44,12 +44,12 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm exec vite --port 5199 --strictPort --host 127.0.0.1',
+      command: 'bunx vite --port 5199 --strictPort --host 127.0.0.1',
       url: 'http://127.0.0.1:5199/e2e/gpu.html',
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'node e2e/app/start.mjs',
+      command: 'bun e2e/app/start.mjs',
       url: 'http://localhost:5299/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

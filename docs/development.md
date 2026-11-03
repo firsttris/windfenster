@@ -1,19 +1,20 @@
 ---
-description: Build and develop Windfenster - Rust, Node.js and pnpm, the checks CI runs, unit and browser tests with Playwright and SwiftShader, screenshots, documentation and releases.
+description: Build and develop Windfenster - Rust and Bun, the checks CI runs, unit and browser tests with Playwright and SwiftShader, screenshots, documentation and releases.
 ---
 
 # Development
 
-Requirements: Rust (stable), Node.js 22.12 or newer, pnpm.
+Requirements: Rust (stable) and [Bun](https://bun.com) 1.4 or newer (package manager and script
+runner; the version CI and the image use is `packageManager` in `package.json`).
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun run dev
 ```
 
-`pnpm dev` creates `.env` from [`.env.example`](https://github.com/firsttris/windfenster/blob/main/.env.example) on the first run, then starts
+`bun run dev` creates `.env` from [`.env.example`](https://github.com/firsttris/windfenster/blob/main/.env.example) on the first run, then starts
 the server on :8080 and the web app with hot reload on :5173 (it proxies `/api`). Open
-http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `pnpm dev`) names the Vite
+http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `bun run dev`) names the Vite
 server the binary redirects to while no web app is built in; it is a development setting only.
 
 Checks, as CI runs them:
@@ -22,21 +23,22 @@ Checks, as CI runs them:
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace     # also writes the TypeScript bindings
-pnpm lint                  # Biome
-pnpm typecheck
-pnpm test
-pnpm build
+bun run lint               # Biome
+bun run typecheck
+bun run test
+bun run build
 cargo build -p windfenster # the server the browser tests run against
-pnpm e2e                   # browser tests (Playwright): the map's shaders and the whole app
+bun run e2e                # browser tests (Playwright): the map's shaders and the whole app
 ```
 
 ## Tests
 
 Unit tests: `cargo test` (next to the code, API and pipeline tests in `crates/*/tests` against
-local stand-ins for the data sources) and Vitest for the logic in `web/src/lib`.
+local stand-ins for the data sources), Vitest for the logic in `web/src/lib` and `bun test` for
+the scripts in `scripts/` (`bun run test` runs both).
 
-`pnpm e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
-Playwright's Chromium (`pnpm --filter @windfenster/web exec playwright install chromium`), or
+`bun run e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; it needs
+Playwright's Chromium (`cd web && bunx playwright install chromium`), or
 another one in `PW_CHROMIUM`. CI runs them in the official Playwright image of the version in
 the lockfile, in two halves at once (`--shard`), each in about two minutes. CI builds the Docker
 image only when its own files change (`Dockerfile`, `docker/`, `Cargo.lock`, the package
@@ -50,7 +52,7 @@ shared with the release's amd64 build, so either reuses what the other compiled.
   particles (spread, speed, direction, no strokes when they start anew); the colour field; and
   the look of three scenes (a low over all three models with wind and with gusts, calm air)
   against approved pictures in `web/e2e/look.spec.ts-snapshots`. A change meant to alter the
-  look updates them with `pnpm e2e --update-snapshots`; look at them before committing.
+  look updates them with `bun run e2e --update-snapshots`; look at them before committing.
 - **app** (`web/e2e/app/*.spec.ts`): the whole app against the real server (the debug build, or
   `WF_BIN`), started on a fresh data directory with `WF_SCHEDULER=false` and `WF_SOURCES`
   pointing every outside source at a local stand-in (`web/e2e/app/stand-in.mjs`: Open-Meteo,
@@ -68,7 +70,7 @@ The pictures in `docs/` come from the app against the same stand-in as the brows
 (`web/e2e/app/screenshots.spec.ts`, in English):
 
 ```bash
-pnpm screenshots    # needs the server built: cargo build -p windfenster
+bun run screenshots # needs the server built: cargo build -p windfenster
 ```
 
 The **Update screenshots** workflow takes them after every push to `main` that touches the app,
