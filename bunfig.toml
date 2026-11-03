@@ -1,0 +1,4 @@
+[install]
+# As with pnpm before: each package sees only its own dependencies (node_modules/.bun), not
+# whatever happens to lie in the root
+linker = "isolated"

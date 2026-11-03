@@ -4,7 +4,7 @@
 //
 //   git clone --depth 1 --filter=blob:none --sparse https://github.com/nvkelso/natural-earth-vector ne
 //   (cd ne && git sparse-checkout set --no-cone /geojson/ne_10m_land.geojson …)
-//   node scripts/natural-earth.mjs ne/geojson src/assets/natural-earth.json
+//   bun scripts/natural-earth.mjs ne/geojson src/assets/natural-earth.json
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 

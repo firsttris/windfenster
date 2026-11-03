@@ -3,7 +3,7 @@
  * their trails, painted by the map's own code from fixed wind and fixed random numbers. Catches
  * what nobody wrote a test for: stars, seams between the models, stripes, a wrong colour scale.
  *
- * A change that is meant to alter the look updates the pictures: `pnpm e2e --update-snapshots`,
+ * A change that is meant to alter the look updates the pictures: `bun run e2e --update-snapshots`,
  * then look at them before committing. They are made in the Playwright image CI runs in; another
  * Chromium may paint a few pixels differently.
  */

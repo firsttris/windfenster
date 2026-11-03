@@ -38,7 +38,7 @@ Update what the change affects, in the same commit, and only that:
   station pages show;
 - the docs in `docs/` that describe it, and the README when a feature a user sees changes;
 - the screenshots: the **Update screenshots** workflow takes and commits them after every push to
-  `main` that touches the app or the server (pull before the next push); `pnpm screenshots` locally
+  `main` that touches the app or the server (pull before the next push); `bun run screenshots` locally
   to look first, but commit no pictures taken outside the Playwright image;
 - the plan when a decision or a phase item changes.
 
@@ -50,12 +50,12 @@ Green before every push, then check CI:
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+bun run lint
+bun run typecheck
+bun run test
+bun run build
 cargo build -p windfenster
-pnpm e2e        # browser tests: map shaders and the whole app; PW_CHROMIUM=… for another Chromium
+bun run e2e     # browser tests: map shaders and the whole app; PW_CHROMIUM=… for another Chromium
 mkdocs build --strict    # when docs/ or mkdocs.yml changed
 ```
 
@@ -112,4 +112,4 @@ split it past ~400 lines, a function past ~80. A refactor changes no behaviour.
   The Phase 1 gate is "EDSB shows 5 models".
 - **Bar for the look:** better looking than Windy and Windfinder, side by side; a phase with a
   visible UI is done only then.
-- Local data in `./.data`; `pnpm dev` runs server (:8080) and Vite (:5173).
+- Local data in `./.data`; `bun run dev` runs server (:8080) and Vite (:5173).

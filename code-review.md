@@ -196,7 +196,7 @@ Geprüft: Übernahme des Servers, Zugriff auf Daten anderer Nutzer, billiges Lah
 | 5.9 | Argon2-Warteschlange und Passkey-Zeremonien ohne Limit pro IP; Konto sperrbar mit 10 Fehlversuchen | mittel | offen; Cloudflare-Rate-Limit auf `/api/auth/*` hilft |
 | 5.10 | Riesige Favoriten-Sortierung hält die Datenbank; Kartenpunkte-Liste ohne Grenze | mittel | offen |
 | 5.11 | Registrierung verrät, ob es ein Konto zur Adresse gibt | niedrig–mittel | offen |
-| 5.12 | Abhängigkeiten nicht gegen bekannte Lücken geprüft (`cargo audit`, `pnpm audit`) | – | offen, braucht Netz |
+| 5.12 | Abhängigkeiten nicht gegen bekannte Lücken geprüft (`cargo audit`, `bun audit`) | – | offen, braucht Netz |
 
 ## Bewertung der offenen Punkte (am Code nachgeprüft)
 

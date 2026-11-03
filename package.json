@@ -2,23 +2,22 @@
   "name": "windfenster",
   "private": true,
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@12.16.1",
-  "engines": {
-    "node": ">=22.12"
-  },
+  "packageManager": "bun@1.4.4",
+  "workspaces": [
+    "web"
+  ],
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "build": "pnpm --filter @windfenster/web build",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
+    "dev": "bun scripts/dev.ts",
+    "build": "bun run --filter @windfenster/web build",
+    "test": "bun run --filter @windfenster/web test",
+    "typecheck": "bun run --filter @windfenster/web typecheck",
     "bindings": "cargo test --workspace export_bindings",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "e2e": "pnpm --filter @windfenster/web e2e",
-    "screenshots": "pnpm --filter @windfenster/web screenshots"
+    "e2e": "bun run --filter @windfenster/web e2e",
+    "screenshots": "bun run --filter @windfenster/web screenshots"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
-    "concurrently": "^10.0.6"
+    "@biomejs/biome": "^2.5.15"
   }
 }

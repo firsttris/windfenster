@@ -6,7 +6,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// In dev the Rust server runs on :8080 and Vite proxies the API to it (`pnpm dev`).
+// In dev the Rust server runs on :8080 and Vite proxies the API to it (`bun run dev`).
 export default defineConfig({
   plugins: [
     // messages/{de,en}.json → src/paraglide: one typed function per text (m.nav_forecast()).

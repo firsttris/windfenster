@@ -1,15 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # ---- 1. SPA ------------------------------------------------------------------------------
-FROM node:26-trixie-slim AS web
+# Bun of `packageManager` in package.json (Renovate moves both together)
+FROM oven/bun:1.4.4-slim AS web
 WORKDIR /src
-# Node 25+ no longer ships corepack, so it comes from npm.
-RUN npm install --global corepack@latest && corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock bunfig.toml ./
 COPY web/package.json web/
-RUN pnpm install --frozen-lockfile --filter @windfenster/web
+RUN bun install --frozen-lockfile --filter @windfenster/web
 COPY web web
-RUN pnpm --filter @windfenster/web build
+RUN bun run --filter @windfenster/web build
 
 # ---- 2. Server binary, SPA embedded via rust-embed ---------------------------------------
 # cargo-chef splits the build: the dependencies are cooked from a recipe of the manifests alone,
