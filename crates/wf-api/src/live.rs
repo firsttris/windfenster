@@ -69,9 +69,11 @@ pub async fn live(
             .is_none_or(|at| at < now - TAF_STALE_S);
     if let Some(m) = &s.measurements
         && (taf_stale || wants_fetch(st.source, &observations, now))
-        && !s.fetched.contains_key(&id)
     {
-        // Once per station within the cache's lifetime, however many ask at the same time.
+        // Once per station within the cache's lifetime, however many ask at the same time. A
+        // station another request fetched since the read above is not fetched again, but read
+        // again: that fetch stores the TAF before the measurements, so the first read can hold
+        // the new TAF without them.
         s.fetched
             .get_with(id, async {
                 // The visitor waits for it: a source that hangs is given up after a while, the

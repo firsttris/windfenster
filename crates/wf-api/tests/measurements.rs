@@ -129,3 +129,29 @@ async fn gauge_near_a_place() -> Result<()> {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_returns_what_a_concurrent_fetch_stored() -> Result<()> {
+    // Many visitors opening a fresh station at once: whoever finds the station fetched by
+    // another request must answer with what that fetch stored, not with its own read from
+    // before it (the TAF without the measurements, as the app test once saw).
+    for _ in 0..20 {
+        let (_dir, app, _calls) = app().await?;
+        let requests: Vec<_> = (0..40u64)
+            .map(|i| {
+                let app = app.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_micros(i * 150)).await;
+                    get_json(&app, "/api/stations/edsb/live").await
+                })
+            })
+            .collect();
+        for r in requests {
+            let (status, body) = r.await??;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            assert!(!body["taf"].is_null(), "{body}");
+            assert_eq!(body["observations"].as_array().unwrap().len(), 2, "{body}");
+        }
+    }
+    Ok(())
+}
