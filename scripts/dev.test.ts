@@ -132,6 +132,32 @@ test('when the server exits, Vite started by `bun run` is stopped and its exit c
   expect(code).toBe(3);
 }, 20_000);
 
+/** The process states `ps` shows (T: stopped), one letter per pid */
+function states() {
+  const ps = Bun.spawnSync(['ps', '-o', 'stat=', '-p', pids.join(',')]);
+  return ps.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .map((line) => line.trim()[0]);
+}
+
+// Ctrl+Z reaches only dev.ts: the server and the web app run in sessions of their own
+test('SIGTSTP (Ctrl+Z) to dev.ts stops what cargo and `bun run` started, SIGCONT (fg) resumes them', async () => {
+  const dev = await start(sandboxWithGrandchildren());
+
+  dev.kill('SIGTSTP');
+  await until(() => states().every((state) => state === 'T'), 3_000).catch(() => {});
+  expect(states()).toEqual(['T', 'T']);
+
+  dev.kill('SIGCONT');
+  await until(() => states().every((state) => state !== 'T'), 3_000).catch(() => {});
+  expect(states().filter((state) => state === 'T')).toEqual([]);
+
+  dev.kill('SIGTERM');
+  await dev.exited;
+}, 20_000);
+
 /** Kills what the shell `shellPid` still runs (dev.ts, stopped or not) and the shell itself */
 function killShell(shellPid: number) {
   const children = Bun.spawnSync(['ps', '-o', 'pid=', '--ppid', String(shellPid)]).stdout.toString();
