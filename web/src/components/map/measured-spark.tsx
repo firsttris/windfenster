@@ -5,6 +5,7 @@ import { spark } from '@/lib/spark';
 import { formatWind, UNIT_LABEL } from '@/lib/units';
 import { useNow } from '@/lib/use-now';
 import { m } from '@/paraglide/messages';
+import { NON_SCALING_STROKE } from '@/ui/svg-style';
 
 const HOURS = 6;
 const W = 240;
@@ -34,7 +35,7 @@ export function MeasuredSpark({ slug, unit }: { slug: string; unit: WindUnit }) 
           d={s.line}
           className="fill-none stroke-chart-wind"
           strokeWidth={1.5}
-          vectorEffect="non-scaling-stroke"
+          style={NON_SCALING_STROKE}
           strokeLinejoin="round"
         />
         {s.gusts.map((g) => (

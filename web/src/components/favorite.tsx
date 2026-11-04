@@ -15,6 +15,7 @@ import { describeError } from '@/lib/i18n';
 import { m } from '@/paraglide/messages';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
+import { TEXT_CENTRED } from '@/ui/svg-style';
 import { AlarmButton } from './alarm';
 
 interface Props {
@@ -240,7 +241,7 @@ function SectorRose({ sector }: { sector: Sector }) {
     <svg viewBox="0 0 80 80" className="size-20 shrink-0" aria-hidden="true">
       <circle cx="40" cy="40" r={r} className="fill-none stroke-line" strokeWidth="1.5" />
       <path d={path} className="fill-emerald-500/40 stroke-emerald-500" strokeWidth="1.5" />
-      <text x="40" y="11" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+      <text x="40" y="11" style={TEXT_CENTRED} className="fill-muted-foreground text-[9px]">
         {m.compass_points().split(',')[0]}
       </text>
     </svg>

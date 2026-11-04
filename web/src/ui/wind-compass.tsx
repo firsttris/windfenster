@@ -4,6 +4,7 @@ import { inSector } from '@/lib/favorites';
 import { compass } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
+import { TEXT_CENTRED } from '@/ui/svg-style';
 
 const C = 60;
 /** Every 10°, longer every 90° */
@@ -82,7 +83,7 @@ export function WindCompass({ dir, calm, range, sector, className }: Props) {
             x={x}
             y={y}
             dy="0.35em"
-            textAnchor="middle"
+            style={TEXT_CENTRED}
             className={cn('font-semibold text-[11px]', d === 0 ? 'fill-foreground' : 'fill-muted-foreground')}
           >
             {points[i * 4]}
@@ -114,7 +115,7 @@ export function WindCompass({ dir, calm, range, sector, className }: Props) {
       )}
       <circle cx={C} cy={C} r="3" className="fill-foreground" />
       {dir === null && (
-        <text x={C} y={C + 16} textAnchor="middle" className="fill-subtle font-mono font-semibold text-[10px]">
+        <text x={C} y={C + 16} style={TEXT_CENTRED} className="fill-subtle font-mono font-semibold text-[10px]">
           {calm ? '0' : 'VRB'}
         </text>
       )}

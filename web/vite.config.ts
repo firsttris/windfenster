@@ -2,6 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
+import { redact } from '@tanstack/redact/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -20,6 +21,10 @@ export default defineConfig({
     // src/routes/* → src/routeTree.gen.ts; has to run before the React plugin.
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
+    // TanStack Redact in place of React (https://github.com/TanStack/redact): the code keeps
+    // importing `react` and `react-dom`, the plugin points those imports at the smaller runtime.
+    // It renders synchronously; nothing here relies on concurrent rendering.
+    redact(),
     tailwindcss(),
   ],
   resolve: {
