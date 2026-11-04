@@ -14,6 +14,7 @@ export default defineConfig({
     paraglideVitePlugin({
       project: './project.inlang',
       outdir: './src/paraglide',
+      outputStructure: 'message-modules',
       strategy: ['localStorage', 'preferredLanguage', 'baseLocale'],
     }),
     // src/routes/* → src/routeTree.gen.ts; has to run before the React plugin.
