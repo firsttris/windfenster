@@ -17,7 +17,7 @@ the server on :8080 and the web app with hot reload on :5173 (it proxies `/api`)
 http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `bun run dev`) names the Vite
 server the binary redirects to while no web app is built in; it is a development setting only.
 Ctrl+C, closing the terminal or a SIGTERM stops both, with everything they started; when one of
-them exits, the other is stopped too.
+them exits, the other is stopped too. Ctrl+Z suspends both, `fg` resumes them.
 
 Checks, as CI runs them:
 
