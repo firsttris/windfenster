@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { petal, rings, rose, STATS_BANDS_KN, sectorDegrees, wholeYear, windyShare } from '@/lib/wind-stats';
 import { m } from '@/paraglide/messages';
 import { Card } from '@/ui/card';
+import { TEXT_CENTRED } from '@/ui/svg-style';
 import { WindArrow } from '@/ui/wind-arrow';
 import { windBand } from '@/ui/wind-scale';
 
@@ -75,7 +76,7 @@ function RoseChart({ month }: { month: MonthStats }) {
       {[0, 4, 8, 12].map((s) => {
         const [x, y] = at(1.13, sectorDegrees(s));
         return (
-          <text key={s} x={x} y={y + 4} textAnchor="middle" className="fill-muted-foreground font-medium text-[12px]">
+          <text key={s} x={x} y={y + 4} style={TEXT_CENTRED} className="fill-muted-foreground font-medium text-[12px]">
             {points[s]}
           </text>
         );
@@ -93,7 +94,7 @@ function RoseChart({ month }: { month: MonthStats }) {
         )),
       )}
       <circle r={HOLE - 2} className="fill-card stroke-line" />
-      <text y={3.5} textAnchor="middle" className="fill-muted-foreground text-[9px]">
+      <text y={3.5} style={TEXT_CENTRED} className="fill-muted-foreground text-[9px]">
         {percent(r.calm)}
       </text>
     </svg>

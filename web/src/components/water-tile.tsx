@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { levelTrend, type Trend } from '@/lib/water';
 import { m } from '@/paraglide/messages';
 import { Card, CardHeader, CardMeta, CardTitle } from '@/ui/card';
+import { NON_SCALING_STROKE } from '@/ui/svg-style';
 
 /** The gauge near a place (within 15 km): level and its week, flood state, flow, current. */
 export function WaterTile({ lat, lon, timeZone }: { lat: number; lon: number; timeZone: string }) {
@@ -190,7 +191,7 @@ function History({ points }: { points: LevelPoint[] }) {
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
+          style={NON_SCALING_STROKE}
         />
       </svg>
       <div className="flex justify-between font-mono text-[11px] text-dim">
