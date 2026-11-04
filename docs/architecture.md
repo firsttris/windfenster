@@ -56,6 +56,11 @@ v4 with shadcn/ui components, [Paraglide JS](https://inlang.com/m/gerre34r/libra
 for German and English, [MapLibre GL JS](https://maplibre.org/) for the map and own WebGL2 code
 for the wind.
 
+The code is written against React 19, but the build runs it on
+[TanStack Redact](https://github.com/TanStack/redact), a smaller runtime with the same API: its
+Vite plugin points the `react` and `react-dom` imports at it. Redact renders synchronously, without
+React's concurrent rendering; removing `redact()` from `vite.config.ts` goes back to React.
+
 | Folder | |
 |---|---|
 | `src/routes/` | pages: start, station, point, map, gear, account, sign-in, sources, admin |
