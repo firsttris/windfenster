@@ -20,7 +20,7 @@ const processes = [
   Bun.spawn(['bun', 'run', 'dev'], { cwd: 'web', stdio: ['inherit', 'inherit', 'inherit'], detached: true }),
 ];
 
-const stopAll = (signal: NodeJS.Signals) => {
+const signalAll = (signal: NodeJS.Signals) => {
   for (const child of processes) {
     try {
       process.kill(-child.pid, signal);
@@ -30,10 +30,20 @@ const stopAll = (signal: NodeJS.Signals) => {
   }
 };
 
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => stopAll(signal));
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => signalAll(signal));
+
+// Ctrl+Z (SIGTSTP) reaches only this script, the children's sessions are out of the terminal's reach:
+// stop them too, or Vite keeps reading the terminal the shell has taken back and takes what is typed
+// there. SIGSTOP, as the kernel drops SIGTSTP sent to an orphaned group (a session of its own is
+// one); `fg` (SIGCONT) resumes them. As scripts/dev.ts in firsttris/haul.
+process.on('SIGTSTP', () => {
+  signalAll('SIGSTOP');
+  process.kill(process.pid, 'SIGSTOP');
+});
+process.on('SIGCONT', () => signalAll('SIGCONT'));
 
 // the exit code of the first to exit, 128 + n when a signal n stopped it
 const code = await Promise.race(processes.map((child) => child.exited));
-stopAll('SIGTERM');
+signalAll('SIGTERM');
 await Promise.all(processes.map((child) => child.exited));
 process.exit(code);
