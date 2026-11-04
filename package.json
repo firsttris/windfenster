@@ -7,9 +7,11 @@
     "web"
   ],
   "scripts": {
-    "dev": "bun scripts/dev.ts",
+    "dev": "[ -f .env ] || { cp .env.example .env && echo '.env created from .env.example'; }; printf '\\n  Windfenster: http://localhost:5173\\n\\n' && bun run --parallel dev:server dev:web",
+    "dev:server": "cargo run -p windfenster",
+    "dev:web": "bun run --cwd web dev",
     "build": "bun run --filter @windfenster/web build",
-    "test": "bun test ./scripts && bun run --filter @windfenster/web test",
+    "test": "bun run --filter @windfenster/web test",
     "typecheck": "bun run --filter @windfenster/web typecheck",
     "bindings": "cargo test --workspace export_bindings",
     "lint": "biome check .",

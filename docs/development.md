@@ -16,8 +16,11 @@ bun run dev
 the server on :8080 and the web app with hot reload on :5173 (it proxies `/api`). Open
 http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `bun run dev`) names the Vite
 server the binary redirects to while no web app is built in; it is a development setting only.
-Ctrl+C, closing the terminal or a SIGTERM stops both, with everything they started; when one of
-them exits, the other is stopped too. Ctrl+Z suspends both, `fg` resumes them.
+The two run as `dev:server` (`cargo run -p windfenster`) and `dev:web` (the web app's `bun run dev`)
+side by side through `bun run --parallel`, which prefixes each line with the script's name and stops
+the other when one of them fails. Ctrl+C, Ctrl+Z and closing the terminal reach both from the
+terminal itself (they run in its foreground process group): Ctrl+C stops both, Ctrl+Z suspends
+both, `fg` resumes them. Each can also run on its own (`bun run dev:server`, `bun run dev:web`).
 
 Checks, as CI runs them:
 
@@ -36,8 +39,7 @@ bun run e2e                # browser tests (Playwright): the map's shaders and t
 ## Tests
 
 Unit tests: `cargo test` (next to the code, API and pipeline tests in `crates/*/tests` against
-local stand-ins for the data sources), Vitest for the logic in `web/src/lib` and `bun test` for
-the scripts in `scripts/` (`bun run test` runs both).
+local stand-ins for the data sources) and Vitest for the logic in `web/src/lib` (`bun run test`).
 
 `bun run e2e` runs two sets of browser tests in Chromium, with SwiftShader for a GPU; the
 Playwright runner and the Vite server of the gpu tests run on Bun (`bun --bun playwright test`,
