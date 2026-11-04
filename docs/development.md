@@ -18,9 +18,11 @@ http://localhost:5173. Data goes to `./.data`. `WF_DEV_UI` (set by `bun run dev`
 server the binary redirects to while no web app is built in; it is a development setting only.
 The two run as `dev:server` (`cargo run -p windfenster`) and `dev:web` (the web app's `bun run dev`)
 side by side through `bun run --parallel`, which prefixes each line with the script's name and stops
-the other when one of them fails. Ctrl+C, Ctrl+Z and closing the terminal reach both from the
-terminal itself (they run in its foreground process group): Ctrl+C stops both, Ctrl+Z suspends
-both, `fg` resumes them. Each can also run on its own (`bun run dev:server`, `bun run dev:web`).
+the other when one of them fails. Their output goes through a pipe and their input is `/dev/null`,
+so in a terminal `bun run dev` sets `FORCE_COLOR` and `CARGO_TERM_COLOR` to keep the colours, and
+Vite's keyboard shortcuts (`h`, `r`, `o`, `q`) are only there with `bun run dev:web`. Ctrl+C,
+Ctrl+Z and closing the terminal reach both from the terminal itself (they run in its foreground
+process group): Ctrl+C stops both, Ctrl+Z suspends both, `fg` resumes them. Each can also run on its own (`bun run dev:server`, `bun run dev:web`).
 
 Checks, as CI runs them:
 
