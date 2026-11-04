@@ -131,3 +131,73 @@ test('when the server exits, Vite started by `bun run` is stopped and its exit c
   expect(pids.filter(alive)).toEqual([]);
   expect(code).toBe(3);
 }, 20_000);
+
+/** Kills what the shell `shellPid` still runs (dev.ts, stopped or not) and the shell itself */
+function killShell(shellPid: number) {
+  const children = Bun.spawnSync(['ps', '-o', 'pid=', '--ppid', String(shellPid)]).stdout.toString();
+  for (const pid of [...children.trim().split(/\s+/).filter(Boolean).map(Number), shellPid]) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {}
+  }
+}
+
+test.skipIf(process.platform !== 'linux' || !Bun.which('script'))(
+  'after Ctrl+Z in a terminal, what is typed goes to the shell, not to Vite',
+  async () => {
+    const bin = sandbox();
+    // Vite reads the keys of its shortcuts (h, r, o, q) line by line from stdin when it is a terminal
+    writeFileSync(
+      join(dir, 'web', 'vite.ts'),
+      [
+        `import { appendFileSync, writeFileSync } from 'node:fs';`,
+        `import { createInterface } from 'node:readline';`,
+        `createInterface({ input: process.stdin }).on('line', (line) => appendFileSync(${JSON.stringify(join(dir, 'typed'))}, line + '\\n'));`,
+        `writeFileSync(${JSON.stringify(join(dir, 'web.pid'))}, String(process.pid));`,
+        'setInterval(() => {}, 1000);',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'web', 'package.json'), JSON.stringify({ name: 'web', scripts: { dev: 'bun vite.ts' } }));
+    // an interactive shell in a pseudo-terminal, typed into through `script`
+    const shell = Bun.spawn(['script', '-qfec', 'bash --norc --noprofile -i', '/dev/null'], {
+      cwd: dir,
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+      stdin: 'pipe',
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+    let output = '';
+    (async () => {
+      for await (const chunk of shell.stdout) output += new TextDecoder().decode(chunk);
+    })();
+    const type = (text: string) => {
+      shell.stdin.write(text);
+      shell.stdin.flush();
+    };
+    type(`echo $$ > shell.pid; ${process.execPath} ${DEV}\n`);
+    const files = ['server.pid', 'web.pid', 'shell.pid'].map((name) => join(dir, name));
+    await until(() => files.every((file) => existsSync(file) && readFileSync(file, 'utf8').trim()));
+    const [server, web, shellPid] = files.map((file) => Number(readFileSync(file, 'utf8')));
+    pids = [server, web];
+    await Bun.sleep(500);
+
+    try {
+      type('\x1a');
+      await Bun.sleep(500);
+      // in canonical mode each line goes to one reader: whoever reads the terminal first
+      const lines = [1, 2, 3, 4, 5].map((n) => `typed-${n * 42}`);
+      for (const n of [1, 2, 3, 4, 5]) {
+        type(`echo typed-$((${n} * 42))\n`);
+        await Bun.sleep(300);
+      }
+      await until(() => lines.every((line) => output.includes(line)), 3_000).catch(() => {});
+
+      expect(existsSync(join(dir, 'typed')) ? readFileSync(join(dir, 'typed'), 'utf8') : '').toBe('');
+      expect(lines.filter((line) => !output.includes(line))).toEqual([]);
+    } finally {
+      killShell(shellPid);
+      shell.kill('SIGKILL');
+    }
+  },
+  20_000,
+);
