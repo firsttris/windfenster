@@ -9,3 +9,4 @@ node_modules/
 /web/test-results
 /web/playwright-report
 site/
+**/project.inlang/cache/
