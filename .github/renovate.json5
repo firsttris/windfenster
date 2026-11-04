@@ -15,16 +15,6 @@
   extends: ["github>firsttris/workflows//renovate/default.json5"],
   customManagers: [
     {
-      // The Bun of package.json (`packageManager`; CI takes its version from there, setup-bun with
-      // bun-version-file and npm in the Playwright image), as in firsttris/haben; the image's
-      // oven/bun comes with the dockerfile manager
-      customType: "regex",
-      managerFilePatterns: ["/^package\\.json$/"],
-      matchStrings: ['"packageManager": "bun@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'],
-      depNameTemplate: "bun",
-      datasourceTemplate: "npm",
-    },
-    {
       // `cargo install cargo-chef --version x.y.z` in the Dockerfile
       customType: "regex",
       managerFilePatterns: ["/^Dockerfile$/"],
@@ -83,7 +73,9 @@
       dependencyDashboardApproval: false,
     },
     {
-      // Bun of the image's web stage and of package.json, in one PR, majors too
+      // Bun of the image's web stage and of package.json, in one PR, majors too. Renovate's bun
+      // manager reads "packageManager": "bun@x.y.z" itself, as the npm package `bun` (no regex
+      // manager needed).
       matchPackageNames: ["docker.io/oven/bun", "oven/bun", "bun"],
       groupName: "Bun",
       sourceUrl: "https://github.com/oven-sh/bun",
