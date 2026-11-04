@@ -64,8 +64,11 @@ CI runs on the newest stable Rust, which can bring new clippy lints: run clippy 
 
 ## Commits
 
-- Work happens directly on `main` (the user's choice for this project); no pull requests unless
-  asked.
+- Every change goes through a pull request (the user's choice): a new branch fresh from the
+  current `main` (`git fetch origin main && git checkout -b <topic> origin/main`), one topic per
+  PR, rebased (never `main` merged in) when `main` moves on. Run the TDD review (skill
+  `tdd-review`) on it; it is merged (squash, the only method the repository allows) once the
+  review's findings are fixed and CI is green.
 - One step per commit (a phase part, the localization, a fix), with a message that says what
   changed and why.
 
