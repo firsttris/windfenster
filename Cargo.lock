@@ -1686,9 +1686,9 @@ dependencies = [
 
 [[package]]
 name = "grib"
-version = "0.20.2"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "124b4725fb36f77d4a441564bac219d17c9debe5af7ce2dc67340fa1445c7adf"
+checksum = "c68cbe605613e8342a907f37238b2afa462b6cac34ed55208c440cdb65db26ca"
 dependencies = [
  "grib-build",
  "grib-template-derive",
@@ -1712,10 +1712,11 @@ dependencies = [
 
 [[package]]
 name = "grib-template-derive"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5333b9b7fbe1d0d62b6256e466d6cf4c061b1a6a25fb0073767cab7db2bb453"
+checksum = "3e1f95458c26919298b7c77ae19b413d2a12b7a71bc273fd5c98539fad3a84ad"
 dependencies = [
+ "csv",
  "grib-template-helpers",
  "proc-macro2",
  "quote",
@@ -1724,9 +1725,9 @@ dependencies = [
 
 [[package]]
 name = "grib-template-helpers"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2380fb0a22147ce0bda07da0393bc3f7500c66d10aabe88dd10d6ba7626f02c4"
+checksum = "de618a2278e11c9ea1fa93143f47ca876751803e1d8dcf92b20aad96eaef1dd6"
 
 [[package]]
 name = "group"
