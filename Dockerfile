@@ -2,7 +2,7 @@
 
 # ---- 1. SPA ------------------------------------------------------------------------------
 # Bun of `packageManager` in package.json (Renovate moves both together)
-FROM oven/bun:1.4.4-slim AS web
+FROM oven/bun:1.4.5-slim AS web
 WORKDIR /src
 COPY package.json bun.lock bunfig.toml ./
 COPY web/package.json web/
